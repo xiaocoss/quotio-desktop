@@ -1,0 +1,1 @@
+Place the Windows CLIProxyAPI executable here, for example `cli-proxy-api-plus.exe`.

@@ -1,0 +1,252 @@
+import { useMemo, useState } from "react";
+import type { AppState, RequestLogEntry } from "../../types";
+import { RefreshIcon, TrashIcon } from "../icons";
+import { Select } from "../Select";
+import { useT } from "../../i18n";
+
+type LogsScreenProps = {
+  appState: AppState;
+  isManagementBusy: boolean;
+  managementAction: string | null;
+  onRefreshManagement: () => void;
+  onClearLogs: () => void;
+  onRunManagementStateAction: (command: string, args?: Record<string, unknown>) => void;
+};
+
+type LogTab = "requests" | "proxy";
+
+export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, onClearLogs }: LogsScreenProps) {
+  const t = useT();
+  const requests = appState.logs ?? [];
+  const proxyLines = appState.management.logs?.lines ?? [];
+
+  const [tab, setTab] = useState<LogTab>("requests");
+  const [query, setQuery] = useState("");
+  const [provider, setProvider] = useState("all");
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function handleRefresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    const startedAt = Date.now();
+    try {
+      await Promise.resolve(onRefreshManagement());
+    } catch {
+      // errors surface via app state
+    } finally {
+      const elapsed = Date.now() - startedAt;
+      window.setTimeout(() => setRefreshing(false), Math.max(0, 600 - elapsed));
+    }
+  }
+
+  const providers = useMemo(
+    () =>
+      Array.from(
+        new Set(requests.map((entry) => entry.provider ?? entry.resolved_provider).filter((name): name is string => Boolean(name))),
+      ),
+    [requests],
+  );
+
+  const filteredRequests = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    return requests.filter((entry) => {
+      const entryProvider = entry.provider ?? entry.resolved_provider ?? "";
+      if (provider !== "all" && entryProvider !== provider) return false;
+      if (!normalized) return true;
+      const entryModel = entry.model ?? entry.resolved_model ?? "";
+      return entryModel.toLowerCase().includes(normalized) || entryProvider.toLowerCase().includes(normalized);
+    });
+  }, [requests, query, provider]);
+
+  const stats = useMemo(() => computeStats(filteredRequests), [filteredRequests]);
+
+  const filteredProxy = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return proxyLines;
+    return proxyLines.filter((line) => line.toLowerCase().includes(normalized));
+  }, [proxyLines, query]);
+
+  return (
+    <section className="section-page logs-page">
+      <header className="page-topbar" data-tauri-drag-region>
+        <h1>{t("nav.logs")}</h1>
+        <div className="topbar-actions">
+          <input
+            className="log-search"
+            type="text"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={tab === "requests" ? t("logs.searchRequests") : t("logs.searchLogs")}
+          />
+          <button
+            className={refreshing ? "icon-button icon-button--spinning" : "icon-button"}
+            type="button"
+            onClick={handleRefresh}
+            disabled={isManagementBusy}
+            title="刷新"
+            aria-label="刷新"
+          >
+            <RefreshIcon />
+          </button>
+          <button className="icon-button" type="button" onClick={onClearLogs} disabled={isManagementBusy} title="清空日志" aria-label="清空日志">
+            <TrashIcon />
+          </button>
+        </div>
+      </header>
+
+      <div className="log-tabs">
+        <button className={tab === "requests" ? "log-tab log-tab--active" : "log-tab"} type="button" onClick={() => setTab("requests")}>
+          {t("logs.requests")}
+        </button>
+        <button className={tab === "proxy" ? "log-tab log-tab--active" : "log-tab"} type="button" onClick={() => setTab("proxy")}>
+          {t("logs.proxyLogs")}
+        </button>
+      </div>
+
+      {tab === "requests" ? (
+        <article className="panel logs-panel">
+          <div className="log-stats">
+            <div className="log-stat">
+              <span>{t("logs.total")}</span>
+              <strong>{stats.total}</strong>
+            </div>
+            <div className="log-stat">
+              <span>{t("logs.success")}</span>
+              <strong>{stats.successRate}%</strong>
+            </div>
+            <div className="log-stat">
+              <span>{t("logs.tokens")}</span>
+              <strong>{formatCompact(stats.totalTokens)}</strong>
+            </div>
+            <div className="log-stat">
+              <span>{t("logs.avgTime")}</span>
+              <strong>{stats.avgMs}ms</strong>
+            </div>
+            <div className="log-stats-spacer" />
+            <label className="log-provider">
+              <span>{t("logs.provider")}</span>
+              <Select
+                value={provider}
+                options={[{ value: "all", label: "All Providers" }, ...providers.map((name) => ({ value: name, label: name }))]}
+                onChange={setProvider}
+              />
+            </label>
+          </div>
+
+          {filteredRequests.length === 0 ? (
+            <p className="empty-copy">{t("logs.emptyRequests")}</p>
+          ) : (
+            <div className="log-req-list">
+              <div className="log-req-row log-req-head">
+                <span className="log-req-time">{t("logs.colTime")}</span>
+                <span className="log-req-status">{t("logs.colStatus")}</span>
+                <div className="log-req-model">{t("logs.colModel")}</div>
+                <span className="log-req-duration">{t("logs.colDuration")}</span>
+                <span className="log-req-tokens">{t("logs.colTokens")}</span>
+              </div>
+              {filteredRequests.map((entry) => (
+                <RequestRow key={entry.id} entry={entry} />
+              ))}
+            </div>
+          )}
+        </article>
+      ) : (
+        <article className="panel logs-panel log-panel">
+          {filteredProxy.length === 0 ? (
+            <p className="empty-copy">{t("logs.emptyProxy")}</p>
+          ) : (
+            <div className="log-list">
+              {filteredProxy
+                .slice(-200)
+                .reverse()
+                .map((line, index) => (
+                  <pre className={isErrorLog(line) ? "log-line log-line--error" : "log-line"} key={`${index}-${line}`}>
+                    {line}
+                  </pre>
+                ))}
+            </div>
+          )}
+        </article>
+      )}
+    </section>
+  );
+}
+
+function RequestRow({ entry }: { entry: RequestLogEntry }) {
+  const t = useT();
+  const status = entry.status_code ?? 0;
+  const ok = status >= 200 && status < 300;
+  const provider = entry.provider ?? entry.resolved_provider ?? "—";
+  const model = entry.model ?? entry.resolved_model ?? "—";
+  const reason = reasoningInfo(entry.reasoning_effort, t);
+
+  return (
+    <div className="log-req-row">
+      <span className="log-req-time">{formatLogTime(entry.timestamp)}</span>
+      <span className={ok ? "log-req-status log-req-status--ok" : "log-req-status log-req-status--err"}>{status || "—"}</span>
+      <div className="log-req-model">
+        <strong>{provider}</strong>
+        <span className="log-req-model-sub">
+          <small>{model}</small>
+          {reason ? (
+            <span className={reason.deep ? "log-req-reason log-req-reason--deep" : "log-req-reason"}>{reason.label}</span>
+          ) : null}
+        </span>
+      </div>
+      <span className="log-req-duration">{(entry.duration_ms / 1000).toFixed(2)}s</span>
+      <span className="log-req-tokens">
+        {formatCompact(entry.input_tokens ?? 0)} → {formatCompact(entry.output_tokens ?? 0)}
+      </span>
+    </div>
+  );
+}
+
+function reasoningInfo(
+  effort: string | null | undefined,
+  t: (key: string) => string,
+): { label: string; deep: boolean } | null {
+  if (!effort) return null;
+  const normalized = effort.trim().toLowerCase();
+  if (!normalized) return null;
+  const table: Record<string, { key: string; deep: boolean }> = {
+    minimal: { key: "logs.rsMinimal", deep: false },
+    none: { key: "logs.rsMinimal", deep: false },
+    low: { key: "logs.rsLow", deep: false },
+    medium: { key: "logs.rsMedium", deep: false },
+    high: { key: "logs.rsHigh", deep: true },
+    xhigh: { key: "logs.rsXHigh", deep: true },
+    very_high: { key: "logs.rsXHigh", deep: true },
+    "very-high": { key: "logs.rsXHigh", deep: true },
+  };
+  const found = table[normalized];
+  const level = found ? t(found.key) : effort;
+  return { label: `${t("logs.reasoning")} ${level}`, deep: found?.deep ?? false };
+}
+
+function computeStats(entries: RequestLogEntry[]) {
+  const total = entries.length;
+  const success = entries.filter((entry) => (entry.status_code ?? 0) >= 200 && (entry.status_code ?? 0) < 300).length;
+  const totalTokens = entries.reduce((sum, entry) => sum + (entry.input_tokens ?? 0) + (entry.output_tokens ?? 0), 0);
+  const totalMs = entries.reduce((sum, entry) => sum + entry.duration_ms, 0);
+  return {
+    total,
+    successRate: total > 0 ? Math.round((success / total) * 100) : 0,
+    totalTokens,
+    avgMs: total > 0 ? Math.round(totalMs / total) : 0,
+  };
+}
+
+function formatLogTime(timestamp: string): string {
+  if (!timestamp.includes("T")) return timestamp;
+  const parsed = new Date(timestamp);
+  return Number.isNaN(parsed.getTime()) ? timestamp : parsed.toLocaleTimeString();
+}
+
+function isErrorLog(line: string) {
+  const value = line.toLowerCase();
+  return value.includes("error") || value.includes("failed") || value.includes("panic") || value.includes("exception");
+}
+
+function formatCompact(value: number) {
+  return new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(value);
+}

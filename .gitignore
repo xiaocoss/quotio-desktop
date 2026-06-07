@@ -1,0 +1,64 @@
+# dependencies
+node_modules/
+apps/desktop/node_modules/
+.pnpm-store/
+.yarn/
+
+# build outputs
+target/
+apps/desktop/src-tauri/target/
+dist/
+apps/desktop/dist/
+apps/desktop/dist-ssr/
+build/
+out/
+.cache/
+.vite/
+
+# local env / secrets
+.env
+.env.*
+!.env.example
+*.local
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+id_rsa
+id_rsa.pub
+authorized_keys
+
+# WireGuard / proxy subscription / runtime config
+wg0.conf
+wg*.conf
+clash-wg-*.yaml
+*.yaml.bak
+settings.json
+config.yaml
+logs/
+*.log
+
+# downloaded proxy binaries
+resources/proxy/**/*.exe
+resources/proxy/**/CLIProxyAPI*
+resources/proxy/**/cli-proxy-api*
+
+# Tauri generated files
+apps/desktop/src-tauri/gen/schemas/
+
+# OS / editor / local assistant config
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.cursor/
+.claude/
+.cargo/
+
+# npm / package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
