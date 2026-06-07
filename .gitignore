@@ -28,7 +28,8 @@ out/
 id_rsa
 id_rsa.pub
 authorized_keys
-
+docs/
+ui/
 # WireGuard / proxy subscription / runtime config
 wg0.conf
 wg*.conf
