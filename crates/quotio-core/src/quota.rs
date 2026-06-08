@@ -49,8 +49,12 @@ const GLM_QUOTA_URL: &str = "https://bigmodel.cn/api/monitor/usage/quota/limit";
 
 /// Fetch real quotas for every supported provider. Best-effort: a failure in
 /// one provider or account never blocks the others.
-pub fn fetch_all_quotas() -> Vec<AccountQuota> {
-    let agent = build_agent();
+///
+/// `proxy_url` is the upstream proxy the user configured in Settings; provider
+/// requests route through it (mirroring the macOS reference app), falling back
+/// to the OS proxy env vars when it is empty.
+pub fn fetch_all_quotas(proxy_url: Option<&str>) -> Vec<AccountQuota> {
+    let agent = build_agent(proxy_url);
     let mut quotas = Vec::new();
     quotas.extend(fetch_codex_quotas(&agent));
     quotas.extend(fetch_claude_quotas(&agent));
@@ -80,14 +84,20 @@ fn auth_dir() -> Option<PathBuf> {
     Some(PathBuf::from(home).join(".cli-proxy-api"))
 }
 
-fn build_agent() -> ureq::Agent {
+fn build_agent(proxy_url: Option<&str>) -> ureq::Agent {
     let mut builder = ureq::AgentBuilder::new()
         .timeout_connect(Duration::from_secs(10))
         .timeout_read(Duration::from_secs(20));
     // Route through the user's HTTP proxy (clash/v2ray etc.) like the original
-    // app's proxied URLSession — provider endpoints are otherwise unreachable in
-    // many regions. Reads the standard proxy env vars.
-    if let Some(url) = proxy_from_env() {
+    // macOS app's proxied URLSession (ProxyConfigurationService) — provider
+    // endpoints are otherwise unreachable in many regions. Prefer the upstream
+    // proxy URL configured in Settings; fall back to the standard proxy env vars.
+    let chosen = proxy_url
+        .map(str::trim)
+        .filter(|url| !url.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(proxy_from_env);
+    if let Some(url) = chosen {
         if let Ok(proxy) = ureq::Proxy::new(&url) {
             builder = builder.proxy(proxy);
         }

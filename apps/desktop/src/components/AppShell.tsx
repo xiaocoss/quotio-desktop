@@ -94,10 +94,15 @@ async function windowAction(action: "close" | "minimize" | "maximize") {
   if (!("__TAURI_INTERNALS__" in window)) return;
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
   const win = getCurrentWindow();
-  if (action === "close") await win.close();
-  else if (action === "minimize") {
-    await win.minimize();
-    // Pop the always-on-top quota panel top-right when minimizing.
+  if (action === "close") {
+    // Fully quit the app. Just closing the main window would leave the process
+    // alive in the tray (the hidden menu-bar window + tray icon keep it running).
+    const { invoke } = await import("../lib/tauri");
+    await invoke("quit_app");
+  } else if (action === "minimize") {
+    // Hide to the tray (remove from the taskbar) instead of a taskbar minimize,
+    // then pop the always-on-top quota panel. The tray icon brings the app back.
+    await win.hide();
     const { invoke } = await import("../lib/tauri");
     void invoke("show_menubar");
   } else await win.toggleMaximize();

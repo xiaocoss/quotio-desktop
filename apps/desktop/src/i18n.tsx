@@ -195,6 +195,7 @@ const en: Record<string, string> = {
   "settings.clearKey": "Clear remote key",
   "settings.refreshCreds": "Refresh credentials",
   "settings.saveConnection": "Save connection settings",
+  "settings.unsavedChanges": "Unsaved · click Save connection settings to apply",
   "common.saving": "Saving...",
   "common.read": "Read",
   // Settings — management API
@@ -273,6 +274,7 @@ const en: Record<string, string> = {
   "menubar.start": "Start",
   "menubar.empty": "No quota data yet",
   "menubar.refresh": "Refresh",
+  "menubar.refreshing": "Refreshing…",
   "menubar.open": "Open Quotio",
   "menubar.quit": "Quit Quotio",
   "menubar.more": "Show all ({n})",
@@ -470,6 +472,7 @@ const zh: Record<string, string> = {
   "settings.clearKey": "清除远程密钥",
   "settings.refreshCreds": "刷新凭据",
   "settings.saveConnection": "保存连接设置",
+  "settings.unsavedChanges": "未保存 · 点「保存连接设置」生效",
   "common.saving": "保存中…",
   "common.read": "读取",
   // Settings — management API
@@ -548,6 +551,7 @@ const zh: Record<string, string> = {
   "menubar.start": "启动",
   "menubar.empty": "暂无额度数据",
   "menubar.refresh": "刷新",
+  "menubar.refreshing": "刷新中…",
   "menubar.open": "打开 Quotio",
   "menubar.quit": "退出 Quotio",
   "menubar.more": "查看全部 ({n})",

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { AppState, RequestLogEntry } from "../../types";
 import { RefreshIcon, TrashIcon } from "../icons";
 import { Select } from "../Select";
+import { maskEmail } from "../../lib/format";
 import { useT } from "../../i18n";
 
 type LogsScreenProps = {
@@ -178,6 +179,7 @@ function RequestRow({ entry }: { entry: RequestLogEntry }) {
   const ok = status >= 200 && status < 300;
   const provider = entry.provider ?? entry.resolved_provider ?? "—";
   const model = entry.model ?? entry.resolved_model ?? "—";
+  const account = entry.account?.trim() ? maskEmail(entry.account) : null;
   const reason = reasoningInfo(entry.reasoning_effort, t);
 
   return (
@@ -185,7 +187,10 @@ function RequestRow({ entry }: { entry: RequestLogEntry }) {
       <span className="log-req-time">{formatLogTime(entry.timestamp)}</span>
       <span className={ok ? "log-req-status log-req-status--ok" : "log-req-status log-req-status--err"}>{status || "—"}</span>
       <div className="log-req-model">
-        <strong>{provider}</strong>
+        <span className="log-req-head-line">
+          <strong>{provider}</strong>
+          {account ? <span className="log-req-account">{account}</span> : null}
+        </span>
         <span className="log-req-model-sub">
           <small>{model}</small>
           {reason ? (

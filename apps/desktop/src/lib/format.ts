@@ -21,9 +21,12 @@ export function setHideSensitiveEnabled(enabled: boolean): void {
   }
 }
 
-// Mask an email/identifier for the privacy-conscious UI (matches the mockups,
-// e.g. "aurora@gmail.com" -> "a•••••@•••••.com"). Returns the value unchanged
-// when the privacy toggle is off. Falls back gracefully for non-email values.
+// Mask an email/identifier for the privacy-conscious UI, keeping the first 6
+// characters visible (e.g. "aurora.b@gmail.com" -> "aurora•••@•••••.com").
+// Returns the value unchanged when the privacy toggle is off. Falls back
+// gracefully for non-email values.
+const MASK_VISIBLE_PREFIX = 6;
+
 export function maskEmail(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) return trimmed;
@@ -31,8 +34,8 @@ export function maskEmail(value: string): string {
 
   const at = trimmed.indexOf("@");
   if (at <= 0) {
-    const head = trimmed.slice(0, 1);
-    return `${head}${"•".repeat(Math.max(3, trimmed.length - 1))}`;
+    // Non-email identifier: show the first 6 chars, mask the rest.
+    return trimmed.length <= MASK_VISIBLE_PREFIX ? trimmed : `${trimmed.slice(0, MASK_VISIBLE_PREFIX)}${"•".repeat(3)}`;
   }
 
   const local = trimmed.slice(0, at);
@@ -40,7 +43,8 @@ export function maskEmail(value: string): string {
   const dot = domain.lastIndexOf(".");
   const tld = dot >= 0 ? domain.slice(dot) : "";
 
-  const maskedLocal = `${local.slice(0, 1)}${"•".repeat(5)}`;
+  const visible = local.slice(0, MASK_VISIBLE_PREFIX);
+  const maskedLocal = local.length > MASK_VISIBLE_PREFIX ? `${visible}${"•".repeat(3)}` : visible;
   return `${maskedLocal}@${"•".repeat(5)}${tld}`;
 }
 
@@ -49,4 +53,24 @@ export function quotaTone(remainingPercent: number): "good" | "warn" | "bad" {
   if (remainingPercent <= 10) return "bad";
   if (remainingPercent <= 50) return "warn";
   return "good";
+}
+
+// Extract the subscription plan from an AccountQuota status_message, which the
+// Codex / Copilot fetchers encode as "plan: <tier> | until: <date>".
+export function parsePlan(statusMessage: string | null | undefined): string | null {
+  if (!statusMessage) return null;
+  return statusMessage.match(/plan:\s*([^|]+)/i)?.[1]?.trim() || null;
+}
+
+export type PlanTier = "free" | "plus" | "pro" | "team" | "business";
+
+// Map a plan name to a tier key used for badge coloring (shared by the Quota
+// page and the menu-bar panel so colors stay consistent).
+export function planTier(plan: string): PlanTier {
+  const value = plan.toLowerCase();
+  if (/pro/.test(value)) return "pro";
+  if (/team/.test(value)) return "team";
+  if (/business|enterprise|edu/.test(value)) return "business";
+  if (/free/.test(value)) return "free";
+  return "plus";
 }

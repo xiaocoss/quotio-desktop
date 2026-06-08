@@ -388,6 +388,7 @@ export type RequestLogEntry = {
   fallback_attempts?: unknown[] | null;
   fallback_started_from_cache: boolean;
   reasoning_effort?: string | null;
+  account?: string | null;
 };
 
 export type AppState = {

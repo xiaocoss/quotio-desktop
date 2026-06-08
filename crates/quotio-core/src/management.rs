@@ -565,6 +565,8 @@ struct UsageRecord {
     tokens: Option<UsageTokens>,
     #[serde(default)]
     reasoning_effort: Option<String>,
+    #[serde(default, alias = "account", alias = "email")]
+    source: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -598,6 +600,7 @@ impl UsageRecord {
             fallback_attempts: None,
             fallback_started_from_cache: false,
             reasoning_effort: self.reasoning_effort,
+            account: self.source.filter(|value| !value.trim().is_empty()),
         }
     }
 }

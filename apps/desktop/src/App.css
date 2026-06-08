@@ -473,6 +473,11 @@ h2 {
   animation: quotio-spin 0.8s linear infinite;
 }
 
+.menubar-foot-icon--spin {
+  display: inline-block;
+  animation: quotio-spin 0.8s linear infinite;
+}
+
 @keyframes quotio-spin {
   from {
     transform: rotate(0deg);
@@ -2354,6 +2359,30 @@ h3 {
   vertical-align: 1px;
 }
 
+/* Free tier: muted light-gray capsule (lowest tier). */
+.quota-plan-pill--free {
+  color: #475569;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 60%, #cbd5e1 100%);
+  border: 1px solid #cbd5e1;
+  text-shadow: none;
+}
+
+/* Team tier: vibrant emerald capsule. */
+.quota-plan-pill--team {
+  color: #fff;
+  background: linear-gradient(135deg, #34d399 0%, #10b981 55%, #059669 100%);
+  border: 1px solid rgba(5, 150, 105, 0.5);
+  text-shadow: 0 1px 1px rgba(6, 78, 59, 0.4);
+}
+
+/* Business / Enterprise tier: deep corporate slate capsule. */
+.quota-plan-pill--business {
+  color: #fff;
+  background: linear-gradient(135deg, #64748b 0%, #475569 55%, #334155 100%);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+  text-shadow: 0 1px 1px rgba(15, 23, 42, 0.5);
+}
+
 .quota-expiry {
   flex: 0 0 auto;
   font-size: 11px;
@@ -3417,6 +3446,23 @@ h3 {
   white-space: nowrap;
 }
 
+.log-req-head-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.log-req-account {
+  overflow: hidden;
+  color: var(--quotio-muted);
+  font-size: 11px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 .log-req-model-sub {
   display: flex;
   align-items: center;
@@ -3872,6 +3918,8 @@ body,
   gap: 10px;
   padding: 9px 12px 8px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  cursor: move;
+  user-select: none;
 }
 .menubar-head strong {
   font-size: 13px;
@@ -4042,6 +4090,11 @@ body,
 .menubar-account-name {
   font-weight: 700;
   font-size: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .menubar-pill {
   font-size: 10px;
@@ -4052,6 +4105,32 @@ body,
 .menubar-pill--warn {
   color: #b91c1c;
   background: rgba(239, 68, 68, 0.16);
+}
+.menubar-plan-pill {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  border-radius: 999px;
+  padding: 1px 6px;
+  color: #fff;
+  white-space: nowrap;
+}
+.menubar-plan-pill--free {
+  color: #475569;
+  background: #e2e8f0;
+}
+.menubar-plan-pill--plus {
+  background: linear-gradient(135deg, #38bdf8, #6366f1 60%, #8b5cf6);
+}
+.menubar-plan-pill--pro {
+  color: #5a3a00;
+  background: linear-gradient(180deg, #ffd86b, #f0a92e);
+}
+.menubar-plan-pill--team {
+  background: linear-gradient(135deg, #34d399, #059669);
+}
+.menubar-plan-pill--business {
+  background: linear-gradient(135deg, #64748b, #334155);
 }
 .menubar-model {
   display: flex;

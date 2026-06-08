@@ -85,6 +85,34 @@ export function SettingsScreen({
     });
   }, [settings.proxy_host, settings.proxy_port, settings.remote_endpoint_url, settings.allow_remote]);
 
+  // Whether the connection draft differs from the saved settings. Drives the
+  // "unsaved changes" hint, since editing host/port only updates a local draft —
+  // the change (and the bottom-left port) take effect only after an explicit Save.
+  const connDirty =
+    connDraft.proxy_host !== settings.proxy_host ||
+    connDraft.proxy_port !== settings.proxy_port ||
+    (connDraft.remote_endpoint_url ?? null) !== (settings.remote_endpoint_url ?? null) ||
+    connDraft.allow_remote !== settings.allow_remote ||
+    connDraft.remote_management_key.trim().length > 0;
+
+  // Advanced text/number fields commit on blur, not per keystroke. Previously
+  // each keystroke called onSaveSettings (a disk write + full re-render), which
+  // made typing stutter. The draft keeps typing local + snappy.
+  const [advDraft, setAdvDraft] = useState({
+    force_model: settings.force_model,
+    session_affinity_ttl: settings.session_affinity_ttl,
+    max_retry_credentials: settings.max_retry_credentials,
+    logs_max_total_size_mb: settings.logs_max_total_size_mb,
+  });
+  useEffect(() => {
+    setAdvDraft({
+      force_model: settings.force_model,
+      session_affinity_ttl: settings.session_affinity_ttl,
+      max_retry_credentials: settings.max_retry_credentials,
+      logs_max_total_size_mb: settings.logs_max_total_size_mb,
+    });
+  }, [settings.force_model, settings.session_affinity_ttl, settings.max_retry_credentials, settings.logs_max_total_size_mb]);
+
   const activeMode: AppMode =
     settings.connection_mode === "remote" || settings.operating_mode === "remote"
       ? "remote"
@@ -300,7 +328,14 @@ export function SettingsScreen({
             <Switch on={connDraft.allow_remote} disabled={isSaving} onChange={() => setConnDraft({ ...connDraft, allow_remote: !connDraft.allow_remote })} label="Allow remote" />
           </div>
           <div className="settings-row settings-row--actions">
-            <span className="settings-status">{t("settings.localRuntime")}：{appState.proxy.status === "running" && appState.proxy.health.ok ? "running · healthy" : appState.proxy.status}</span>
+            <span className="settings-status">
+              {t("settings.localRuntime")}：{appState.proxy.status === "running" && appState.proxy.health.ok ? "running · healthy" : appState.proxy.status}
+              {connDirty ? (
+                <strong className="settings-unsaved" style={{ color: "#d97706", marginInlineStart: 8 }}>
+                  ● {t("settings.unsavedChanges")}
+                </strong>
+              ) : null}
+            </span>
             <div className="settings-row-controls">
               <button className="danger-action" type="button" onClick={onClearRemoteManagementKey} disabled={platformAction !== null}>
                 {t("settings.clearKey")}
@@ -308,7 +343,7 @@ export function SettingsScreen({
               <button className="ghost-action" type="button" onClick={() => void onRefreshCredentialStatus()} disabled={platformAction !== null}>
                 {t("settings.refreshCreds")}
               </button>
-              <button className="secondary-action" type="button" onClick={saveConnection} disabled={isSaving}>
+              <button className={connDirty ? "primary-action" : "secondary-action"} type="button" onClick={saveConnection} disabled={isSaving}>
                 {isSaving ? t("common.saving") : t("settings.saveConnection")}
               </button>
             </div>
@@ -474,8 +509,11 @@ export function SettingsScreen({
             </div>
             <input
               className="settings-input"
-              value={settings.force_model}
-              onChange={(event) => onSaveSettings({ ...settings, force_model: event.target.value })}
+              value={advDraft.force_model}
+              onChange={(event) => setAdvDraft({ ...advDraft, force_model: event.target.value })}
+              onBlur={() => {
+                if (advDraft.force_model !== settings.force_model) applySettings({ force_model: advDraft.force_model });
+              }}
               placeholder="gpt-5.5"
             />
           </div>
@@ -497,8 +535,12 @@ export function SettingsScreen({
             </div>
             <input
               className="settings-input settings-input--sm"
-              value={settings.session_affinity_ttl}
-              onChange={(event) => onSaveSettings({ ...settings, session_affinity_ttl: event.target.value })}
+              value={advDraft.session_affinity_ttl}
+              onChange={(event) => setAdvDraft({ ...advDraft, session_affinity_ttl: event.target.value })}
+              onBlur={() => {
+                if (advDraft.session_affinity_ttl !== settings.session_affinity_ttl)
+                  applySettings({ session_affinity_ttl: advDraft.session_affinity_ttl });
+              }}
               placeholder="1h"
             />
           </div>
@@ -511,8 +553,12 @@ export function SettingsScreen({
               className="settings-input settings-input--sm"
               type="number"
               min={0}
-              value={settings.max_retry_credentials}
-              onChange={(event) => onSaveSettings({ ...settings, max_retry_credentials: Number(event.target.value) })}
+              value={advDraft.max_retry_credentials}
+              onChange={(event) => setAdvDraft({ ...advDraft, max_retry_credentials: Number(event.target.value) })}
+              onBlur={() => {
+                if (advDraft.max_retry_credentials !== settings.max_retry_credentials)
+                  applySettings({ max_retry_credentials: advDraft.max_retry_credentials });
+              }}
             />
           </div>
           <div className="settings-row settings-row--input">
@@ -524,8 +570,12 @@ export function SettingsScreen({
               className="settings-input settings-input--sm"
               type="number"
               min={0}
-              value={settings.logs_max_total_size_mb}
-              onChange={(event) => onSaveSettings({ ...settings, logs_max_total_size_mb: Number(event.target.value) })}
+              value={advDraft.logs_max_total_size_mb}
+              onChange={(event) => setAdvDraft({ ...advDraft, logs_max_total_size_mb: Number(event.target.value) })}
+              onBlur={() => {
+                if (advDraft.logs_max_total_size_mb !== settings.logs_max_total_size_mb)
+                  applySettings({ logs_max_total_size_mb: advDraft.logs_max_total_size_mb });
+              }}
             />
           </div>
           <div className="settings-row">

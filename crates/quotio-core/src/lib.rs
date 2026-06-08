@@ -278,8 +278,20 @@ impl AppCore {
     /// Network I/O is blocking, so callers should invoke this off the hot path
     /// (e.g. the Quota page refresh action), not on every `app_state()`.
     pub fn refresh_quotas(&mut self) -> AppState {
-        self.quotas = quota::fetch_all_quotas();
+        self.quotas = quota::fetch_all_quotas(self.proxy_upstream_url().as_deref());
         self.app_state()
+    }
+
+    /// The upstream proxy URL the user configured in Settings, if non-empty.
+    /// Quota fetching routes provider requests through it (mirroring the macOS
+    /// reference app), falling back to OS proxy env vars when it is empty.
+    pub fn proxy_upstream_url(&self) -> Option<String> {
+        let trimmed = self.settings.proxy_url.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
     }
 
     /// Store quotas fetched off-thread, so the Tauri command can run the

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { AccountQuota, AppState, ProviderSummary, QuotaModelUsage } from "../../types";
-import { maskEmail, quotaTone } from "../../lib/format";
+import { maskEmail, quotaTone, parsePlan, planTier } from "../../lib/format";
 import { RefreshIcon } from "../icons";
 import { useT } from "../../i18n";
 
@@ -87,12 +87,13 @@ function AccountQuotaCard({ account }: { account: AccountQuota }) {
   // The Codex fetcher encodes the subscription tier + expiry into status_message
   // as "plan: <tier> | until: <YYYY-MM-DD>"; surface them as a badge + date.
   const statusMessage = account.status_message ?? "";
-  const plan = statusMessage.match(/plan:\s*([^|]+)/i)?.[1]?.trim();
+  const plan = parsePlan(statusMessage);
   const expiry = statusMessage.match(/until:\s*([^|]+)/i)?.[1]?.trim();
-  // Pro tier gets a premium gold badge; Plus/others get the base style.
+  // Each tier gets its own badge color; Plus is the base style.
+  const tier = plan ? planTier(plan) : null;
   const planClass =
-    plan && /pro/i.test(plan)
-      ? "quota-type-pill quota-plan-pill quota-plan-pill--pro"
+    tier && tier !== "plus"
+      ? `quota-type-pill quota-plan-pill quota-plan-pill--${tier}`
       : "quota-type-pill quota-plan-pill";
   return (
     <article className="panel quota-card">
@@ -117,7 +118,6 @@ function AccountQuotaCard({ account }: { account: AccountQuota }) {
 
       <div className="quota-usage-head">
         <span>{t("quota.usage")}</span>
-        <span className="quota-details-link">{t("quota.details")}</span>
       </div>
 
       <div className="quota-models">

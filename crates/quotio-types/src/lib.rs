@@ -472,6 +472,9 @@ pub struct RequestLogEntry {
     pub fallback_started_from_cache: bool,
     #[serde(default)]
     pub reasoning_effort: Option<String>,
+    /// Account label/email the proxy routed this request through (usage `source`).
+    #[serde(default)]
+    pub account: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

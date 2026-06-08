@@ -673,11 +673,23 @@ fn update_api_key(
 
 #[tauri::command]
 async fn refresh_quotas(app: AppHandle, state: State<'_, DesktopState>) -> Result<AppState, String> {
-    // Run the (blocking, multi-provider) network fetch on a blocking thread and
-    // WITHOUT holding the core lock, so the UI never freezes during a refresh.
-    let quotas = tauri::async_runtime::spawn_blocking(quotio_core::quota::fetch_all_quotas)
-        .await
-        .map_err(|error| format!("额度刷新任务异常：{}", error))?;
+    // Resolve the user-configured upstream proxy under a short lock, then release
+    // it so the (blocking, multi-provider) network fetch never holds the core
+    // mutex or freezes the UI. Provider requests route through that proxy (like
+    // the macOS reference app), so accounts no longer vanish when the endpoints
+    // are unreachable directly.
+    let proxy_url = {
+        let core = state
+            .core
+            .lock()
+            .map_err(|_| "无法访问代理核心".to_string())?;
+        core.proxy_upstream_url()
+    };
+    let quotas = tauri::async_runtime::spawn_blocking(move || {
+        quotio_core::quota::fetch_all_quotas(proxy_url.as_deref())
+    })
+    .await
+    .map_err(|error| format!("额度刷新任务异常：{}", error))?;
 
     // "Quota at a glance" tray tooltip: lowest remaining % per provider.
     let mut by_provider: std::collections::BTreeMap<String, f64> = std::collections::BTreeMap::new();
@@ -1057,7 +1069,22 @@ fn toggle_menubar(app: &AppHandle) {
 }
 
 pub fn run() {
-    tauri::Builder::default()
+    #[allow(unused_mut)]
+    let mut builder = tauri::Builder::default();
+    // Single-instance must be registered first: a second launch is forwarded to
+    // the running instance (which we focus / restore from the tray) and then
+    // exits, so the app never opens twice.
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }));
+    }
+    builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,

@@ -3,6 +3,7 @@ import "./App.css";
 import { invoke } from "./lib/tauri";
 import { I18nProvider, resolveLocale, useT } from "./i18n";
 import { useAppState } from "./state/useAppState";
+import { quotaTone, parsePlan, planTier } from "./lib/format";
 import type { AccountQuota } from "./types";
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -22,10 +23,15 @@ function providerLabel(id: string) {
   return PROVIDER_LABELS[id] ?? id;
 }
 
+// Bar color reuses the Quota page thresholds (quotaTone): >50% green,
+// 10–50% amber, ≤10% red — so the menu-bar matches the main view.
+const BAR_COLORS: Record<"good" | "warn" | "bad", string> = {
+  good: "#34c759",
+  warn: "#f59e0b",
+  bad: "#ef4444",
+};
 function barTone(remaining: number) {
-  if (remaining <= 10) return "#ef4444";
-  if (remaining <= 30) return "#f59e0b";
-  return "#34c759";
+  return BAR_COLORS[quotaTone(remaining)];
 }
 
 /// The tray "menu bar" floating quota panel (see ui/menu_bar.png). Rendered in a
@@ -106,6 +112,17 @@ function MenuBarBody({ app }: { app: ReturnType<typeof useAppState> }) {
   const hiddenCount = accounts.length - visibleAccounts.length;
   const running = proxy.status === "running";
 
+  // Guard the footer actions (open / quit / show-all) against rapid repeat
+  // clicks, so a double-click doesn't fire the command twice. Re-enables after a
+  // short delay (the window only hides, it isn't destroyed, so state persists).
+  const [acting, setActing] = useState(false);
+  function runOnce(command: string) {
+    if (acting) return;
+    setActing(true);
+    void invoke(command);
+    window.setTimeout(() => setActing(false), 1500);
+  }
+
   // Resize the window to fit the (capped) content so the panel grows with the
   // number of accounts instead of leaving empty space.
   useEffect(() => {
@@ -117,16 +134,36 @@ function MenuBarBody({ app }: { app: ReturnType<typeof useAppState> }) {
         : visibleAccounts.reduce((sum, acc) => sum + 22 + acc.models.length * 28, 0) +
           Math.max(0, visibleAccounts.length - 1) * 10;
     const moreHeight = hiddenCount > 0 ? 38 : 0;
-    const height = Math.min(720, Math.max(200, 38 + tabsHeight + 16 + listHeight + moreHeight + 116));
-    void import("@tauri-apps/api/window").then(({ getCurrentWindow, LogicalSize }) => {
-      void getCurrentWindow().setSize(new LogicalSize(280, height));
+    const desired = Math.max(200, 38 + tabsHeight + 16 + listHeight + moreHeight + 116);
+    void import("@tauri-apps/api/window").then(async ({ getCurrentWindow, LogicalSize, currentMonitor }) => {
+      const win = getCurrentWindow();
+      // Cap to the screen height so the panel grows to fit all accounts instead
+      // of scrolling at a fixed 720px — but never taller than the monitor.
+      let cap = 900;
+      try {
+        const monitor = await currentMonitor();
+        if (monitor) cap = Math.floor(monitor.size.height / monitor.scaleFactor) - 80;
+      } catch {
+        /* keep the 900px fallback */
+      }
+      void win.setSize(new LogicalSize(280, Math.min(desired, cap)));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appState.quotas, tab]);
 
   return (
     <div className="menubar-root">
-      <header className="menubar-head" data-tauri-drag-region>
+      <header
+        className="menubar-head"
+        onMouseDown={(event) => {
+          // Drag the frameless panel by its header (skip clicks on the button).
+          if ((event.target as HTMLElement).closest("button")) return;
+          if (!("__TAURI_INTERNALS__" in window)) return;
+          void import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
+            void getCurrentWindow().startDragging();
+          });
+        }}
+      >
         <strong>Quotio</strong>
         <div className="menubar-proxy">
           <span className="menubar-endpoint">{proxy.endpoint}</span>
@@ -160,7 +197,7 @@ function MenuBarBody({ app }: { app: ReturnType<typeof useAppState> }) {
               <MenuBarAccount key={account.account_key} account={account} />
             ))}
             {hiddenCount > 0 ? (
-              <button className="menubar-more" type="button" onClick={() => void invoke("show_main_window")}>
+              <button className="menubar-more" type="button" disabled={acting} onClick={() => runOnce("show_main_window")}>
                 {t("menubar.more").replace("{n}", String(accounts.length))}
               </button>
             ) : null}
@@ -170,14 +207,14 @@ function MenuBarBody({ app }: { app: ReturnType<typeof useAppState> }) {
 
       <footer className="menubar-foot">
         <button type="button" onClick={() => void app.refreshQuotas()} disabled={app.isQuotaBusy}>
-          <span className="menubar-foot-icon">↻</span>
-          {t("menubar.refresh")}
+          <span className={app.isQuotaBusy ? "menubar-foot-icon menubar-foot-icon--spin" : "menubar-foot-icon"}>↻</span>
+          {app.isQuotaBusy ? t("menubar.refreshing") : t("menubar.refresh")}
         </button>
-        <button type="button" onClick={() => void invoke("show_main_window")}>
+        <button type="button" disabled={acting} onClick={() => runOnce("show_main_window")}>
           <span className="menubar-foot-icon">⤢</span>
           {t("menubar.open")}
         </button>
-        <button type="button" onClick={() => void invoke("quit_app")}>
+        <button type="button" disabled={acting} onClick={() => runOnce("quit_app")}>
           <span className="menubar-foot-icon">⏻</span>
           {t("menubar.quit")}
         </button>
@@ -187,10 +224,13 @@ function MenuBarBody({ app }: { app: ReturnType<typeof useAppState> }) {
 }
 
 function MenuBarAccount({ account }: { account: AccountQuota }) {
+  const plan = parsePlan(account.status_message);
+  const tier = plan ? planTier(plan) : null;
   return (
     <div className="menubar-account">
       <div className="menubar-account-head">
         <span className="menubar-account-name">{account.account_label}</span>
+        {plan ? <span className={`menubar-plan-pill menubar-plan-pill--${tier}`}>{plan.toUpperCase()}</span> : null}
         {account.is_forbidden ? <span className="menubar-pill menubar-pill--warn">!</span> : null}
       </div>
       {account.models.map((model) => {

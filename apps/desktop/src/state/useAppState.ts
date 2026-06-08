@@ -35,6 +35,7 @@ export function useAppState() {
   const [proxyUrlDraft, setProxyUrlDraft] = useState("");
   const [isQuotaBusy, setIsQuotaBusy] = useState(false);
   const lowQuotaNotified = useRef<Set<string>>(new Set());
+  const proxyDraftSeeded = useRef(false);
   const isMenuBarView =
     window.location.hash.replace(/^#/, "") === "menubar" ||
     new URLSearchParams(window.location.search).get("view") === "menubar";
@@ -94,6 +95,12 @@ export function useAppState() {
       setAppState(state);
       setCredentialStatus(state.credentials);
       setAvailableModels(state.fallback_runtime.available_models);
+      // Seed the upstream-proxy input from the persisted setting on first load,
+      // so a saved proxy URL shows after restart instead of an empty field.
+      if (!proxyDraftSeeded.current) {
+        proxyDraftSeeded.current = true;
+        if (state.settings.proxy_url) setProxyUrlDraft(state.settings.proxy_url);
+      }
       setError(null);
     } catch (cause) {
       setError(errorMessage(cause));
@@ -229,7 +236,9 @@ export function useAppState() {
     try {
       const response = await invoke<OAuthStatusResponse>(command, { token });
       setError(response.error);
-      if (response.status === "success" || response.status === "completed") {
+      // CLIProxyAPI's /get-auth-status reports success as "ok" (matching the
+      // macOS reference app); keep success/completed as tolerant fallbacks.
+      if (response.status === "ok" || response.status === "success" || response.status === "completed") {
         const nextState = await invoke<AppState>("refresh_management_state");
         setAppState(nextState);
       }

@@ -1,4 +1,4 @@
-import { useState, useEffect, type ChangeEvent } from "react";
+import { useState, useEffect, useRef, type ChangeEvent } from "react";
 import type { AppState, AuthFile, OAuthStatusResponse, OAuthUrlResponse, ProviderSummary } from "../../types";
 import { maskEmail } from "../../lib/format";
 import { PlusIcon, RefreshIcon, TrashIcon } from "../icons";
@@ -69,6 +69,61 @@ export function ProvidersScreen({
     if (!("__TAURI_INTERNALS__" in window)) return;
     void invoke<CustomProvider[]>("list_custom_providers").then(setCustomProviders).catch(() => {});
   }, []);
+
+  // Tracks the OAuth `state` currently being auto-polled, so starting a new
+  // authorization (or unmounting) cancels the previous polling loop.
+  const pollRef = useRef<string | null>(null);
+  useEffect(
+    () => () => {
+      pollRef.current = null;
+    },
+    [],
+  );
+
+  // Open the authorization URL in the system browser (Tauri opener, falling back
+  // to window.open), mirroring the macOS reference app's auto-open behavior.
+  async function openAuthUrl(url: string) {
+    try {
+      if ("__TAURI_INTERNALS__" in window) {
+        const { openUrl } = await import("@tauri-apps/plugin-opener");
+        await openUrl(url);
+        return;
+      }
+    } catch {
+      /* fall back to window.open below */
+    }
+    window.open(url, "_blank", "noreferrer");
+  }
+
+  // Auto-poll the OAuth status (mirrors the macOS reference app's pollOAuthStatus):
+  // every 2s, up to ~2 min, until the proxy reports "ok" (success) or "error".
+  // onPollOAuth refreshes the management snapshot on success, so the new account
+  // appears without the user clicking "poll" manually.
+  async function autoPollOAuth(state: string) {
+    pollRef.current = state;
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      if (pollRef.current !== state) return; // superseded by a new auth, or unmounted
+      const response = await onPollOAuth(state);
+      if (pollRef.current !== state) return;
+      if (!response) continue;
+      setOAuthSession((current) =>
+        current && current.state === state ? { ...current, status: response.status, error: response.error } : current,
+      );
+      if (["ok", "success", "completed"].includes(response.status)) {
+        pollRef.current = null;
+        return;
+      }
+      if (response.status === "error") {
+        pollRef.current = null;
+        return;
+      }
+    }
+    setOAuthSession((current) =>
+      current && current.state === state ? { ...current, status: "error", error: "OAuth 授权超时，请重试。" } : current,
+    );
+    pollRef.current = null;
+  }
 
   function resetCustomForm() {
     setCustomForm({ name: "", base_url: "", api_key: "", kind: "openai", prefix: "" });
@@ -168,6 +223,10 @@ export function ProvidersScreen({
                 status: response.status,
                 error: response.error,
               });
+              // Auto-open the browser and auto-poll like the reference app, so a
+              // successful authorization adds the account without extra clicks.
+              if (response.url) void openAuthUrl(response.url);
+              if (response.state && !response.error) void autoPollOAuth(response.state);
             }}
             onPollOAuth={async () => {
               if (!oauthSession?.state) return;
