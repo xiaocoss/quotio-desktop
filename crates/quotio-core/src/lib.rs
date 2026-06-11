@@ -202,6 +202,7 @@ impl AppCore {
             if let Some(pid) = session.pid {
                 codex_launch::kill_process(pid);
             }
+            codex_launch::close_codex_app();
             let _ = codex_launch::restore_codex_state(&session.auth_backup, &session.config_backup);
         }
         self.proxy.shutdown(&self.settings);
@@ -494,26 +495,41 @@ impl AppCore {
             })?;
         }
         let endpoint = self.app_state().proxy.endpoint.clone();
-        // 启动前备份原始状态（此刻 ~/.codex 还是用户原样，未被代理配置污染）。
+        // 先关掉所有 Codex：避免运行中的实例把我们写的 config 覆盖掉，并让它重启时读到新配置。
+        codex_launch::close_codex_app();
+        thread::sleep(Duration::from_millis(500));
+        // 此刻备份 ~/.codex 原样（停止/关软件时还原成这个）。
         let (auth_backup, config_backup) = codex_launch::read_codex_state();
 
         let mut model_slots = std::collections::BTreeMap::new();
         if !settings.codex_model.trim().is_empty() {
             model_slots.insert(ModelSlot::Sonnet, settings.codex_model.trim().to_string());
         }
+        // bearer token（写入 config.toml 的 experimental_bearer_token）：
+        // 优先用用户在表单里填的；没填就自动用代理的第一个 api-key，省得手填。
+        let api_key = if settings.codex_api_key.trim().is_empty() {
+            self.management_snapshot
+                .api_keys
+                .first()
+                .cloned()
+                .unwrap_or_default()
+        } else {
+            settings.codex_api_key.clone()
+        };
         let request = AgentConfigurationRequest {
             agent_id: "codex".to_string(),
             mode: AgentConfigMode::Automatic,
             setup_mode: AgentSetupMode::Proxy,
             storage_option: AgentConfigStorageOption::Json,
             proxy_url: endpoint,
-            api_key: settings.codex_api_key.clone(),
+            api_key,
             model_slots,
             use_oauth: false,
             available_models: Vec::new(),
             reasoning_effort: settings.codex_reasoning.clone(),
         };
-        agent_config::configure_agent(request)?;
+        // 直接写代理配置（不刷文件备份）+ 注入选中账号当登录（写 auth.json）。
+        agent_config::write_codex_proxy_config_no_backup(&request)?;
         codex_launch::inject_bound_account(&account_key)
             .map_err(ManagementCoreError::Unavailable)?;
 
@@ -556,6 +572,8 @@ impl AppCore {
                 if let Some(pid) = session.pid {
                     codex_launch::kill_process(pid);
                 }
+                codex_launch::close_codex_app();
+                thread::sleep(Duration::from_millis(400));
                 codex_launch::restore_codex_state(&session.auth_backup, &session.config_backup)
                     .map_err(ManagementCoreError::Unavailable)?;
                 Ok("已停止 Codex 并还原配置".to_string())

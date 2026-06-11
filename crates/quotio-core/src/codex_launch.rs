@@ -359,6 +359,25 @@ pub fn kill_process(pid: u32) {
     }
 }
 
+/// 关掉所有 Codex 桌面应用进程（按名字，best-effort，不弹窗）。
+/// 启动前调用：避免运行中的实例把我们写的 config.toml 覆盖掉，并让它重启时读到新配置。
+pub fn close_codex_app() {
+    #[cfg(target_os = "windows")]
+    {
+        let _ = quiet_command("taskkill")
+            .args(["/IM", "Codex.exe", "/T", "/F"])
+            .output();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let _ = Command::new("pkill").args(["-f", "Codex.app"]).output();
+    }
+    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+    {
+        let _ = Command::new("pkill").args(["-x", "codex"]).output();
+    }
+}
+
 // ---------- 启动 ----------
 
 /// App 模式：直接 spawn `Codex.exe`，独立于 Quotio 进程。返回 pid。

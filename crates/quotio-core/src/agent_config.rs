@@ -556,11 +556,20 @@ fn codex_configs(request: &AgentConfigurationRequest) -> Vec<RawAgentConfigOutpu
     } else {
         request.reasoning_effort.trim()
     };
+    // base_url 必须带 /v1（Codex 桌面应用要求；官方文档示例即 http://host:port/v1）。
+    let trimmed_url = request.proxy_url.trim().trim_end_matches('/');
+    let base_url = if trimmed_url.ends_with("/v1") {
+        trimmed_url.to_string()
+    } else {
+        format!("{trimmed_url}/v1")
+    };
+    // 对齐 CLIProxyAPI 官方文档：必须有 model_provider + supports_websockets（App 走 websocket）。
     let managed = format!(
-        "# CLIProxyAPI Configuration for Codex CLI\nmodel_provider = \"cliproxyapi\"\nmodel = \"{}\"\nmodel_reasoning_effort = \"{}\"\n\n[model_providers.cliproxyapi]\nname = \"cliproxyapi\"\nbase_url = \"{}\"\nexperimental_bearer_token = \"{}\"\nwire_api = \"responses\"\nrequires_openai_auth = true\n",
+        "# CLIProxyAPI Configuration for Codex\nmodel_provider = \"cliproxyapi\"\nmodel = \"{}\"\nmodel_reasoning_effort = \"{}\"\nplan_mode_reasoning_effort = \"{}\"\nsupports_websockets = true\n\n[model_providers.cliproxyapi]\nname = \"cliproxyapi\"\nbase_url = \"{}\"\nexperimental_bearer_token = \"{}\"\nwire_api = \"responses\"\nrequires_openai_auth = true\n",
         toml_escape(&slot_model(request, ModelSlot::Sonnet)),
         toml_escape(reasoning),
-        toml_escape(&request.proxy_url),
+        toml_escape(reasoning),
+        toml_escape(&base_url),
         toml_escape(&request.api_key),
     );
     let existing = fs::read_to_string(&config_path).unwrap_or_default();
@@ -573,6 +582,25 @@ fn codex_configs(request: &AgentConfigurationRequest) -> Vec<RawAgentConfigOutpu
         target_path: Some(config_path.display().to_string()),
         instructions: "合并保存到 ~/.codex/config.toml；代理密钥写入 provider 配置，不覆盖 ~/.codex/auth.json。".to_string(),
     }]
+}
+
+/// 直接把 Codex 代理配置合并写入 `~/.codex/config.toml`，**不创建备份文件**。
+/// 用于 codex 一键启动这种临时流程（停止时用内存备份还原），避免每次启动都刷一个备份。
+pub fn write_codex_proxy_config_no_backup(
+    request: &AgentConfigurationRequest,
+) -> Result<(), ManagementCoreError> {
+    for config in codex_configs(request) {
+        let Some(path) = config.target_path.as_ref().map(PathBuf::from) else {
+            continue;
+        };
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        fs::write(&path, &config.content).map_err(|error| {
+            ManagementCoreError::Unavailable(format!("无法写入 Codex 配置：{error}"))
+        })?;
+    }
+    Ok(())
 }
 
 fn gemini_configs(request: &AgentConfigurationRequest) -> Vec<RawAgentConfigOutput> {
@@ -917,14 +945,22 @@ fn remove_codex_managed_config(existing: &str) -> String {
             continue;
         }
 
-        if trimmed == "# CLIProxyAPI Configuration for Codex CLI" {
+        if trimmed == "# CLIProxyAPI Configuration for Codex CLI"
+            || trimmed == "# CLIProxyAPI Configuration for Codex"
+        {
             continue;
         }
 
         let is_top_level_managed = !trimmed.starts_with('[')
-            && ["model_provider", "model", "model_reasoning_effort"]
-                .iter()
-                .any(|key| trimmed.starts_with(&format!("{} =", key)));
+            && [
+                "model_provider",
+                "model",
+                "model_reasoning_effort",
+                "plan_mode_reasoning_effort",
+                "supports_websockets",
+            ]
+            .iter()
+            .any(|key| trimmed.starts_with(&format!("{} =", key)));
         if is_top_level_managed {
             continue;
         }
