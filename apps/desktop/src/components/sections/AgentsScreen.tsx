@@ -433,7 +433,7 @@ export function AgentsScreen({
                     ? {
                         active: codexActive,
                         busy: launchBusy,
-                        canStart: (appState.settings.codex_bound_account || boundAccount).trim().length > 0,
+                        canStart: (appState.settings.codex_bound_account ?? "").trim().length > 0,
                         onStart: () => void startCodex(false),
                         onStop: () => void stopCodex(),
                       }
