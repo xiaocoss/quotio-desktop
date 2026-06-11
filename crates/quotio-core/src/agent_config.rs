@@ -263,6 +263,7 @@ pub fn reset_agent_configuration(
         model_slots: default_model_slots(),
         use_oauth: false,
         available_models: default_available_models(),
+        reasoning_effort: String::new(),
     };
     if agent_id == "gemini-cli" {
         request.storage_option = AgentConfigStorageOption::Shell;
@@ -550,9 +551,15 @@ fn claude_configs(
 
 fn codex_configs(request: &AgentConfigurationRequest) -> Vec<RawAgentConfigOutput> {
     let config_path = quotio_platform::expand_home_path("~/.codex/config.toml");
+    let reasoning = if request.reasoning_effort.trim().is_empty() {
+        "high"
+    } else {
+        request.reasoning_effort.trim()
+    };
     let managed = format!(
-        "# CLIProxyAPI Configuration for Codex CLI\nmodel_provider = \"cliproxyapi\"\nmodel = \"{}\"\nmodel_reasoning_effort = \"high\"\n\n[model_providers.cliproxyapi]\nname = \"cliproxyapi\"\nbase_url = \"{}\"\nexperimental_bearer_token = \"{}\"\nwire_api = \"responses\"\nrequires_openai_auth = true\n",
+        "# CLIProxyAPI Configuration for Codex CLI\nmodel_provider = \"cliproxyapi\"\nmodel = \"{}\"\nmodel_reasoning_effort = \"{}\"\n\n[model_providers.cliproxyapi]\nname = \"cliproxyapi\"\nbase_url = \"{}\"\nexperimental_bearer_token = \"{}\"\nwire_api = \"responses\"\nrequires_openai_auth = true\n",
         toml_escape(&slot_model(request, ModelSlot::Sonnet)),
+        toml_escape(reasoning),
         toml_escape(&request.proxy_url),
         toml_escape(&request.api_key),
     );
@@ -1087,6 +1094,7 @@ model = "gpt-5"
             model_slots: default_model_slots(),
             use_oauth: false,
             available_models: default_available_models(),
+            reasoning_effort: String::new(),
         };
 
         let configs = codex_configs(&request);

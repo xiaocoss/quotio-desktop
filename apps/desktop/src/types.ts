@@ -44,6 +44,9 @@ export type AppSettings = {
   codex_app_path: string;
   codex_launch_mode: string;
   codex_bound_account: string;
+  codex_model: string;
+  codex_reasoning: string;
+  codex_api_key: string;
 };
 
 export type CodexAccountRef = {
@@ -244,6 +247,7 @@ export type AgentConfigurationRequest = {
   model_slots: Partial<Record<ModelSlot, string>>;
   use_oauth: boolean;
   available_models: AvailableModel[];
+  reasoning_effort?: string;
 };
 
 export type AgentConfigurationResult = {

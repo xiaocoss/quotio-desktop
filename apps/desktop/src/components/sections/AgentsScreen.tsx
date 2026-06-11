@@ -89,16 +89,32 @@ export function AgentsScreen({
   const [slotDrafts, setSlotDrafts] = useState<Partial<Record<ModelSlot, string>>>({});
   const modelOptions = availableModels.length > 0 ? availableModels : appState.fallback_runtime.available_models;
 
-  // ---- Codex 一键启动 ----
+  // ---- Codex 一键启动（注入临时、停止/关软件还原）----
   const [launchMode, setLaunchMode] = useState<string>(appState.settings.codex_launch_mode || "app");
   const [boundAccount, setBoundAccount] = useState<string>(appState.settings.codex_bound_account || "");
+  const [codexReasoning, setCodexReasoning] = useState<string>(appState.settings.codex_reasoning || "high");
   const [codexAccounts, setCodexAccounts] = useState<CodexAccountRef[]>([]);
+  const [codexActive, setCodexActive] = useState(false);
   const [launchBusy, setLaunchBusy] = useState(false);
   const [launchMsg, setLaunchMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     invoke<CodexAccountRef[]>("list_codex_launch_accounts").then(setCodexAccounts).catch(() => {});
+    invoke<boolean>("codex_launch_active").then(setCodexActive).catch(() => {});
   }, []);
+
+  // 把 Codex 启动档案（账号/模式/模型/思考程度/密钥）存进设置，供卡片「启动」按钮使用。
+  function saveCodexProfile() {
+    onSaveSettings({
+      ...appState.settings,
+      codex_launch_mode: launchMode,
+      codex_bound_account: boundAccount,
+      codex_model: (slotDrafts.sonnet ?? appState.settings.codex_model ?? "").trim(),
+      codex_reasoning: codexReasoning,
+      codex_api_key: apiKey.trim() || appState.settings.codex_api_key,
+      remote_management_key: null,
+    });
+  }
 
   async function detectCodexApp() {
     try {
@@ -114,38 +130,27 @@ export function AgentsScreen({
     }
   }
 
-  async function launchCodex(status: AgentStatus) {
-    const model_slots: Partial<Record<ModelSlot, string>> = {};
-    for (const slot of modelSlots) {
-      const value = slotDrafts[slot]?.trim();
-      if (value) model_slots[slot] = value;
-    }
-    const request: AgentConfigurationRequest = {
-      agent_id: status.agent.id,
-      mode: "automatic",
-      setup_mode: "proxy",
-      storage_option: storageOption,
-      proxy_url: proxyUrl.trim(),
-      api_key: apiKey.trim(),
-      model_slots,
-      use_oauth: false,
-      available_models: modelOptions,
-    };
-    onSaveSettings({
-      ...appState.settings,
-      codex_launch_mode: launchMode,
-      codex_bound_account: boundAccount,
-      remote_management_key: null,
-    });
+  async function startCodex(save: boolean) {
+    if (save) saveCodexProfile();
     setLaunchBusy(true);
     setLaunchMsg(null);
     try {
-      const message = await invoke<string>("configure_and_launch_codex", {
-        request,
-        accountKey: boundAccount,
-        launchMode,
-        appPath: appState.settings.codex_app_path || null,
-      });
+      const message = await invoke<string>("codex_start");
+      setCodexActive(true);
+      setLaunchMsg({ ok: true, text: message });
+    } catch (error) {
+      setLaunchMsg({ ok: false, text: String(error) });
+    } finally {
+      setLaunchBusy(false);
+    }
+  }
+
+  async function stopCodex() {
+    setLaunchBusy(true);
+    setLaunchMsg(null);
+    try {
+      const message = await invoke<string>("codex_stop");
+      setCodexActive(false);
       setLaunchMsg({ ok: true, text: message });
     } catch (error) {
       setLaunchMsg({ ok: false, text: String(error) });
@@ -227,27 +232,63 @@ export function AgentsScreen({
           </label>
         </div>
 
-        <div className="settings-form-grid">
-          {modelSlots.map((slot) => (
-            <label key={slot}>
-              {slotLabel(slot)} {t("agents.model")}
+        {status.agent.id === "codex" ? (
+          <div className="settings-form-grid">
+            <label>
+              {t("agents.codexModel", "模型")}
               {modelOptions.length > 0 ? (
                 <Select
-                  value={slotDrafts[slot] ?? ""}
+                  value={slotDrafts.sonnet ?? appState.settings.codex_model ?? ""}
                   options={[{ value: "", label: t("agents.unspecified") }, ...modelOptions.map((model) => ({ value: model.id, label: model.name || model.id }))]}
                   disabled={isBusy}
-                  onChange={(value) => setSlotDrafts((current) => ({ ...current, [slot]: value }))}
+                  onChange={(value) => setSlotDrafts((current) => ({ ...current, sonnet: value }))}
                 />
               ) : (
                 <input
-                  value={slotDrafts[slot] ?? ""}
-                  onChange={(event) => setSlotDrafts((current) => ({ ...current, [slot]: event.target.value }))}
-                  placeholder={`${slot}-model-id`}
+                  value={slotDrafts.sonnet ?? appState.settings.codex_model ?? ""}
+                  onChange={(event) => setSlotDrafts((current) => ({ ...current, sonnet: event.target.value }))}
+                  placeholder="gpt-5.x"
                 />
               )}
             </label>
-          ))}
-        </div>
+            <label>
+              {t("agents.codexReasoning", "思考程度")}
+              <Select
+                value={codexReasoning}
+                options={[
+                  { value: "minimal", label: t("agents.reasoningMinimal", "最低") },
+                  { value: "low", label: t("agents.reasoningLow", "低") },
+                  { value: "medium", label: t("agents.reasoningMedium", "中") },
+                  { value: "high", label: t("agents.reasoningHigh", "高") },
+                ]}
+                disabled={isBusy}
+                onChange={setCodexReasoning}
+              />
+            </label>
+          </div>
+        ) : (
+          <div className="settings-form-grid">
+            {modelSlots.map((slot) => (
+              <label key={slot}>
+                {slotLabel(slot)} {t("agents.model")}
+                {modelOptions.length > 0 ? (
+                  <Select
+                    value={slotDrafts[slot] ?? ""}
+                    options={[{ value: "", label: t("agents.unspecified") }, ...modelOptions.map((model) => ({ value: model.id, label: model.name || model.id }))]}
+                    disabled={isBusy}
+                    onChange={(value) => setSlotDrafts((current) => ({ ...current, [slot]: value }))}
+                  />
+                ) : (
+                  <input
+                    value={slotDrafts[slot] ?? ""}
+                    onChange={(event) => setSlotDrafts((current) => ({ ...current, [slot]: event.target.value }))}
+                    placeholder={`${slot}-model-id`}
+                  />
+                )}
+              </label>
+            ))}
+          </div>
+        )}
 
         <div className="inline-actions">
           <button className="secondary-action" type="button" onClick={() => void onReadConfiguration(status.agent.id)} disabled={isBusy}>
@@ -330,10 +371,10 @@ export function AgentsScreen({
               <button
                 className="primary-action"
                 type="button"
-                onClick={() => void launchCodex(status)}
+                onClick={() => void startCodex(true)}
                 disabled={launchBusy || boundAccount.trim().length === 0}
               >
-                {launchBusy ? t("agents.launch.launching", "启动中…") : t("agents.launch.go", "配置并启动")}
+                {launchBusy ? t("agents.launch.launching", "启动中…") : t("agents.launch.go", "保存并启动")}
               </button>
             </div>
             {launchMsg ? (
@@ -387,6 +428,17 @@ export function AgentsScreen({
                 expanded={expandedId === status.agent.id}
                 isBusy={isBusy}
                 onConfigure={() => setExpandedId((current) => (current === status.agent.id ? null : status.agent.id))}
+                codexControls={
+                  status.agent.id === "codex"
+                    ? {
+                        active: codexActive,
+                        busy: launchBusy,
+                        canStart: (appState.settings.codex_bound_account || boundAccount).trim().length > 0,
+                        onStart: () => void startCodex(false),
+                        onStop: () => void stopCodex(),
+                      }
+                    : undefined
+                }
               />
               {expandedId === status.agent.id ? configForm(status) : null}
             </Fragment>
@@ -417,6 +469,7 @@ function AgentCard({
   muted = false,
   isBusy,
   onConfigure,
+  codexControls,
 }: {
   status: AgentStatus;
   accent: string;
@@ -424,6 +477,13 @@ function AgentCard({
   muted?: boolean;
   isBusy: boolean;
   onConfigure?: () => void;
+  codexControls?: {
+    active: boolean;
+    busy: boolean;
+    canStart: boolean;
+    onStart: () => void;
+    onStop: () => void;
+  };
 }) {
   const t = useT();
   const initial = status.agent.display_name.trim().charAt(0).toUpperCase() || "?";
@@ -443,6 +503,28 @@ function AgentCard({
         {!muted ? <p className="agent-card-desc">{status.agent.description}</p> : null}
         {status.binary_path ? <p className="agent-card-path">{status.binary_path}</p> : null}
       </div>
+      {codexControls ? (
+        codexControls.active ? (
+          <button
+            className="agent-launch-btn agent-launch-btn--stop"
+            type="button"
+            onClick={codexControls.onStop}
+            disabled={codexControls.busy}
+          >
+            {codexControls.busy ? t("agents.launch.working", "处理中…") : t("agents.launch.stop", "停止")}
+          </button>
+        ) : (
+          <button
+            className="agent-launch-btn agent-launch-btn--start"
+            type="button"
+            onClick={codexControls.onStart}
+            disabled={codexControls.busy || !codexControls.canStart}
+            title={codexControls.canStart ? undefined : t("agents.launch.needConfig", "请先展开配置、选好绑定账号并保存")}
+          >
+            {codexControls.busy ? t("agents.launch.working", "处理中…") : t("agents.launch.start", "启动")}
+          </button>
+        )
+      ) : null}
       {!muted && onConfigure ? (
         <button
           className="agent-configure-btn"

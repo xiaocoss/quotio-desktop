@@ -18,6 +18,10 @@ fn codex_auth_path() -> PathBuf {
     codex_home().join("auth.json")
 }
 
+fn codex_config_path() -> PathBuf {
+    codex_home().join("config.toml")
+}
+
 fn proxy_auth_dir() -> PathBuf {
     quotio_platform::expand_home_path("~/.cli-proxy-api")
 }
@@ -233,6 +237,62 @@ pub fn inject_bound_account(key: &str) -> Result<(), String> {
     Ok(())
 }
 
+// ---------- 启动生命周期：备份 / 还原 / 杀进程 ----------
+
+/// 一次「启动」的会话：记录启动的进程 pid + 启动前 auth.json/config.toml 的原始内容，
+/// 用于「停止」或关闭软件时还原成启动前的样子。
+pub struct CodexSession {
+    pub pid: Option<u32>,
+    /// 启动前 `~/.codex/auth.json` 内容（None = 当时不存在）。
+    pub auth_backup: Option<String>,
+    /// 启动前 `~/.codex/config.toml` 内容（None = 当时不存在）。
+    pub config_backup: Option<String>,
+    pub launch_mode: String,
+}
+
+/// 读当前 auth.json + config.toml 内容（None = 文件不存在），用于启动前备份。
+pub fn read_codex_state() -> (Option<String>, Option<String>) {
+    (
+        std::fs::read_to_string(codex_auth_path()).ok(),
+        std::fs::read_to_string(codex_config_path()).ok(),
+    )
+}
+
+/// 把 auth.json + config.toml 还原到备份内容（None = 原本不存在 → 删除）。
+pub fn restore_codex_state(auth: &Option<String>, config: &Option<String>) -> Result<(), String> {
+    restore_one(&codex_auth_path(), auth)?;
+    restore_one(&codex_config_path(), config)?;
+    Ok(())
+}
+
+fn restore_one(path: &Path, backup: &Option<String>) -> Result<(), String> {
+    match backup {
+        Some(content) => {
+            std::fs::write(path, content).map_err(|e| format!("还原 {} 失败: {e}", path.display()))
+        }
+        None => {
+            if path.exists() {
+                let _ = std::fs::remove_file(path);
+            }
+            Ok(())
+        }
+    }
+}
+
+/// 杀掉进程（Windows 用 taskkill /T 连子进程一起）。best-effort。
+pub fn kill_process(pid: u32) {
+    #[cfg(target_os = "windows")]
+    {
+        let _ = Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .output();
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = Command::new("kill").args(["-9", &pid.to_string()]).output();
+    }
+}
+
 // ---------- 启动 ----------
 
 /// App 模式：直接 spawn `Codex.exe`，独立于 Quotio 进程。返回 pid。
@@ -259,17 +319,16 @@ pub fn build_cli_launch_command() -> String {
     "codex".to_string()
 }
 
-/// CLI 模式：开一个终端跑 `codex`（用默认 `~/.codex`，配置已写好）。
-pub fn launch_codex_cli() -> Result<(), String> {
+/// CLI 模式：开一个终端跑 `codex`（用默认 `~/.codex`，配置已写好）。返回终端进程 pid（用于停止时杀掉）。
+pub fn launch_codex_cli() -> Result<Option<u32>, String> {
     let codex_cmd = build_cli_launch_command();
     #[cfg(target_os = "windows")]
     {
-        if Command::new("wt")
+        if let Ok(child) = Command::new("wt")
             .args(["powershell", "-NoExit", "-Command", &codex_cmd])
             .spawn()
-            .is_ok()
         {
-            return Ok(());
+            return Ok(Some(child.id()));
         }
         Command::new("cmd")
             .args([
@@ -277,7 +336,7 @@ pub fn launch_codex_cli() -> Result<(), String> {
             ])
             .spawn()
             .map_err(|e| format!("打开终端失败: {e}"))?;
-        Ok(())
+        Ok(None)
     }
     #[cfg(target_os = "macos")]
     {
@@ -286,13 +345,13 @@ pub fn launch_codex_cli() -> Result<(), String> {
             .args(["-e", &script])
             .spawn()
             .map_err(|e| format!("打开终端失败: {e}"))?;
-        Ok(())
+        Ok(None)
     }
     #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
     {
         for term in ["x-terminal-emulator", "gnome-terminal", "konsole", "xterm"] {
-            if Command::new(term).args(["-e", &codex_cmd]).spawn().is_ok() {
-                return Ok(());
+            if let Ok(child) = Command::new(term).args(["-e", &codex_cmd]).spawn() {
+                return Ok(Some(child.id()));
             }
         }
         Err("未找到可用终端".to_string())

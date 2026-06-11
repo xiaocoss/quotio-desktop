@@ -22,10 +22,11 @@ use std::{
 use management::{ManagementApiClient, ManagementApiError};
 use quotio_types::{
     default_available_models, default_providers, mask_secret, AccountAuthHealth, AccountQuota,
-    AccountSummaryRow, AgentBackupFile, AgentConfigurationRequest, AgentConfigurationResult,
-    ApiKeyEntry, AppSettings, AppState, AuthFile, AvailableModel, ConnectionMode, CredentialStatus,
-    FallbackConfigAction, FallbackConfiguration, FallbackEntry, FallbackEntryMoveDirection,
-    FallbackRouteState, FallbackRuntimeState, ManagementSnapshot, MigrationPhase, ModelPrice,
+    AccountSummaryRow, AgentBackupFile, AgentConfigMode, AgentConfigStorageOption,
+    AgentConfigurationRequest, AgentConfigurationResult, AgentSetupMode, ApiKeyEntry, AppSettings,
+    AppState, AuthFile, AvailableModel, ConnectionMode, CredentialStatus, FallbackConfigAction,
+    FallbackConfiguration, FallbackEntry, FallbackEntryMoveDirection, FallbackRouteState,
+    FallbackRuntimeState, ManagementSnapshot, MigrationPhase, ModelPrice, ModelSlot,
     PlatformInfo, ProxyHealthState, ProxyPlatformResourceStatus, ProxyResourceStatus, ProxyState,
     ProxyStatusKind, RequestStats, RoutingStrategy, SavedAgentConfiguration, UsageAggregate,
     UsageChartBucket, UsageFilterOptions, UsageModelBreakdownRow, UsageQuery, UsageTimeSeriesPoint,
@@ -92,6 +93,8 @@ pub struct AppCore {
     /// background collector that drains the proxy's usage queue.
     usage_store: Arc<UsageStore>,
     credential_error: Option<String>,
+    /// 当前 Codex 一键启动会话（启动时建立，停止/关软件时还原成启动前的样子）。
+    codex_session: Option<codex_launch::CodexSession>,
 }
 
 impl Default for AppCore {
@@ -120,6 +123,7 @@ impl Default for AppCore {
             quotas: Vec::new(),
             usage_store: open_usage_store(),
             credential_error,
+            codex_session: None,
         }
     }
 }
@@ -193,6 +197,13 @@ impl AppCore {
     /// bridge, and terminate an adopted/external proxy by its port, so closing
     /// the app doesn't leave the proxy API running in the background.
     pub fn shutdown(&mut self) {
+        // 关闭软件时默认还原 Codex 注入：杀掉启动的进程 + 把 auth.json/config.toml 还原成启动前。
+        if let Some(session) = self.codex_session.take() {
+            if let Some(pid) = session.pid {
+                codex_launch::kill_process(pid);
+            }
+            let _ = codex_launch::restore_codex_state(&session.auth_backup, &session.config_backup);
+        }
         self.proxy.shutdown(&self.settings);
     }
 
@@ -459,6 +470,103 @@ impl AppCore {
         request: AgentConfigurationRequest,
     ) -> Result<AgentConfigurationResult, ManagementCoreError> {
         agent_config::configure_agent(request)
+    }
+
+    /// 一键启动 Codex：备份原始 auth.json/config.toml → 写代理配置 → 注入绑定账号 → 启动 App/CLI。
+    /// 参数全部来自已保存的设置（codex_* 字段）。
+    pub fn codex_start(&mut self) -> Result<String, ManagementCoreError> {
+        if self.codex_session.is_some() {
+            return Ok("Codex 已在运行".to_string());
+        }
+        let settings = self.settings.clone();
+        let account_key = settings.codex_bound_account.trim().to_string();
+        if account_key.is_empty() {
+            return Err(ManagementCoreError::Unavailable(
+                "请先在 Codex 卡片里选择并保存要绑定的账号".to_string(),
+            ));
+        }
+        if !matches!(
+            self.app_state().proxy.status,
+            ProxyStatusKind::Running | ProxyStatusKind::Starting
+        ) {
+            self.start_proxy().map_err(|error| {
+                ManagementCoreError::Unavailable(format!("启动代理失败：{error}"))
+            })?;
+        }
+        let endpoint = self.app_state().proxy.endpoint.clone();
+        // 启动前备份原始状态（此刻 ~/.codex 还是用户原样，未被代理配置污染）。
+        let (auth_backup, config_backup) = codex_launch::read_codex_state();
+
+        let mut model_slots = std::collections::BTreeMap::new();
+        if !settings.codex_model.trim().is_empty() {
+            model_slots.insert(ModelSlot::Sonnet, settings.codex_model.trim().to_string());
+        }
+        let request = AgentConfigurationRequest {
+            agent_id: "codex".to_string(),
+            mode: AgentConfigMode::Automatic,
+            setup_mode: AgentSetupMode::Proxy,
+            storage_option: AgentConfigStorageOption::Json,
+            proxy_url: endpoint,
+            api_key: settings.codex_api_key.clone(),
+            model_slots,
+            use_oauth: false,
+            available_models: Vec::new(),
+            reasoning_effort: settings.codex_reasoning.clone(),
+        };
+        agent_config::configure_agent(request)?;
+        codex_launch::inject_bound_account(&account_key)
+            .map_err(ManagementCoreError::Unavailable)?;
+
+        let mode = if settings.codex_launch_mode.trim().is_empty() {
+            "app"
+        } else {
+            settings.codex_launch_mode.trim()
+        };
+        let pid = if mode == "cli" {
+            codex_launch::launch_codex_cli().map_err(ManagementCoreError::Unavailable)?
+        } else {
+            let exe = (!settings.codex_app_path.trim().is_empty())
+                .then(|| PathBuf::from(settings.codex_app_path.trim()))
+                .filter(|path| path.exists())
+                .or_else(codex_launch::detect_codex_app_path)
+                .ok_or_else(|| {
+                    ManagementCoreError::Unavailable(
+                        "未找到 Codex 应用，请在 Codex 卡片里手填应用路径".to_string(),
+                    )
+                })?;
+            Some(codex_launch::launch_codex_app(&exe).map_err(ManagementCoreError::Unavailable)?)
+        };
+        self.codex_session = Some(codex_launch::CodexSession {
+            pid,
+            auth_backup,
+            config_backup,
+            launch_mode: mode.to_string(),
+        });
+        Ok(if mode == "cli" {
+            "已在终端启动 Codex CLI（停止会还原配置）".to_string()
+        } else {
+            format!("已启动 Codex 应用（pid={}）", pid.unwrap_or(0))
+        })
+    }
+
+    /// 停止 Codex：杀掉启动的进程 + 还原 auth.json/config.toml 到启动前。
+    pub fn codex_stop(&mut self) -> Result<String, ManagementCoreError> {
+        match self.codex_session.take() {
+            Some(session) => {
+                if let Some(pid) = session.pid {
+                    codex_launch::kill_process(pid);
+                }
+                codex_launch::restore_codex_state(&session.auth_backup, &session.config_backup)
+                    .map_err(ManagementCoreError::Unavailable)?;
+                Ok("已停止 Codex 并还原配置".to_string())
+            }
+            None => Ok("Codex 未在运行".to_string()),
+        }
+    }
+
+    /// 当前是否有 Codex 一键启动会话在运行。
+    pub fn codex_active(&self) -> bool {
+        self.codex_session.is_some()
     }
 
     pub fn list_agent_backups(

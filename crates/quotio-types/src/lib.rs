@@ -135,6 +135,12 @@ pub struct AppSettings {
     pub codex_launch_mode: String,
     /// 一键启动时绑定的 Codex 账号 key（`~/.cli-proxy-api` 文件名去 .json）。
     pub codex_bound_account: String,
+    /// Codex 模型（写入 config.toml 的 model）。
+    pub codex_model: String,
+    /// Codex 思考程度（model_reasoning_effort：minimal/low/medium/high）。
+    pub codex_reasoning: String,
+    /// Codex 代理访问密钥（写入 config.toml 的 experimental_bearer_token）。
+    pub codex_api_key: String,
 }
 
 impl Default for AppSettings {
@@ -170,6 +176,9 @@ impl Default for AppSettings {
             codex_app_path: String::new(),
             codex_launch_mode: "app".to_string(),
             codex_bound_account: String::new(),
+            codex_model: String::new(),
+            codex_reasoning: "high".to_string(),
+            codex_api_key: String::new(),
         }
     }
 }
@@ -852,6 +861,9 @@ pub struct AgentConfigurationRequest {
     pub model_slots: std::collections::BTreeMap<ModelSlot, String>,
     pub use_oauth: bool,
     pub available_models: Vec<AvailableModel>,
+    /// Codex 思考程度（model_reasoning_effort）；空则后端默认 high。
+    #[serde(default)]
+    pub reasoning_effort: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

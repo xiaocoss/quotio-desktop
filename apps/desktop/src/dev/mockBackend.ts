@@ -284,6 +284,9 @@ export const mockAppState: AppState = {
     codex_app_path: "",
     codex_launch_mode: "app",
     codex_bound_account: "",
+    codex_model: "",
+    codex_reasoning: "high",
+    codex_api_key: "",
   },
   proxy: {
     status: "running",
@@ -585,8 +588,12 @@ export async function mockInvoke<T>(command: string, args?: Record<string, unkno
         { key: "codex-demo@example.com-plus", email: "demo@example.com", disabled: false },
         { key: "codex-spare@example.com-free", email: "spare@example.com", disabled: true },
       ] as unknown as T;
-    case "configure_and_launch_codex":
+    case "codex_start":
       return "已启动 Codex 应用（mock）" as unknown as T;
+    case "codex_stop":
+      return "已停止 Codex 并还原配置（mock）" as unknown as T;
+    case "codex_launch_active":
+      return false as unknown as T;
     case "save_settings": {
       const settings = args?.settings as AppState["settings"] | undefined;
       if (settings) {

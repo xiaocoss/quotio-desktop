@@ -3492,6 +3492,36 @@ h3 {
   transform: translateY(-1px);
 }
 
+.agent-launch-btn {
+  flex: 0 0 auto;
+  margin-right: 8px;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.14s ease, transform 0.08s ease;
+}
+
+.agent-launch-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.agent-launch-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.agent-launch-btn--start {
+  background: #10a37f;
+}
+
+.agent-launch-btn--stop {
+  background: #d2453b;
+}
+
 .agent-configure-btn:disabled {
   cursor: default;
   opacity: 0.6;
