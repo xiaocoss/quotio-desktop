@@ -8,6 +8,21 @@ use std::process::Command;
 
 use serde_json::{json, Value};
 
+/// Windows：让子进程不弹出黑色控制台窗口（用于 powershell/taskkill 这类后台调用）。
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+/// 新建一个不弹控制台窗口的 Command（仅 Windows 加标志；其它平台原样）。
+fn quiet_command(program: &str) -> Command {
+    let mut command = Command::new(program);
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    command
+}
+
 // ---------- 路径 ----------
 
 fn codex_home() -> PathBuf {
@@ -80,7 +95,7 @@ fn parse_version_from_dir_name(name: &str) -> Vec<u64> {
 /// （比直接扫 WindowsApps 更可靠，后者子目录常被 ACL 挡）。
 #[cfg(target_os = "windows")]
 fn detect_codex_via_appx() -> Option<PathBuf> {
-    let output = Command::new("powershell")
+    let output = quiet_command("powershell")
         .args([
             "-NoProfile",
             "-NonInteractive",
@@ -291,7 +306,7 @@ fn restore_one(path: &Path, backup: &Option<String>) -> Result<(), String> {
 pub fn kill_process(pid: u32) {
     #[cfg(target_os = "windows")]
     {
-        let _ = Command::new("taskkill")
+        let _ = quiet_command("taskkill")
             .args(["/PID", &pid.to_string(), "/T", "/F"])
             .output();
     }
