@@ -507,14 +507,16 @@ impl AppCore {
         }
         // bearer token（写入 config.toml 的 experimental_bearer_token）：
         // 优先用用户在表单里填的；没填就自动用代理的第一个 api-key，省得手填。
-        let api_key = if settings.codex_api_key.trim().is_empty() {
+        let api_key = if !settings.codex_api_key.trim().is_empty() {
+            settings.codex_api_key.clone()
+        } else {
+            // 没填就自动取代理的 api-key：先管理快照，再读代理配置兜底。
             self.management_snapshot
                 .api_keys
                 .first()
                 .cloned()
+                .or_else(|| get_api_keys().into_iter().next())
                 .unwrap_or_default()
-        } else {
-            settings.codex_api_key.clone()
         };
         let request = AgentConfigurationRequest {
             agent_id: "codex".to_string(),

@@ -103,7 +103,7 @@ export function AgentsScreen({
   const [setupMode, setSetupMode] = useState<AgentSetupMode>("proxy");
   const [storageOption, setStorageOption] = useState<AgentConfigStorageOption>("both");
   const [proxyUrl, setProxyUrl] = useState(appState.proxy.endpoint || "http://127.0.0.1:28317");
-  const [apiKey, setApiKey] = useState("");
+  const [apiKey, setApiKey] = useState(appState.settings.codex_api_key || "");
   const [slotDrafts, setSlotDrafts] = useState<Partial<Record<ModelSlot, string>>>({});
   const modelOptions = availableModels.length > 0 ? availableModels : appState.fallback_runtime.available_models;
 
