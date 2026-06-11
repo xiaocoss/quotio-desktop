@@ -345,6 +345,7 @@ function renderSection(section: AppSection, props: AppShellProps) {
           onListBackups={props.onListAgentBackups}
           onRestoreBackup={props.onRestoreAgentBackup}
           onResetConfiguration={props.onResetAgentConfiguration}
+          onSaveSettings={props.onSaveSettings}
         />
       );
     case "fallback":

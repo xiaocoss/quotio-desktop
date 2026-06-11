@@ -20,6 +20,8 @@ import type {
   RequestLogEntry,
   UsageAggregate,
   UsageFilterOptions,
+  UsageModelBreakdownRow,
+  UsageTimeSeriesPoint,
 } from "../types";
 
 type ProviderFlags = {
@@ -279,6 +281,9 @@ export const mockAppState: AppState = {
     max_retry_interval_seconds: 30,
     remote_endpoint_url: null,
     remote_management_key: null,
+    codex_app_path: "",
+    codex_launch_mode: "app",
+    codex_bound_account: "",
   },
   proxy: {
     status: "running",
@@ -516,6 +521,46 @@ function mockFilterOptions(): UsageFilterOptions {
   };
 }
 
+function mockTimeseries(): UsageTimeSeriesPoint[] {
+  const base = Date.UTC(2026, 5, 6, 0, 0, 0);
+  return Array.from({ length: 8 }, (_, index) => {
+    const input = 12000 + index * 1600;
+    const cached = Math.round(input * 0.5);
+    const output = 3000 + index * 420;
+    return {
+      bucket: `${String(index * 3).padStart(2, "0")}:00`,
+      bucket_start_ms: base + index * 3 * 3_600_000,
+      total_requests: 20 + index * 3,
+      success_requests: 18 + index * 3,
+      failed_requests: 2,
+      input_tokens: input,
+      output_tokens: output,
+      cached_tokens: cached,
+      uncached_input_tokens: input - cached,
+      total_tokens: input + output,
+      estimated_cost: null,
+    };
+  });
+}
+
+function mockModelBreakdown(): UsageModelBreakdownRow[] {
+  return [
+    { model: "gpt-5.5", reqs: 120, input: 90000, output: 22000, cached: 60000 },
+    { model: "gemini-3-pro", reqs: 64, input: 48000, output: 12000, cached: 20000 },
+    { model: "claude-opus-4-5", reqs: 30, input: 26000, output: 8000, cached: 9000 },
+  ].map((row) => ({
+    model: row.model,
+    total_requests: row.reqs,
+    input_tokens: row.input,
+    output_tokens: row.output,
+    cached_tokens: row.cached,
+    uncached_input_tokens: row.input - row.cached,
+    total_tokens: row.input + row.output,
+    cache_hit_rate: row.input ? (row.cached / row.input) * 100 : 0,
+    estimated_cost: null,
+  }));
+}
+
 export async function mockInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   switch (command) {
     case "query_usage_stats":
@@ -524,11 +569,24 @@ export async function mockInvoke<T>(command: string, args?: Record<string, unkno
       return mockAccountSummary() as unknown as T;
     case "list_usage_filter_options":
       return mockFilterOptions() as unknown as T;
+    case "query_usage_timeseries":
+      return mockTimeseries() as unknown as T;
+    case "query_usage_model_breakdown":
+      return mockModelBreakdown() as unknown as T;
     case "query_account_auth_health":
       return mockAuthHealth() as unknown as T;
     case "get_model_prices":
     case "set_model_prices":
       return [] as unknown as T;
+    case "detect_codex_app":
+      return "C:\\Program Files\\WindowsApps\\OpenAI.Codex_x64\\app\\Codex.exe" as unknown as T;
+    case "list_codex_launch_accounts":
+      return [
+        { key: "codex-demo@example.com-plus", email: "demo@example.com", disabled: false },
+        { key: "codex-spare@example.com-free", email: "spare@example.com", disabled: true },
+      ] as unknown as T;
+    case "configure_and_launch_codex":
+      return "已启动 Codex 应用（mock）" as unknown as T;
     case "save_settings": {
       const settings = args?.settings as AppState["settings"] | undefined;
       if (settings) {

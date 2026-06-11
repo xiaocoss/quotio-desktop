@@ -3519,6 +3519,74 @@ h3 {
   gap: 10px;
 }
 
+/* ===== Codex 一键启动块 ===== */
+.codex-launch-block {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 14px;
+  border: 1.5px solid rgba(16, 163, 127, 0.45);
+  border-radius: var(--quotio-radius-lg);
+  background: rgba(16, 163, 127, 0.05);
+}
+
+.codex-launch-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.codex-launch-head strong {
+  font-size: 13.5px;
+}
+
+.codex-launch-tag {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: rgba(16, 163, 127, 0.14);
+  color: #0f7a5a;
+}
+
+.codex-launch-desc,
+.codex-launch-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--quotio-muted);
+  line-height: 1.55;
+}
+
+.codex-launch-path {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--quotio-muted);
+}
+
+.codex-launch-path code {
+  font-size: 11.5px;
+  word-break: break-all;
+}
+
+.codex-launch-status {
+  font-size: 12.5px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  line-height: 1.5;
+}
+
+.codex-launch-status.ok {
+  background: rgba(16, 163, 127, 0.1);
+  color: #0f7a5a;
+}
+
+.codex-launch-status.err {
+  background: rgba(215, 58, 49, 0.1);
+  color: #c0392b;
+}
+
 /* ===== API Keys page ===== */
 .api-keys-panel {
   padding-top: 14px;

@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import type {
   AgentBackupFile,
   AgentConfigMode,
@@ -7,14 +7,17 @@ import type {
   AgentConfigurationResult,
   AgentSetupMode,
   AgentStatus,
+  AppSettings,
   AppState,
   AvailableModel,
+  CodexAccountRef,
   ModelSlot,
   SavedAgentConfiguration,
 } from "../../types";
 import { RefreshIcon } from "../icons";
 import { Select } from "../Select";
 import { useT } from "../../i18n";
+import { invoke } from "../../lib/tauri";
 
 type AgentsScreenProps = {
   appState: AppState;
@@ -30,6 +33,7 @@ type AgentsScreenProps = {
   onListBackups: (agentId: string) => Promise<AgentBackupFile[]>;
   onRestoreBackup: (agentId: string, backupPath: string) => Promise<AgentConfigurationResult | null>;
   onResetConfiguration: (agentId: string) => Promise<AgentConfigurationResult | null>;
+  onSaveSettings: (settings: AppSettings) => void;
 };
 
 const modelSlots: ModelSlot[] = ["opus", "sonnet", "haiku"];
@@ -61,6 +65,7 @@ export function AgentsScreen({
   onListBackups,
   onRestoreBackup,
   onResetConfiguration,
+  onSaveSettings,
 }: AgentsScreenProps) {
   const t = useT();
   const sortedAgents = useMemo(
@@ -83,6 +88,71 @@ export function AgentsScreen({
   const [apiKey, setApiKey] = useState("");
   const [slotDrafts, setSlotDrafts] = useState<Partial<Record<ModelSlot, string>>>({});
   const modelOptions = availableModels.length > 0 ? availableModels : appState.fallback_runtime.available_models;
+
+  // ---- Codex 一键启动 ----
+  const [launchMode, setLaunchMode] = useState<string>(appState.settings.codex_launch_mode || "app");
+  const [boundAccount, setBoundAccount] = useState<string>(appState.settings.codex_bound_account || "");
+  const [codexAccounts, setCodexAccounts] = useState<CodexAccountRef[]>([]);
+  const [launchBusy, setLaunchBusy] = useState(false);
+  const [launchMsg, setLaunchMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    invoke<CodexAccountRef[]>("list_codex_launch_accounts").then(setCodexAccounts).catch(() => {});
+  }, []);
+
+  async function detectCodexApp() {
+    try {
+      const path = await invoke<string | null>("detect_codex_app");
+      if (path) {
+        onSaveSettings({ ...appState.settings, codex_app_path: path, remote_management_key: null });
+        setLaunchMsg({ ok: true, text: `${t("agents.launch.detected", "已探测到 Codex 应用")}：${path}` });
+      } else {
+        setLaunchMsg({ ok: false, text: t("agents.launch.notDetected", "未探测到 Codex 应用，请确认已安装桌面版") });
+      }
+    } catch (error) {
+      setLaunchMsg({ ok: false, text: String(error) });
+    }
+  }
+
+  async function launchCodex(status: AgentStatus) {
+    const model_slots: Partial<Record<ModelSlot, string>> = {};
+    for (const slot of modelSlots) {
+      const value = slotDrafts[slot]?.trim();
+      if (value) model_slots[slot] = value;
+    }
+    const request: AgentConfigurationRequest = {
+      agent_id: status.agent.id,
+      mode: "automatic",
+      setup_mode: "proxy",
+      storage_option: storageOption,
+      proxy_url: proxyUrl.trim(),
+      api_key: apiKey.trim(),
+      model_slots,
+      use_oauth: false,
+      available_models: modelOptions,
+    };
+    onSaveSettings({
+      ...appState.settings,
+      codex_launch_mode: launchMode,
+      codex_bound_account: boundAccount,
+      remote_management_key: null,
+    });
+    setLaunchBusy(true);
+    setLaunchMsg(null);
+    try {
+      const message = await invoke<string>("configure_and_launch_codex", {
+        request,
+        accountKey: boundAccount,
+        launchMode,
+        appPath: appState.settings.codex_app_path || null,
+      });
+      setLaunchMsg({ ok: true, text: message });
+    } catch (error) {
+      setLaunchMsg({ ok: false, text: String(error) });
+    } finally {
+      setLaunchBusy(false);
+    }
+  }
 
   async function submitConfiguration(status: AgentStatus) {
     const model_slots: Partial<Record<ModelSlot, string>> = {};
@@ -195,6 +265,82 @@ export function AgentsScreen({
             {t("agents.resetDefault")}
           </button>
         </div>
+
+        {status.agent.id === "codex" ? (
+          <div className="codex-launch-block">
+            <div className="codex-launch-head">
+              <strong>{t("agents.launch.title", "启动 Codex")}</strong>
+              <span className="codex-launch-tag">{t("agents.launch.tag", "一键")}</span>
+            </div>
+            <p className="codex-launch-desc">
+              {t("agents.launch.desc", "配好代理 → 绑定一个账号登录 → 启动 Codex，一步到位。")}
+            </p>
+            <div className="settings-form-grid">
+              <label>
+                {t("agents.launch.mode", "启动方式")}
+                <Select
+                  value={launchMode}
+                  options={[
+                    { value: "app", label: t("agents.launch.modeApp", "应用") },
+                    { value: "cli", label: t("agents.launch.modeCli", "终端") },
+                  ]}
+                  disabled={launchBusy}
+                  onChange={setLaunchMode}
+                />
+              </label>
+              <label>
+                {t("agents.launch.account", "绑定账号")}
+                <Select
+                  value={boundAccount}
+                  options={[
+                    { value: "", label: t("agents.launch.accountPick", "选择一个 Codex 账号") },
+                    ...codexAccounts.map((account) => ({
+                      value: account.key,
+                      label: account.disabled ? `${account.email}（已禁用）` : account.email,
+                    })),
+                  ]}
+                  disabled={launchBusy}
+                  onChange={setBoundAccount}
+                />
+              </label>
+            </div>
+            <p className="codex-launch-hint">
+              {t("agents.launch.accountHint", "仅用于让应用登录启动；实际调用走代理，该账号本身不耗额度。")}
+            </p>
+            {launchMode === "app" ? (
+              <div className="codex-launch-path">
+                <span>
+                  {t("agents.launch.appPath", "应用路径")}：
+                  <code>
+                    {appState.settings.codex_app_path ||
+                      t("agents.launch.appPathAuto", "未设置（启动时自动探测）")}
+                  </code>
+                </span>
+                <button
+                  className="secondary-action"
+                  type="button"
+                  onClick={() => void detectCodexApp()}
+                  disabled={launchBusy}
+                >
+                  {t("agents.launch.detect", "探测")}
+                </button>
+              </div>
+            ) : null}
+            <div className="inline-actions">
+              <button
+                className="primary-action"
+                type="button"
+                onClick={() => void launchCodex(status)}
+                disabled={launchBusy || boundAccount.trim().length === 0}
+              >
+                {launchBusy ? t("agents.launch.launching", "启动中…") : t("agents.launch.go", "配置并启动")}
+              </button>
+            </div>
+            {launchMsg ? (
+              <div className={`codex-launch-status ${launchMsg.ok ? "ok" : "err"}`}>{launchMsg.text}</div>
+            ) : null}
+          </div>
+        ) : null}
 
         {configuration ? <SavedConfigurationCard configuration={configuration} /> : null}
         {agentResult ? <AgentResultCard result={agentResult} /> : null}

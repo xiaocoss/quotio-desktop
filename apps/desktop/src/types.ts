@@ -41,6 +41,15 @@ export type AppSettings = {
   max_retry_interval_seconds: number;
   remote_endpoint_url: string | null;
   remote_management_key: string | null;
+  codex_app_path: string;
+  codex_launch_mode: string;
+  codex_bound_account: string;
+};
+
+export type CodexAccountRef = {
+  key: string;
+  email: string;
+  disabled: boolean;
 };
 
 export type ProxyHealthState = {
