@@ -917,13 +917,46 @@ fn opencode_model_config(model_name: &str) -> Value {
 
 fn merge_codex_config(existing: &str, managed: &str) -> String {
     let filtered = remove_codex_managed_config(existing);
-    let mut content = filtered.trim().to_string();
-    if !content.is_empty() {
+    // 托管块拆成「顶层键」和「[model_providers.cliproxyapi] 表」两段：
+    // 顶层键（model_provider / supports_websockets 等）必须放在**所有表之前**，
+    // 否则会被并进上一个表里（TOML 作用域），导致类型错误（如 boolean 落进字符串环境变量表）。
+    let (managed_top, managed_table) = split_managed_block(managed);
+
+    let mut content = String::new();
+    let top = managed_top.trim();
+    if !top.is_empty() {
+        content.push_str(top);
         content.push_str("\n\n");
     }
-    content.push_str(managed.trim());
+    let body = filtered.trim();
+    if !body.is_empty() {
+        content.push_str(body);
+        content.push_str("\n\n");
+    }
+    let table = managed_table.trim();
+    if !table.is_empty() {
+        content.push_str(table);
+    }
     content.push('\n');
     content
+}
+
+/// 把托管配置块拆成「顶层键部分」和「[model_providers.cliproxyapi] 表部分」。
+fn split_managed_block(managed: &str) -> (String, String) {
+    let mut top = Vec::new();
+    let mut table = Vec::new();
+    let mut in_table = false;
+    for line in managed.lines() {
+        if line.trim_start().starts_with("[model_providers.cliproxyapi") {
+            in_table = true;
+        }
+        if in_table {
+            table.push(line);
+        } else {
+            top.push(line);
+        }
+    }
+    (top.join("\n"), table.join("\n"))
 }
 
 fn remove_codex_managed_config(existing: &str) -> String {
@@ -1109,6 +1142,20 @@ model = "gpt-5"
         let output = remove_codex_managed_config(input);
         assert!(!output.contains("model_providers.cliproxyapi"));
         assert!(output.contains("[profiles.user]"));
+    }
+
+    #[test]
+    fn merge_codex_config_keeps_top_level_keys_before_tables() {
+        // 复现 Codex App 的情况：用户配置末尾是一个值为字符串的环境变量表。
+        let existing = "personality = \"x\"\n\n[runtime.env]\nSKY_PIPE = \"1\"\nCLI_PATH = \"c:/x\"\n";
+        let managed = "# CLIProxyAPI Configuration for Codex\nmodel_provider = \"cliproxyapi\"\nsupports_websockets = true\n\n[model_providers.cliproxyapi]\nname = \"cliproxyapi\"\nbase_url = \"http://127.0.0.1:28317/v1\"\n";
+        let merged = merge_codex_config(existing, managed);
+        let first_table = merged.find('[').expect("应有表头");
+        // 顶层键（含布尔 supports_websockets）必须在第一个表之前，否则会被并进字符串环境变量表里。
+        assert!(merged.find("model_provider").unwrap() < first_table);
+        assert!(merged.find("supports_websockets").unwrap() < first_table);
+        // 字符串环境变量键不应紧挨着我们的布尔顶层键。
+        assert!(!merged.contains("\"1\"\nsupports_websockets"));
     }
 
     #[test]
