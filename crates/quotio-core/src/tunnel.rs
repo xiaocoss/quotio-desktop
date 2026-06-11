@@ -23,7 +23,10 @@ fn download_url() -> &'static str {
 /// Download the cloudflared binary to `dest`. `on_progress(downloaded, total)`
 /// is called during the transfer so the UI can render a percentage (total may
 /// be 0 when the server omits Content-Length).
-pub fn download_cloudflared(dest: &Path, mut on_progress: impl FnMut(u64, u64)) -> Result<(), String> {
+pub fn download_cloudflared(
+    dest: &Path,
+    mut on_progress: impl FnMut(u64, u64),
+) -> Result<(), String> {
     let agent = build_agent();
 
     if let Some(parent) = dest.parent() {
@@ -101,7 +104,14 @@ fn build_agent() -> ureq::Agent {
 }
 
 fn proxy_from_env() -> Option<String> {
-    for key in ["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"] {
+    for key in [
+        "HTTPS_PROXY",
+        "https_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+    ] {
         if let Ok(value) = std::env::var(key) {
             let trimmed = value.trim();
             if !trimmed.is_empty() {

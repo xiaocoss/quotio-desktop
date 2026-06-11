@@ -365,6 +365,7 @@ pub struct AuthFile {
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
     pub last_refresh: Option<String>,
+    pub quotio_bound_login_only: Option<bool>,
     #[serde(default)]
     pub success: Option<u64>,
     #[serde(default)]

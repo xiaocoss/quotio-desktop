@@ -8,6 +8,10 @@ use std::process::Command;
 
 use serde_json::{json, Value};
 
+const LAUNCH_BACKUP_FILE: &str = "quotio-launch-backup.json";
+const BOUND_LOGIN_ONLY_FIELD: &str = "quotio_bound_login_only";
+const PREVIOUS_DISABLED_FIELD: &str = "quotio_previous_disabled";
+
 /// Windows：让子进程不弹出黑色控制台窗口（用于 powershell/taskkill 这类后台调用）。
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -37,8 +41,16 @@ fn codex_config_path() -> PathBuf {
     codex_home().join("config.toml")
 }
 
+fn codex_launch_backup_path() -> PathBuf {
+    codex_home().join(LAUNCH_BACKUP_FILE)
+}
+
 fn proxy_auth_dir() -> PathBuf {
     quotio_platform::expand_home_path("~/.cli-proxy-api")
+}
+
+fn proxy_account_path_in(dir: &Path, key: &str) -> PathBuf {
+    dir.join(format!("{key}.json"))
 }
 
 // ---------- App 探测 ----------
@@ -286,17 +298,123 @@ fn read_proxy_codex_account(key: &str) -> Result<Value, String> {
     serde_json::from_str::<Value>(&text).map_err(|e| format!("解析账号文件失败: {e}"))
 }
 
-/// 绑定账号：把选中号的凭证写进 `~/.codex/auth.json`（写前备份）。
+fn read_proxy_account_from(path: &Path) -> Result<Value, String> {
+    let text = std::fs::read_to_string(path)
+        .map_err(|e| format!("读取账号文件失败 {}: {e}", path.display()))?;
+    serde_json::from_str::<Value>(&text).map_err(|e| format!("解析账号文件失败: {e}"))
+}
+
+fn write_proxy_account_to(path: &Path, value: &Value) -> Result<(), String> {
+    let text =
+        serde_json::to_string_pretty(value).map_err(|e| format!("序列化账号文件失败: {e}"))?;
+    std::fs::write(path, text).map_err(|e| format!("写入账号文件失败 {}: {e}", path.display()))
+}
+
+/// 切换 Codex 绑定账号：释放旧绑定账号，锁定新绑定账号。
+/// 锁定方式是写入 `disabled=true`，让 CLIProxyAPI 不把它放进反代池。
+pub fn apply_bound_account_selection(previous_key: &str, next_key: &str) -> Result<(), String> {
+    apply_bound_account_selection_in(&proxy_auth_dir(), previous_key, next_key)
+}
+
+fn apply_bound_account_selection_in(
+    dir: &Path,
+    previous_key: &str,
+    next_key: &str,
+) -> Result<(), String> {
+    let previous_key = previous_key.trim();
+    let next_key = next_key.trim();
+
+    if !previous_key.is_empty() && previous_key != next_key {
+        release_bound_account_login_only_in(dir, previous_key)?;
+    }
+    if !next_key.is_empty() {
+        mark_bound_account_login_only_in(dir, next_key)?;
+    }
+    Ok(())
+}
+
+/// 把账号标记为“仅用于 Codex 登录”，并保留它原来的 disabled 状态，供切号时恢复。
+pub fn mark_bound_account_login_only(key: &str) -> Result<(), String> {
+    mark_bound_account_login_only_in(&proxy_auth_dir(), key)
+}
+
+fn mark_bound_account_login_only_in(dir: &Path, key: &str) -> Result<(), String> {
+    let path = proxy_account_path_in(dir, key.trim());
+    let mut value = read_proxy_account_from(&path)?;
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| format!("账号文件不是 JSON 对象: {}", path.display()))?;
+    let was_already_bound = object
+        .get(BOUND_LOGIN_ONLY_FIELD)
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
+    let previous_disabled = if was_already_bound {
+        object
+            .get(PREVIOUS_DISABLED_FIELD)
+            .and_then(|value| value.as_bool())
+            .unwrap_or_else(|| {
+                object
+                    .get("disabled")
+                    .and_then(|value| value.as_bool())
+                    .unwrap_or(false)
+            })
+    } else {
+        object
+            .get("disabled")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false)
+    };
+    object.insert("disabled".to_string(), Value::Bool(true));
+    object.insert(BOUND_LOGIN_ONLY_FIELD.to_string(), Value::Bool(true));
+    object.insert(
+        PREVIOUS_DISABLED_FIELD.to_string(),
+        Value::Bool(previous_disabled),
+    );
+    write_proxy_account_to(&path, &value)
+}
+
+/// 释放由 Quotio 绑定逻辑禁用的账号，恢复为绑定前的 disabled 状态。
+pub fn release_bound_account_login_only(key: &str) -> Result<(), String> {
+    release_bound_account_login_only_in(&proxy_auth_dir(), key)
+}
+
+fn release_bound_account_login_only_in(dir: &Path, key: &str) -> Result<(), String> {
+    let key = key.trim();
+    if key.is_empty() {
+        return Ok(());
+    }
+    let path = proxy_account_path_in(dir, key);
+    if !path.exists() {
+        return Ok(());
+    }
+    let mut value = read_proxy_account_from(&path)?;
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| format!("账号文件不是 JSON 对象: {}", path.display()))?;
+    let is_bound_login_only = object
+        .get(BOUND_LOGIN_ONLY_FIELD)
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
+    if !is_bound_login_only {
+        return Ok(());
+    }
+    let previous_disabled = object
+        .get(PREVIOUS_DISABLED_FIELD)
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
+    object.insert("disabled".to_string(), Value::Bool(previous_disabled));
+    object.remove(BOUND_LOGIN_ONLY_FIELD);
+    object.remove(PREVIOUS_DISABLED_FIELD);
+    write_proxy_account_to(&path, &value)
+}
+
+/// 绑定账号：把选中号的凭证写进 `~/.codex/auth.json`。
 pub fn inject_bound_account(key: &str) -> Result<(), String> {
     let src = read_proxy_codex_account(key)?;
     let auth = build_codex_auth_json(&src);
     let home = codex_home();
     std::fs::create_dir_all(&home).map_err(|e| format!("创建 ~/.codex 失败: {e}"))?;
     let auth_path = codex_auth_path();
-    if auth_path.exists() {
-        let backup = home.join("auth.json.quotio.bak");
-        let _ = std::fs::copy(&auth_path, &backup);
-    }
     let text =
         serde_json::to_string_pretty(&auth).map_err(|e| format!("序列化 auth.json 失败: {e}"))?;
     std::fs::write(&auth_path, text).map_err(|e| format!("写入 auth.json 失败: {e}"))?;
@@ -305,23 +423,74 @@ pub fn inject_bound_account(key: &str) -> Result<(), String> {
 
 // ---------- 启动生命周期：备份 / 还原 / 杀进程 ----------
 
-/// 一次「启动」的会话：记录启动的进程 pid + 启动前 auth.json/config.toml 的原始内容，
-/// 用于「停止」或关闭软件时还原成启动前的样子。
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct CodexLaunchBackup {
+    /// 启动前 `~/.codex/auth.json` 内容（None = 当时不存在）。
+    auth_json: Option<String>,
+    /// 启动前 `~/.codex/config.toml` 内容（None = 当时不存在）。
+    config_toml: Option<String>,
+}
+
+/// 一次「启动」的会话：记录启动的进程 pid，用于「停止」或关闭软件时杀进程。
+/// 文件恢复通过 `~/.codex/quotio-launch-backup.json` 完成。
 pub struct CodexSession {
     pub pid: Option<u32>,
-    /// 启动前 `~/.codex/auth.json` 内容（None = 当时不存在）。
-    pub auth_backup: Option<String>,
-    /// 启动前 `~/.codex/config.toml` 内容（None = 当时不存在）。
-    pub config_backup: Option<String>,
     pub launch_mode: String,
 }
 
 /// 读当前 auth.json + config.toml 内容（None = 文件不存在），用于启动前备份。
 pub fn read_codex_state() -> (Option<String>, Option<String>) {
+    read_codex_state_in(&codex_home())
+}
+
+fn read_codex_state_in(home: &Path) -> (Option<String>, Option<String>) {
     (
-        std::fs::read_to_string(codex_auth_path()).ok(),
-        std::fs::read_to_string(codex_config_path()).ok(),
+        std::fs::read_to_string(home.join("auth.json")).ok(),
+        std::fs::read_to_string(home.join("config.toml")).ok(),
     )
+}
+
+/// 把启动前的 auth.json + config.toml 状态写进一个固定备份文件。
+pub fn write_launch_backup() -> Result<(), String> {
+    write_launch_backup_in(&codex_home())
+}
+
+fn write_launch_backup_in(home: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(home).map_err(|e| format!("创建 ~/.codex 失败: {e}"))?;
+    let backup_path = home.join(LAUNCH_BACKUP_FILE);
+    if backup_path.exists() {
+        return Err(format!("Codex 启动备份已存在: {}", backup_path.display()));
+    }
+    let (auth_json, config_toml) = read_codex_state_in(home);
+    let backup = CodexLaunchBackup {
+        auth_json,
+        config_toml,
+    };
+    let text = serde_json::to_string_pretty(&backup)
+        .map_err(|e| format!("序列化 Codex 启动备份失败: {e}"))?;
+    std::fs::write(&backup_path, text).map_err(|e| format!("写入 Codex 启动备份失败: {e}"))
+}
+
+pub fn launch_backup_exists() -> bool {
+    codex_launch_backup_path().exists()
+}
+
+/// 从固定备份文件恢复 auth.json + config.toml，恢复成功后删除备份文件。
+pub fn restore_codex_state_from_launch_backup() -> Result<(), String> {
+    restore_codex_state_from_launch_backup_in(&codex_home())
+}
+
+fn restore_codex_state_from_launch_backup_in(home: &Path) -> Result<(), String> {
+    let backup_path = home.join(LAUNCH_BACKUP_FILE);
+    let text = std::fs::read_to_string(&backup_path)
+        .map_err(|e| format!("读取 Codex 启动备份失败 {}: {e}", backup_path.display()))?;
+    let backup: CodexLaunchBackup =
+        serde_json::from_str(&text).map_err(|e| format!("解析 Codex 启动备份失败: {e}"))?;
+    restore_one(&home.join("auth.json"), &backup.auth_json)?;
+    restore_one(&home.join("config.toml"), &backup.config_toml)?;
+    std::fs::remove_file(&backup_path)
+        .map_err(|e| format!("删除 Codex 启动备份失败 {}: {e}", backup_path.display()))?;
+    Ok(())
 }
 
 /// 把 auth.json + config.toml 还原到备份内容（None = 原本不存在 → 删除）。
@@ -417,7 +586,12 @@ pub fn launch_codex_cli() -> Result<Option<u32>, String> {
         }
         Command::new("cmd")
             .args([
-                "/c", "start", "powershell", "-NoExit", "-Command", &codex_cmd,
+                "/c",
+                "start",
+                "powershell",
+                "-NoExit",
+                "-Command",
+                &codex_cmd,
             ])
             .spawn()
             .map_err(|e| format!("打开终端失败: {e}"))?;
@@ -451,9 +625,7 @@ mod tests {
     fn detects_codex_exe_under_windowsapps() {
         let tmp = std::env::temp_dir().join("ql_codex_detect_test_a");
         let _ = std::fs::remove_dir_all(&tmp);
-        let app = tmp
-            .join("OpenAI.Codex_26.608.1337.0_x64__hash")
-            .join("app");
+        let app = tmp.join("OpenAI.Codex_26.608.1337.0_x64__hash").join("app");
         std::fs::create_dir_all(&app).unwrap();
         std::fs::write(app.join("Codex.exe"), b"x").unwrap();
         let found = detect_codex_app_path_in(&[tmp.clone()]);
@@ -465,7 +637,10 @@ mod tests {
     fn detect_picks_highest_version() {
         let tmp = std::env::temp_dir().join("ql_codex_detect_test_b");
         let _ = std::fs::remove_dir_all(&tmp);
-        for dir in ["OpenAI.Codex_1.2.0_x64__h", "OpenAI.Codex_26.608.1337.0_x64__h"] {
+        for dir in [
+            "OpenAI.Codex_1.2.0_x64__h",
+            "OpenAI.Codex_26.608.1337.0_x64__h",
+        ] {
             let app = tmp.join(dir).join("app");
             std::fs::create_dir_all(&app).unwrap();
             std::fs::write(app.join("Codex.exe"), b"x").unwrap();
@@ -510,5 +685,176 @@ mod tests {
         assert!(is_codex_auth("whatever.json", &value));
         let gemini = json!({ "access_token": "a", "type": "gemini" });
         assert!(!is_codex_auth("gemini-x.json", &gemini));
+    }
+
+    #[test]
+    fn launch_backup_restores_existing_auth_and_config_files() {
+        let home = temp_codex_home("ql_codex_launch_backup_existing");
+        std::fs::create_dir_all(&home).unwrap();
+        let auth_path = home.join("auth.json");
+        let config_path = home.join("config.toml");
+        std::fs::write(&auth_path, "original-auth").unwrap();
+        std::fs::write(&config_path, "original-config").unwrap();
+
+        write_launch_backup_in(&home).unwrap();
+        std::fs::write(&auth_path, "quotio-auth").unwrap();
+        std::fs::write(&config_path, "quotio-config").unwrap();
+
+        restore_codex_state_from_launch_backup_in(&home).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(&auth_path).unwrap(),
+            "original-auth"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&config_path).unwrap(),
+            "original-config"
+        );
+        assert!(!home.join("quotio-launch-backup.json").exists());
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn launch_backup_removes_auth_and_config_that_did_not_exist_before_launch() {
+        let home = temp_codex_home("ql_codex_launch_backup_missing");
+        std::fs::create_dir_all(&home).unwrap();
+        let auth_path = home.join("auth.json");
+        let config_path = home.join("config.toml");
+
+        write_launch_backup_in(&home).unwrap();
+        std::fs::write(&auth_path, "quotio-auth").unwrap();
+        std::fs::write(&config_path, "quotio-config").unwrap();
+
+        restore_codex_state_from_launch_backup_in(&home).unwrap();
+
+        assert!(!auth_path.exists());
+        assert!(!config_path.exists());
+        assert!(!home.join("quotio-launch-backup.json").exists());
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn launch_backup_does_not_overwrite_existing_restore_point() {
+        let home = temp_codex_home("ql_codex_launch_backup_no_overwrite");
+        std::fs::create_dir_all(&home).unwrap();
+        let auth_path = home.join("auth.json");
+        let config_path = home.join("config.toml");
+        std::fs::write(&auth_path, "original-auth").unwrap();
+        std::fs::write(&config_path, "original-config").unwrap();
+        write_launch_backup_in(&home).unwrap();
+
+        std::fs::write(&auth_path, "quotio-auth").unwrap();
+        std::fs::write(&config_path, "quotio-config").unwrap();
+
+        let error = write_launch_backup_in(&home).expect_err("existing restore point is preserved");
+        assert!(error.contains("Codex 启动备份已存在"));
+
+        restore_codex_state_from_launch_backup_in(&home).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&auth_path).unwrap(),
+            "original-auth"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&config_path).unwrap(),
+            "original-config"
+        );
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn marking_bound_account_disables_it_and_records_previous_state() {
+        let dir = temp_codex_home("ql_codex_bound_mark");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("codex-a.json"),
+            r#"{"type":"codex","email":"a@example.com","disabled":false,"access_token":"a","id_token":"i","refresh_token":"r"}"#,
+        )
+        .unwrap();
+
+        mark_bound_account_login_only_in(&dir, "codex-a").unwrap();
+
+        let value = read_json_for_test(&dir.join("codex-a.json"));
+        assert_eq!(value["disabled"], true);
+        assert_eq!(value["quotio_bound_login_only"], true);
+        assert_eq!(value["quotio_previous_disabled"], false);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn releasing_bound_account_restores_previous_disabled_state() {
+        let dir = temp_codex_home("ql_codex_bound_release");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("codex-a.json"),
+            r#"{"type":"codex","email":"a@example.com","disabled":false,"access_token":"a","id_token":"i","refresh_token":"r"}"#,
+        )
+        .unwrap();
+        mark_bound_account_login_only_in(&dir, "codex-a").unwrap();
+
+        release_bound_account_login_only_in(&dir, "codex-a").unwrap();
+
+        let value = read_json_for_test(&dir.join("codex-a.json"));
+        assert_eq!(value["disabled"], false);
+        assert!(value.get("quotio_bound_login_only").is_none());
+        assert!(value.get("quotio_previous_disabled").is_none());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn releasing_account_that_was_previously_disabled_keeps_it_disabled() {
+        let dir = temp_codex_home("ql_codex_bound_release_disabled");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("codex-a.json"),
+            r#"{"type":"codex","email":"a@example.com","disabled":true,"access_token":"a","id_token":"i","refresh_token":"r"}"#,
+        )
+        .unwrap();
+        mark_bound_account_login_only_in(&dir, "codex-a").unwrap();
+
+        release_bound_account_login_only_in(&dir, "codex-a").unwrap();
+
+        let value = read_json_for_test(&dir.join("codex-a.json"));
+        assert_eq!(value["disabled"], true);
+        assert!(value.get("quotio_bound_login_only").is_none());
+        assert!(value.get("quotio_previous_disabled").is_none());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn changing_bound_account_releases_old_and_marks_new() {
+        let dir = temp_codex_home("ql_codex_bound_change");
+        std::fs::create_dir_all(&dir).unwrap();
+        for key in ["codex-a", "codex-b"] {
+            std::fs::write(
+                dir.join(format!("{key}.json")),
+                format!(
+                    r#"{{"type":"codex","email":"{key}@example.com","disabled":false,"access_token":"a","id_token":"i","refresh_token":"r"}}"#
+                ),
+            )
+            .unwrap();
+        }
+        mark_bound_account_login_only_in(&dir, "codex-a").unwrap();
+
+        apply_bound_account_selection_in(&dir, "codex-a", "codex-b").unwrap();
+
+        let old = read_json_for_test(&dir.join("codex-a.json"));
+        let new = read_json_for_test(&dir.join("codex-b.json"));
+        assert_eq!(old["disabled"], false);
+        assert!(old.get("quotio_bound_login_only").is_none());
+        assert_eq!(new["disabled"], true);
+        assert_eq!(new["quotio_bound_login_only"], true);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn read_json_for_test(path: &Path) -> Value {
+        serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
+    }
+
+    fn temp_codex_home(prefix: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("{prefix}_{}_{}", std::process::id(), nanos))
     }
 }

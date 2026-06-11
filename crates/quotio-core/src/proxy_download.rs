@@ -34,7 +34,10 @@ struct Asset {
 /// Download + extract the proxy binary to `dest`. Returns the release tag.
 /// `on_progress(downloaded_bytes, total_bytes)` is called during the download
 /// so the UI can show a percentage (total may be 0 if unknown).
-pub fn download_proxy_binary(dest: &Path, mut on_progress: impl FnMut(u64, u64)) -> Result<String, String> {
+pub fn download_proxy_binary(
+    dest: &Path,
+    mut on_progress: impl FnMut(u64, u64),
+) -> Result<String, String> {
     let agent = build_agent();
 
     let release: Release = agent
@@ -69,8 +72,8 @@ pub fn download_proxy_binary(dest: &Path, mut on_progress: impl FnMut(u64, u64))
             .filter(|value| *value > 0)
             .unwrap_or(asset.size);
         let mut reader = response.into_reader();
-        let mut file =
-            fs::File::create(&archive_path).map_err(|error| format!("创建临时文件失败：{}", error))?;
+        let mut file = fs::File::create(&archive_path)
+            .map_err(|error| format!("创建临时文件失败：{}", error))?;
         let mut buffer = [0u8; 65536];
         let mut downloaded: u64 = 0;
         on_progress(0, total);
@@ -182,7 +185,14 @@ fn build_agent() -> ureq::Agent {
 }
 
 fn proxy_from_env() -> Option<String> {
-    for key in ["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"] {
+    for key in [
+        "HTTPS_PROXY",
+        "https_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+    ] {
         if let Ok(value) = std::env::var(key) {
             let trimmed = value.trim();
             if !trimmed.is_empty() {

@@ -136,6 +136,7 @@ export type AuthFile = {
   created_at?: string | null;
   updated_at?: string | null;
   last_refresh?: string | null;
+  quotio_bound_login_only?: boolean | null;
   active_in_ide?: boolean | null;
   success?: number | null;
   failed?: number | null;

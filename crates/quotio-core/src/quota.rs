@@ -32,8 +32,10 @@ const CLAUDE_CLIENT_ID: &str = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
 const COPILOT_ENTITLEMENT_URL: &str = "https://api.github.com/copilot_internal/user";
 
 // ---- Antigravity (Google Cloud Code) ----
-const ANTIGRAVITY_MODELS_URL: &str = "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels";
-const ANTIGRAVITY_PROJECT_URL: &str = "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist";
+const ANTIGRAVITY_MODELS_URL: &str =
+    "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels";
+const ANTIGRAVITY_PROJECT_URL: &str =
+    "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist";
 const ANTIGRAVITY_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const ANTIGRAVITY_CLIENT_ID: &str =
     "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com";
@@ -106,7 +108,11 @@ fn format_reset_epoch(value: f64) -> Option<String> {
     if value <= 0.0 {
         return None;
     }
-    let secs = if value > 1.0e12 { (value / 1000.0) as i64 } else { value as i64 };
+    let secs = if value > 1.0e12 {
+        (value / 1000.0) as i64
+    } else {
+        value as i64
+    };
     format_reset_unix(secs)
 }
 
@@ -139,7 +145,14 @@ fn build_agent(proxy_url: Option<&str>) -> ureq::Agent {
 }
 
 fn proxy_from_env() -> Option<String> {
-    for key in ["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"] {
+    for key in [
+        "HTTPS_PROXY",
+        "https_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+    ] {
         if let Ok(value) = std::env::var(key) {
             let trimmed = value.trim();
             if !trimmed.is_empty() {
@@ -287,7 +300,10 @@ where
                     })
                 })
                 .collect();
-            handles.into_iter().map(|handle| handle.join().unwrap_or(None)).collect()
+            handles
+                .into_iter()
+                .map(|handle| handle.join().unwrap_or(None))
+                .collect()
         });
         out.extend(results.into_iter().flatten());
     }
@@ -296,13 +312,19 @@ where
 
 // ===================== Codex / OpenAI =====================
 
-fn fetch_codex_quotas(agent: &ureq::Agent, emit: &(dyn Fn(&AccountQuota) + Sync)) -> Vec<AccountQuota> {
+fn fetch_codex_quotas(
+    agent: &ureq::Agent,
+    emit: &(dyn Fn(&AccountQuota) + Sync),
+) -> Vec<AccountQuota> {
     fetch_parallel(agent, list_codex_auth_files(), fetch_codex_one, emit)
 }
 
 // ===================== Gemini CLI =====================
 
-fn fetch_gemini_quotas(agent: &ureq::Agent, emit: &(dyn Fn(&AccountQuota) + Sync)) -> Vec<AccountQuota> {
+fn fetch_gemini_quotas(
+    agent: &ureq::Agent,
+    emit: &(dyn Fn(&AccountQuota) + Sync),
+) -> Vec<AccountQuota> {
     fetch_parallel(agent, list_auth_files("gemini-"), fetch_gemini_one, emit)
 }
 
@@ -450,8 +472,16 @@ fn fetch_codex_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Option<A
     };
 
     let rate = usage.rate_limit.unwrap_or_default();
-    let session_used = rate.primary_window.as_ref().and_then(|w| w.used_percent).unwrap_or(0);
-    let weekly_used = rate.secondary_window.as_ref().and_then(|w| w.used_percent).unwrap_or(0);
+    let session_used = rate
+        .primary_window
+        .as_ref()
+        .and_then(|w| w.used_percent)
+        .unwrap_or(0);
+    let weekly_used = rate
+        .secondary_window
+        .as_ref()
+        .and_then(|w| w.used_percent)
+        .unwrap_or(0);
     let session_reset = rate.primary_window.as_ref().and_then(|w| w.reset_at);
     let weekly_reset = rate.secondary_window.as_ref().and_then(|w| w.reset_at);
 
@@ -467,8 +497,16 @@ fn fetch_codex_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Option<A
         is_forbidden: session_used >= 100,
         status_message: codex_plan_status(&auth, usage.plan_type.as_deref()),
         models: vec![
-            model_usage("Session", (100 - session_used.clamp(0, 100)) as f64, session_reset.and_then(format_reset_unix)),
-            model_usage("Weekly", (100 - weekly_used.clamp(0, 100)) as f64, weekly_reset.and_then(format_reset_unix)),
+            model_usage(
+                "Session",
+                (100 - session_used.clamp(0, 100)) as f64,
+                session_reset.and_then(format_reset_unix),
+            ),
+            model_usage(
+                "Weekly",
+                (100 - weekly_used.clamp(0, 100)) as f64,
+                weekly_reset.and_then(format_reset_unix),
+            ),
         ],
     })
 }
@@ -489,8 +527,12 @@ fn fetch_codex_usage(
     }
 
     match request.call() {
-        Ok(response) => response.into_json::<CodexUsageResponse>().map_err(|_| FetchError::Other),
-        Err(ureq::Error::Status(401, _)) | Err(ureq::Error::Status(403, _)) => Err(FetchError::Unauthorized),
+        Ok(response) => response
+            .into_json::<CodexUsageResponse>()
+            .map_err(|_| FetchError::Other),
+        Err(ureq::Error::Status(401, _)) | Err(ureq::Error::Status(403, _)) => {
+            Err(FetchError::Unauthorized)
+        }
         Err(_) => Err(FetchError::Other),
     }
 }
@@ -513,7 +555,9 @@ fn refresh_codex_token(agent: &ureq::Agent, refresh_token: &str) -> Result<Strin
 /// Whether a JWT access token is expired (or within a 60s buffer of expiry).
 /// Returns false when the `exp` claim can't be read, so we don't refresh blindly.
 fn jwt_token_expired(token: &str) -> bool {
-    match decode_jwt_payload(token).and_then(|claims| claims.get("exp").and_then(|exp| exp.as_f64())) {
+    match decode_jwt_payload(token)
+        .and_then(|claims| claims.get("exp").and_then(|exp| exp.as_f64()))
+    {
         Some(exp) => exp < (now_unix() as f64) + 60.0,
         None => false,
     }
@@ -546,7 +590,10 @@ fn resolve_codex_account_id(auth: &CodexAuthFile, raw: &serde_json::Value) -> Op
             return Some(id.to_string());
         }
     }
-    if let Some(id) = raw.get("chatgpt_account_id").and_then(|value| value.as_str()) {
+    if let Some(id) = raw
+        .get("chatgpt_account_id")
+        .and_then(|value| value.as_str())
+    {
         if !id.is_empty() {
             return Some(id.to_string());
         }
@@ -556,7 +603,9 @@ fn resolve_codex_account_id(auth: &CodexAuthFile, raw: &serde_json::Value) -> Op
 
 fn decode_jwt_payload(token: &str) -> Option<serde_json::Value> {
     let segment = token.split('.').nth(1)?.trim_end_matches('=');
-    let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(segment).ok()?;
+    let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(segment)
+        .ok()?;
     serde_json::from_slice(&decoded).ok()
 }
 
@@ -648,7 +697,9 @@ fn read_cursor_auth() -> Option<(String, Option<String>, Option<String>)> {
             .prepare("SELECT key, value FROM ItemTable WHERE key LIKE 'cursorAuth/%'")
             .ok()?;
         let mapped = stmt
-            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
             .ok()?;
         mapped.flatten().collect()
     };
@@ -902,7 +953,10 @@ fn claude_window_model(name: &str, window: ClaudeWindow) -> QuotaModelUsage {
     model_usage(name, 100.0 - util, reset)
 }
 
-fn fetch_claude_usage(agent: &ureq::Agent, access_token: &str) -> Result<ClaudeUsageResponse, FetchError> {
+fn fetch_claude_usage(
+    agent: &ureq::Agent,
+    access_token: &str,
+) -> Result<ClaudeUsageResponse, FetchError> {
     let response = agent
         .get(CLAUDE_USAGE_URL)
         .set("Accept", "application/json")
@@ -918,7 +972,9 @@ fn fetch_claude_usage(agent: &ureq::Agent, access_token: &str) -> Result<ClaudeU
             }
             Ok(parsed)
         }
-        Err(ureq::Error::Status(401, _)) | Err(ureq::Error::Status(403, _)) => Err(FetchError::Unauthorized),
+        Err(ureq::Error::Status(401, _)) | Err(ureq::Error::Status(403, _)) => {
+            Err(FetchError::Unauthorized)
+        }
         Err(_) => Err(FetchError::Other),
     }
 }
@@ -1031,32 +1087,55 @@ fn fetch_copilot_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Option
     if let Some(snapshots) = entitlement.quota_snapshots.as_ref() {
         if let Some(chat) = snapshots.chat.as_ref() {
             if chat.unlimited != Some(true) {
-                models.push(model_usage("Chat", copilot_percent(chat, 50), reset.clone()));
+                models.push(model_usage(
+                    "Chat",
+                    copilot_percent(chat, 50),
+                    reset.clone(),
+                ));
             }
         }
         if let Some(completions) = snapshots.completions.as_ref() {
             if completions.unlimited != Some(true) {
-                models.push(model_usage("Completions", copilot_percent(completions, 2000), reset.clone()));
+                models.push(model_usage(
+                    "Completions",
+                    copilot_percent(completions, 2000),
+                    reset.clone(),
+                ));
             }
         }
         if let Some(premium) = snapshots.premium_interactions.as_ref() {
             if premium.unlimited != Some(true) {
-                models.push(model_usage("Premium", copilot_percent(premium, 50), reset.clone()));
+                models.push(model_usage(
+                    "Premium",
+                    copilot_percent(premium, 50),
+                    reset.clone(),
+                ));
             }
         }
     }
     if models.is_empty() {
-        if let (Some(remaining), Some(total)) =
-            (entitlement.limited_user_quotas.as_ref(), entitlement.monthly_quotas.as_ref())
-        {
+        if let (Some(remaining), Some(total)) = (
+            entitlement.limited_user_quotas.as_ref(),
+            entitlement.monthly_quotas.as_ref(),
+        ) {
             if let (Some(chat_remaining), Some(chat_total)) = (remaining.chat, total.chat) {
                 if chat_total > 0 {
-                    models.push(model_usage("Chat", chat_remaining as f64 / chat_total as f64 * 100.0, reset.clone()));
+                    models.push(model_usage(
+                        "Chat",
+                        chat_remaining as f64 / chat_total as f64 * 100.0,
+                        reset.clone(),
+                    ));
                 }
             }
-            if let (Some(comp_remaining), Some(comp_total)) = (remaining.completions, total.completions) {
+            if let (Some(comp_remaining), Some(comp_total)) =
+                (remaining.completions, total.completions)
+            {
                 if comp_total > 0 {
-                    models.push(model_usage("Completions", comp_remaining as f64 / comp_total as f64 * 100.0, reset.clone()));
+                    models.push(model_usage(
+                        "Completions",
+                        comp_remaining as f64 / comp_total as f64 * 100.0,
+                        reset.clone(),
+                    ));
                 }
             }
         }
@@ -1075,7 +1154,10 @@ fn fetch_copilot_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Option
     })
 }
 
-fn fetch_copilot_entitlement(agent: &ureq::Agent, token: &str) -> Result<CopilotEntitlement, FetchError> {
+fn fetch_copilot_entitlement(
+    agent: &ureq::Agent,
+    token: &str,
+) -> Result<CopilotEntitlement, FetchError> {
     match agent
         .get(COPILOT_ENTITLEMENT_URL)
         .set("Authorization", &format!("Bearer {}", token))
@@ -1083,8 +1165,12 @@ fn fetch_copilot_entitlement(agent: &ureq::Agent, token: &str) -> Result<Copilot
         .set("X-GitHub-Api-Version", "2022-11-28")
         .call()
     {
-        Ok(response) => response.into_json::<CopilotEntitlement>().map_err(|_| FetchError::Other),
-        Err(ureq::Error::Status(401, _)) | Err(ureq::Error::Status(403, _)) => Err(FetchError::Unauthorized),
+        Ok(response) => response
+            .into_json::<CopilotEntitlement>()
+            .map_err(|_| FetchError::Other),
+        Err(ureq::Error::Status(401, _)) | Err(ureq::Error::Status(403, _)) => {
+            Err(FetchError::Unauthorized)
+        }
         Err(_) => Err(FetchError::Other),
     }
 }
@@ -1104,8 +1190,16 @@ fn copilot_percent(snapshot: &CopilotSnapshot, default_total: i64) -> f64 {
 }
 
 fn copilot_plan_name(entitlement: &CopilotEntitlement) -> String {
-    let sku = entitlement.access_type_sku.clone().unwrap_or_default().to_lowercase();
-    let plan = entitlement.copilot_plan.clone().unwrap_or_default().to_lowercase();
+    let sku = entitlement
+        .access_type_sku
+        .clone()
+        .unwrap_or_default()
+        .to_lowercase();
+    let plan = entitlement
+        .copilot_plan
+        .clone()
+        .unwrap_or_default()
+        .to_lowercase();
     if sku.contains("enterprise") || plan == "enterprise" {
         return "Enterprise".to_string();
     }
@@ -1234,7 +1328,10 @@ fn fetch_antigravity_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Op
 /// Fetch the project id (loadCodeAssist), then per-model quotas
 /// (fetchAvailableModels). An auth error from either step bubbles up so the
 /// caller can refresh the token and retry both.
-fn fetch_antigravity_usage(agent: &ureq::Agent, token: &str) -> Result<Vec<QuotaModelUsage>, FetchError> {
+fn fetch_antigravity_usage(
+    agent: &ureq::Agent,
+    token: &str,
+) -> Result<Vec<QuotaModelUsage>, FetchError> {
     let project = match fetch_antigravity_project(agent, token) {
         Ok(project) => project,
         Err(FetchError::Unauthorized) => return Err(FetchError::Unauthorized),
@@ -1243,7 +1340,10 @@ fn fetch_antigravity_usage(agent: &ureq::Agent, token: &str) -> Result<Vec<Quota
     fetch_antigravity_models(agent, token, project.as_deref())
 }
 
-fn fetch_antigravity_project(agent: &ureq::Agent, token: &str) -> Result<Option<String>, FetchError> {
+fn fetch_antigravity_project(
+    agent: &ureq::Agent,
+    token: &str,
+) -> Result<Option<String>, FetchError> {
     match agent
         .post(ANTIGRAVITY_PROJECT_URL)
         .set("Authorization", &format!("Bearer {}", token))
@@ -1251,10 +1351,13 @@ fn fetch_antigravity_project(agent: &ureq::Agent, token: &str) -> Result<Option<
         .send_json(serde_json::json!({ "metadata": { "ideType": "ANTIGRAVITY" } }))
     {
         Ok(response) => {
-            let info: AntigravitySubscription = response.into_json().map_err(|_| FetchError::Other)?;
+            let info: AntigravitySubscription =
+                response.into_json().map_err(|_| FetchError::Other)?;
             Ok(info.cloudaicompanion_project)
         }
-        Err(ureq::Error::Status(401, _)) | Err(ureq::Error::Status(403, _)) => Err(FetchError::Unauthorized),
+        Err(ureq::Error::Status(401, _)) | Err(ureq::Error::Status(403, _)) => {
+            Err(FetchError::Unauthorized)
+        }
         Err(_) => Err(FetchError::Other),
     }
 }
@@ -1296,7 +1399,10 @@ fn fetch_antigravity_models(
     Ok(models)
 }
 
-fn refresh_antigravity_token(agent: &ureq::Agent, refresh_token: &str) -> Result<String, FetchError> {
+fn refresh_antigravity_token(
+    agent: &ureq::Agent,
+    refresh_token: &str,
+) -> Result<String, FetchError> {
     let body = format!(
         "client_id={}&client_secret={}&refresh_token={}&grant_type=refresh_token",
         ANTIGRAVITY_CLIENT_ID,
@@ -1386,7 +1492,11 @@ fn fetch_kiro_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Option<Ac
         "https://q.{}.amazonaws.com/getUsageLimits?origin=AI_EDITOR&resourceType=AGENTIC_REQUEST",
         region
     );
-    if let Some(arn) = auth.profile_arn.as_deref().filter(|value| !value.is_empty()) {
+    if let Some(arn) = auth
+        .profile_arn
+        .as_deref()
+        .filter(|value| !value.is_empty())
+    {
         url.push_str(&format!("&profileArn={}", urlencoding::encode(arn)));
     }
 
@@ -1445,7 +1555,11 @@ fn fetch_kiro_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Option<Ac
 fn extract_kiro_region(profile_arn: Option<&str>) -> Option<String> {
     let arn = profile_arn?;
     let parts: Vec<&str> = arn.split(':').collect();
-    if parts.len() >= 4 && parts[0] == "arn" && parts[2] == "codewhisperer" && parts[3].contains('-') {
+    if parts.len() >= 4
+        && parts[0] == "arn"
+        && parts[2] == "codewhisperer"
+        && parts[3].contains('-')
+    {
         Some(parts[3].to_string())
     } else {
         None
@@ -1733,8 +1847,14 @@ fn read_trae_auth() -> Option<TraeAuth> {
     let auth: serde_json::Value = serde_json::from_str(auth_str).ok()?;
     let account = auth.get("account");
     Some(TraeAuth {
-        access_token: auth.get("token").and_then(|value| value.as_str()).map(String::from),
-        api_host: auth.get("host").and_then(|value| value.as_str()).map(String::from),
+        access_token: auth
+            .get("token")
+            .and_then(|value| value.as_str())
+            .map(String::from),
+        api_host: auth
+            .get("host")
+            .and_then(|value| value.as_str())
+            .map(String::from),
         email: account
             .and_then(|entry| entry.get("email"))
             .and_then(|value| value.as_str())

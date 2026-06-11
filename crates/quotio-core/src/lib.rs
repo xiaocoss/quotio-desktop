@@ -2,6 +2,7 @@ pub mod agent_config;
 pub mod agents;
 pub mod bridge;
 pub mod codex_launch;
+pub mod codex_session_visibility;
 pub mod management;
 pub mod proxy_download;
 pub mod quota;
@@ -26,8 +27,8 @@ use quotio_types::{
     AgentConfigurationRequest, AgentConfigurationResult, AgentSetupMode, ApiKeyEntry, AppSettings,
     AppState, AuthFile, AvailableModel, ConnectionMode, CredentialStatus, FallbackConfigAction,
     FallbackConfiguration, FallbackEntry, FallbackEntryMoveDirection, FallbackRouteState,
-    FallbackRuntimeState, ManagementSnapshot, MigrationPhase, ModelPrice, ModelSlot,
-    PlatformInfo, ProxyHealthState, ProxyPlatformResourceStatus, ProxyResourceStatus, ProxyState,
+    FallbackRuntimeState, ManagementSnapshot, MigrationPhase, ModelPrice, ModelSlot, PlatformInfo,
+    ProxyHealthState, ProxyPlatformResourceStatus, ProxyResourceStatus, ProxyState,
     ProxyStatusKind, RequestStats, RoutingStrategy, SavedAgentConfiguration, UsageAggregate,
     UsageChartBucket, UsageFilterOptions, UsageModelBreakdownRow, UsageQuery, UsageTimeSeriesPoint,
     VirtualModel,
@@ -142,6 +143,16 @@ impl AppCore {
         &mut self,
         mut settings: AppSettings,
     ) -> Result<AppState, ManagementCoreError> {
+        let previous_bound_account = self.settings.codex_bound_account.trim().to_string();
+        let next_bound_account = settings.codex_bound_account.trim().to_string();
+        if previous_bound_account != next_bound_account {
+            codex_launch::apply_bound_account_selection(
+                &previous_bound_account,
+                &next_bound_account,
+            )
+            .map_err(ManagementCoreError::Unavailable)?;
+        }
+
         if let Some(remote_key) = settings
             .remote_management_key
             .as_deref()
@@ -197,13 +208,16 @@ impl AppCore {
     /// bridge, and terminate an adopted/external proxy by its port, so closing
     /// the app doesn't leave the proxy API running in the background.
     pub fn shutdown(&mut self) {
-        // 关闭软件时默认还原 Codex 注入：杀掉启动的进程 + 把 auth.json/config.toml 还原成启动前。
+        // 关闭软件时默认还原 Codex 注入：杀掉启动的进程 + 从固定备份文件还原。
         if let Some(session) = self.codex_session.take() {
             if let Some(pid) = session.pid {
                 codex_launch::kill_process(pid);
             }
             codex_launch::close_codex_app();
-            let _ = codex_launch::restore_codex_state(&session.auth_backup, &session.config_backup);
+            let _ = codex_launch::restore_codex_state_from_launch_backup();
+        } else if codex_launch::launch_backup_exists() {
+            codex_launch::close_codex_app();
+            let _ = codex_launch::restore_codex_state_from_launch_backup();
         }
         self.proxy.shutdown(&self.settings);
     }
@@ -486,6 +500,8 @@ impl AppCore {
                 "请先在 Codex 卡片里选择并保存要绑定的账号".to_string(),
             ));
         }
+        codex_launch::mark_bound_account_login_only(&account_key)
+            .map_err(ManagementCoreError::Unavailable)?;
         if !matches!(
             self.app_state().proxy.status,
             ProxyStatusKind::Running | ProxyStatusKind::Starting
@@ -498,8 +514,8 @@ impl AppCore {
         // 先关掉所有 Codex：避免运行中的实例把我们写的 config 覆盖掉，并让它重启时读到新配置。
         codex_launch::close_codex_app();
         thread::sleep(Duration::from_millis(500));
-        // 此刻备份 ~/.codex 原样（停止/关软件时还原成这个）。
-        let (auth_backup, config_backup) = codex_launch::read_codex_state();
+        // 此刻把 ~/.codex 原样写进固定备份文件（停止/关软件时从这个文件还原）。
+        codex_launch::write_launch_backup().map_err(ManagementCoreError::Unavailable)?;
 
         let mut model_slots = std::collections::BTreeMap::new();
         if !settings.codex_model.trim().is_empty() {
@@ -556,8 +572,6 @@ impl AppCore {
         };
         self.codex_session = Some(codex_launch::CodexSession {
             pid,
-            auth_backup,
-            config_backup,
             launch_mode: mode.to_string(),
         });
         Ok(if mode == "cli" {
@@ -569,24 +583,26 @@ impl AppCore {
 
     /// 停止 Codex：杀掉启动的进程 + 还原 auth.json/config.toml 到启动前。
     pub fn codex_stop(&mut self) -> Result<String, ManagementCoreError> {
-        match self.codex_session.take() {
-            Some(session) => {
-                if let Some(pid) = session.pid {
-                    codex_launch::kill_process(pid);
-                }
-                codex_launch::close_codex_app();
-                thread::sleep(Duration::from_millis(400));
-                codex_launch::restore_codex_state(&session.auth_backup, &session.config_backup)
-                    .map_err(ManagementCoreError::Unavailable)?;
-                Ok("已停止 Codex 并还原配置".to_string())
-            }
-            None => Ok("Codex 未在运行".to_string()),
+        let session = self.codex_session.take();
+        if session.is_none() && !codex_launch::launch_backup_exists() {
+            return Ok("Codex 未在运行".to_string());
         }
+
+        if let Some(session) = session {
+            if let Some(pid) = session.pid {
+                codex_launch::kill_process(pid);
+            }
+        }
+        codex_launch::close_codex_app();
+        thread::sleep(Duration::from_millis(400));
+        codex_launch::restore_codex_state_from_launch_backup()
+            .map_err(ManagementCoreError::Unavailable)?;
+        Ok("已停止 Codex 并还原配置".to_string())
     }
 
     /// 当前是否有 Codex 一键启动会话在运行。
     pub fn codex_active(&self) -> bool {
-        self.codex_session.is_some()
+        self.codex_session.is_some() || codex_launch::launch_backup_exists()
     }
 
     /// 拉取代理真实模型所需的参数（推理端点 + 一个 api-key）。
@@ -669,8 +685,11 @@ impl AppCore {
         // connected, or stats disabled), backfill from the local auth dir so
         // accounts still appear on the dashboard / providers screens.
         let mut management = self.management_snapshot.clone();
+        let local_accounts = list_local_accounts();
         if management.auth_files.is_empty() {
-            management.auth_files = list_local_accounts();
+            management.auth_files = local_accounts;
+        } else {
+            enrich_auth_files_with_local_markers(&mut management.auth_files, &local_accounts);
         }
         let auth_files = management.auth_files.clone();
 
@@ -1137,6 +1156,15 @@ pub fn list_local_accounts() -> Vec<AuthFile> {
                 .and_then(|email| email.as_str())
                 .map(str::to_string)
         });
+        let disabled = parsed
+            .as_ref()
+            .and_then(|value| value.get("disabled"))
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false);
+        let quotio_bound_login_only = parsed
+            .as_ref()
+            .and_then(|value| value.get("quotio_bound_login_only"))
+            .and_then(|value| value.as_bool());
         files.push(AuthFile {
             id: name.to_string(),
             name: name.to_string(),
@@ -1144,7 +1172,7 @@ pub fn list_local_accounts() -> Vec<AuthFile> {
             label: None,
             status: "local".to_string(),
             status_message: None,
-            disabled: false,
+            disabled,
             unavailable: false,
             runtime_only: Some(false),
             source: Some("local".to_string()),
@@ -1156,6 +1184,7 @@ pub fn list_local_accounts() -> Vec<AuthFile> {
             created_at: None,
             updated_at: None,
             last_refresh: None,
+            quotio_bound_login_only,
             success: None,
             failed: None,
             recent_requests: None,
@@ -1163,6 +1192,20 @@ pub fn list_local_accounts() -> Vec<AuthFile> {
     }
     files.sort_by(|left, right| left.name.cmp(&right.name));
     files
+}
+
+fn enrich_auth_files_with_local_markers(files: &mut [AuthFile], local_accounts: &[AuthFile]) {
+    for file in files {
+        let Some(local) = local_accounts.iter().find(|local| local.name == file.name) else {
+            continue;
+        };
+        if file.quotio_bound_login_only.is_none() {
+            file.quotio_bound_login_only = local.quotio_bound_login_only;
+        }
+        if local.quotio_bound_login_only == Some(true) {
+            file.disabled = true;
+        }
+    }
 }
 
 /// A user-defined third-party provider (OpenAI/Gemini-compatible endpoint).

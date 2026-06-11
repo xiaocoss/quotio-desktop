@@ -117,6 +117,7 @@ function AccountQuotaCard({ account, authFiles }: { account: AccountQuota; authF
       ? `quota-type-pill quota-plan-pill quota-plan-pill--${tier}`
       : "quota-type-pill quota-plan-pill";
   const file = matchAuthFile(account, authFiles);
+  const isCodexLoginOnly = file?.quotio_bound_login_only === true;
   const recent = file?.recent_requests ?? [];
   return (
     <article className="panel quota-card">
@@ -143,6 +144,14 @@ function AccountQuotaCard({ account, authFiles }: { account: AccountQuota; authF
           ) : null}
           {account.warming_up ? <span className="quota-pill quota-pill--warn">{t("quota.warmup")}</span> : null}
           {account.in_use ? <span className="quota-pill quota-pill--blue">{t("quota.useInIde")}</span> : null}
+          {isCodexLoginOnly ? (
+            <span
+              className="quota-pill quota-pill--blue"
+              title={t("quota.codexLoginOnly.desc", "该账号仅用于启动 Codex，不参与 Quotio 代理池调用。")}
+            >
+              {t("quota.codexLoginOnly", "Codex 登录专用")}
+            </span>
+          ) : null}
         </div>
       </div>
 

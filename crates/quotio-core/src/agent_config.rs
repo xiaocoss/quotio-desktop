@@ -947,7 +947,10 @@ fn split_managed_block(managed: &str) -> (String, String) {
     let mut table = Vec::new();
     let mut in_table = false;
     for line in managed.lines() {
-        if line.trim_start().starts_with("[model_providers.cliproxyapi") {
+        if line
+            .trim_start()
+            .starts_with("[model_providers.cliproxyapi")
+        {
             in_table = true;
         }
         if in_table {
@@ -1147,7 +1150,8 @@ model = "gpt-5"
     #[test]
     fn merge_codex_config_keeps_top_level_keys_before_tables() {
         // 复现 Codex App 的情况：用户配置末尾是一个值为字符串的环境变量表。
-        let existing = "personality = \"x\"\n\n[runtime.env]\nSKY_PIPE = \"1\"\nCLI_PATH = \"c:/x\"\n";
+        let existing =
+            "personality = \"x\"\n\n[runtime.env]\nSKY_PIPE = \"1\"\nCLI_PATH = \"c:/x\"\n";
         let managed = "# CLIProxyAPI Configuration for Codex\nmodel_provider = \"cliproxyapi\"\nsupports_websockets = true\n\n[model_providers.cliproxyapi]\nname = \"cliproxyapi\"\nbase_url = \"http://127.0.0.1:28317/v1\"\n";
         let merged = merge_codex_config(existing, managed);
         let first_table = merged.find('[').expect("应有表头");

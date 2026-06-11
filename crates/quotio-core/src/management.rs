@@ -345,7 +345,10 @@ impl ManagementApiClient {
     }
 
     /// Enable/disable per-request usage telemetry (fills the `/usage-queue`).
-    pub async fn set_usage_statistics_enabled(&self, enabled: bool) -> Result<(), ManagementApiError> {
+    pub async fn set_usage_statistics_enabled(
+        &self,
+        enabled: bool,
+    ) -> Result<(), ManagementApiError> {
         self.request_json(
             "PUT",
             "/usage-statistics-enabled",
@@ -367,7 +370,10 @@ impl ManagementApiClient {
                 Err(ManagementApiError::Status(400 | 404)) => return Ok(Vec::new()),
                 Err(error) => return Err(error),
             };
-        Ok(records.into_iter().map(UsageRecord::into_request_log).collect())
+        Ok(records
+            .into_iter()
+            .map(UsageRecord::into_request_log)
+            .collect())
     }
 
     /// Drain up to `count` records from the usage queue as full `UsageEvent`s,
@@ -646,7 +652,11 @@ impl UsageRecord {
             status_code: Some(if failed { 500 } else { 200 }),
             request_size: 0,
             response_size: 0,
-            error_message: if failed { Some("请求失败".to_string()) } else { None },
+            error_message: if failed {
+                Some("请求失败".to_string())
+            } else {
+                None
+            },
             fallback_attempts: None,
             fallback_started_from_cache: false,
             reasoning_effort: self.reasoning_effort,
@@ -697,10 +707,7 @@ impl UsageRecord {
             path,
             auth_type: self.auth_type.clone(),
             auth_index: self.auth_index.clone(),
-            source: self
-                .source
-                .clone()
-                .filter(|value| !value.trim().is_empty()),
+            source: self.source.clone().filter(|value| !value.trim().is_empty()),
             api_key_hash,
             input_tokens: input,
             output_tokens: output,
@@ -824,7 +831,11 @@ fn format_usage_timestamp(value: Option<serde_json::Value>) -> String {
         // Older builds emit a unix timestamp (seconds or milliseconds).
         Some(serde_json::Value::Number(number)) => {
             let value = number.as_f64().unwrap_or(0.0);
-            let secs = if value > 1.0e12 { (value / 1000.0) as i64 } else { value as i64 };
+            let secs = if value > 1.0e12 {
+                (value / 1000.0) as i64
+            } else {
+                value as i64
+            };
             chrono::DateTime::from_timestamp(secs, 0)
                 .map(|dt| dt.to_rfc3339())
                 .unwrap_or_default()

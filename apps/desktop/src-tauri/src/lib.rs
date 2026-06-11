@@ -5,8 +5,7 @@ use quotio_types::{
     AccountAuthHealth, AccountSummaryRow, AgentBackupFile, AgentConfigurationRequest,
     AgentConfigurationResult, AppSettings, AppState, AuthFile, AvailableModel, CredentialStatus,
     FallbackConfigAction, ManagementSnapshot, ModelPrice, OAuthStatusResponse, OAuthUrlResponse,
-    PlatformInfo, SavedAgentConfiguration, UsageAggregate, UsageChartBucket,
-    UsageFilterOptions,
+    PlatformInfo, SavedAgentConfiguration, UsageAggregate, UsageChartBucket, UsageFilterOptions,
     UsageModelBreakdownRow, UsageQuery, UsageTimeSeriesPoint,
 };
 use tauri::{
