@@ -106,6 +106,8 @@ pub struct AppCore {
     scheduler_target_label: Option<String>,
     scheduler_current_reset_at: Option<i64>,
     scheduler_standby_count: u32,
+    /// 上次因目标账号请求失败而触发重查的时刻（60s 冷却，防失败风暴反复全量拉配额）。
+    scheduler_failure_recheck_at: Option<Instant>,
 }
 
 /// Codex 监控的进程探测目标。由 [`AppCore::codex_monitor_probe`] 在锁内产出，
@@ -161,6 +163,7 @@ impl Default for AppCore {
             scheduler_target_label: None,
             scheduler_current_reset_at: None,
             scheduler_standby_count: 0,
+            scheduler_failure_recheck_at: None,
         }
     }
 }
@@ -478,6 +481,34 @@ impl AppCore {
         self.scheduler_target_label = None;
         self.scheduler_current_reset_at = None;
         self.scheduler_standby_count = 0;
+    }
+
+    /// 用量事件里出现了**当前目标账号**的失败请求（典型是 5h 额度耗尽后的 429）：
+    /// 返回 true 表示该立刻重拉配额重选，别等下一次 5 分钟轮询——期间池子里
+    /// 只有这个空号。带 60 秒冷却，连续失败风暴不会反复全量拉配额。纯内存判断。
+    pub fn scheduler_should_recheck_for_failures(
+        &mut self,
+        events: &[quotio_types::UsageEvent],
+    ) -> bool {
+        if self.settings.scheduler_rule != "reset_soonest" {
+            return false;
+        }
+        let Some(label) = self.scheduler_target_label.as_deref() else {
+            return false;
+        };
+        let target_failed = events
+            .iter()
+            .any(|event| event.failed && event.source.as_deref() == Some(label));
+        if !target_failed {
+            return false;
+        }
+        if let Some(last) = self.scheduler_failure_recheck_at {
+            if last.elapsed() < Duration::from_secs(60) {
+                return false;
+            }
+        }
+        self.scheduler_failure_recheck_at = Some(Instant::now());
+        true
     }
 
     /// 当前选中账号的 5h 窗口是否已刷新（后台线程用：到点提前触发重评估，
@@ -2812,6 +2843,64 @@ mod tests {
         // CLI 模式没拿到终端 pid：无从监控。
         core.codex_session = Some(codex_launch::CodexSession::new(None, "cli"));
         assert!(core.codex_monitor_probe().is_none());
+    }
+
+    fn usage_event_for_test(source: &str, failed: bool) -> quotio_types::UsageEvent {
+        quotio_types::UsageEvent {
+            event_hash: "h".to_string(),
+            request_id: None,
+            timestamp_ms: 0,
+            timestamp: String::new(),
+            provider: None,
+            model: "m".to_string(),
+            requested_model: None,
+            resolved_model: None,
+            endpoint: None,
+            method: None,
+            path: None,
+            auth_type: None,
+            auth_index: None,
+            source: Some(source.to_string()),
+            api_key_hash: None,
+            input_tokens: 0,
+            output_tokens: 0,
+            reasoning_tokens: 0,
+            cached_tokens: 0,
+            cache_creation_tokens: 0,
+            cache_read_tokens: 0,
+            total_tokens: 0,
+            latency_ms: 0,
+            failed,
+            status_code: Some(if failed { 429 } else { 200 }),
+            reasoning_effort: None,
+            raw_json: None,
+        }
+    }
+
+    #[test]
+    fn scheduler_rechecks_on_target_failures_with_cooldown() {
+        let mut core = AppCore::default();
+        core.settings.scheduler_rule = "reset_soonest".to_string();
+        core.scheduler_current = Some(("codex-a.json".to_string(), Instant::now()));
+        core.scheduler_target_label = Some("a@example.com".to_string());
+
+        // 别的账号失败 / 目标成功:不触发。
+        assert!(!core.scheduler_should_recheck_for_failures(&[
+            usage_event_for_test("b@example.com", true),
+            usage_event_for_test("a@example.com", false),
+        ]));
+        // 目标失败:触发一次。
+        assert!(core
+            .scheduler_should_recheck_for_failures(&[usage_event_for_test("a@example.com", true)]));
+        // 冷却期内再失败:不重复触发。
+        assert!(!core
+            .scheduler_should_recheck_for_failures(&[usage_event_for_test("a@example.com", true)]));
+
+        // 规则关闭:永不触发。
+        core.settings.scheduler_rule = "off".to_string();
+        core.scheduler_failure_recheck_at = None;
+        assert!(!core
+            .scheduler_should_recheck_for_failures(&[usage_event_for_test("a@example.com", true)]));
     }
 
     #[test]

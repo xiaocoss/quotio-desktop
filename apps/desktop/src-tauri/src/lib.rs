@@ -1281,12 +1281,24 @@ fn spawn_usage_collector(app: AppHandle) {
                     if inserted > 0 {
                         let _ = app.emit("usage-updated", inserted);
                     }
+                    // 智能调度：目标账号刚出现失败请求（往往是 5h 额度耗尽的 429）——
+                    // 秒级触发重拉配额重选，不等 5 分钟轮询（期间池子里只有空号）。
+                    let recheck = app
+                        .try_state::<DesktopState>()
+                        .and_then(|state| {
+                            state.core.lock().ok().map(|mut core| {
+                                core.scheduler_should_recheck_for_failures(&events)
+                            })
+                        })
+                        .unwrap_or(false);
+                    if recheck {
+                        refresh_quotas_and_reschedule(&app);
+                    }
                 }
             }
 
             // 智能调度（每 ~30s 查一次，纯内存判断）：当前账号的 5h 窗口到点
             // 刷新后，提前重拉配额并重评估，不必干等前端的 5 分钟轮询。
-            // 配额拉取在锁外（阻塞网络请求），只有存结果和评估时短暂取锁。
             if tick % 20 == 10 {
                 let due = app
                     .try_state::<DesktopState>()
@@ -1299,29 +1311,7 @@ fn spawn_usage_collector(app: AppHandle) {
                     })
                     .unwrap_or(false);
                 if due {
-                    let proxy_url = app.try_state::<DesktopState>().and_then(|state| {
-                        state
-                            .core
-                            .lock()
-                            .ok()
-                            .and_then(|core| core.proxy_upstream_url())
-                    });
-                    let quotas = quotio_core::quota::fetch_all_quotas_streaming(
-                        proxy_url.as_deref(),
-                        &|_| {},
-                    );
-                    let changed = app
-                        .try_state::<DesktopState>()
-                        .and_then(|state| {
-                            state.core.lock().ok().map(|mut core| {
-                                core.store_quotas(quotas);
-                                core.scheduler_reconcile()
-                            })
-                        })
-                        .unwrap_or(false);
-                    if changed {
-                        let _ = app.emit("scheduler-changed", ());
-                    }
+                    refresh_quotas_and_reschedule(&app);
                 }
             }
 
@@ -1358,6 +1348,31 @@ fn spawn_usage_collector(app: AppHandle) {
             std::thread::sleep(std::time::Duration::from_millis(USAGE_COLLECTOR_POLL_MS));
         }
     });
+}
+
+/// 锁外全量拉一次配额 → 存入 + 跑一轮智能调度；池子有变化则通知前端。
+/// 给后台触发器用（5h 窗口到点 / 目标账号请求失败），不依赖前端轮询。
+fn refresh_quotas_and_reschedule(app: &AppHandle) {
+    let proxy_url = app.try_state::<DesktopState>().and_then(|state| {
+        state
+            .core
+            .lock()
+            .ok()
+            .and_then(|core| core.proxy_upstream_url())
+    });
+    let quotas = quotio_core::quota::fetch_all_quotas_streaming(proxy_url.as_deref(), &|_| {});
+    let changed = app
+        .try_state::<DesktopState>()
+        .and_then(|state| {
+            state.core.lock().ok().map(|mut core| {
+                core.store_quotas(quotas);
+                core.scheduler_reconcile()
+            })
+        })
+        .unwrap_or(false);
+    if changed {
+        let _ = app.emit("scheduler-changed", ());
+    }
 }
 
 pub fn run() {
