@@ -550,7 +550,13 @@ pub fn close_codex_app() {
 // ---------- 启动 ----------
 
 /// App 模式：直接 spawn `Codex.exe`，独立于 Quotio 进程。返回 pid。
-pub fn launch_codex_app(exe: &Path) -> Result<u32, String> {
+///
+/// 商店版（MSIX）Codex 装在 `WindowsApps` 下，普通进程直接 CreateProcess 会被
+/// ACL 拒绝（os error 5），此时回退到 shell 启动（PowerShell `Start-Process` →
+/// `shell:AppsFolder` 应用入口激活）；shell 启动拿不到子进程句柄，
+/// 启动后按进程名探测 pid（启动前已 `close_codex_app`，找到的就是新实例），
+/// 探测不到则返回 None（停止时仍有按名 taskkill 兜底）。
+pub fn launch_codex_app(exe: &Path) -> Result<Option<u32>, String> {
     if !exe.exists() {
         return Err(format!("Codex 应用不存在: {}", exe.display()));
     }
@@ -562,10 +568,125 @@ pub fn launch_codex_app(exe: &Path) -> Result<u32, String> {
         const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
         command.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
     }
-    let child = command
-        .spawn()
-        .map_err(|e| format!("启动 Codex 应用失败: {e}"))?;
-    Ok(child.id())
+    match command.spawn() {
+        Ok(child) => Ok(Some(child.id())),
+        #[cfg(target_os = "windows")]
+        Err(err)
+            if err.kind() == std::io::ErrorKind::PermissionDenied && is_windowsapps_path(exe) =>
+        {
+            launch_codex_app_via_shell(exe)?;
+            Ok(resolve_codex_app_pid_within(std::time::Duration::from_secs(
+                8,
+            )))
+        }
+        Err(err) => Err(format!("启动 Codex 应用失败: {err}")),
+    }
+}
+
+/// 路径是否在 WindowsApps（商店应用安装目录）下。
+#[cfg(target_os = "windows")]
+fn is_windowsapps_path(path: &Path) -> bool {
+    path.to_string_lossy()
+        .to_lowercase()
+        .contains("\\windowsapps\\")
+}
+
+/// PowerShell 单引号字符串转义（`'` → `''`）。
+#[cfg(target_os = "windows")]
+fn escape_powershell_single_quoted(value: &str) -> String {
+    value.replace('\'', "''")
+}
+
+#[cfg(target_os = "windows")]
+fn run_powershell(script: &str) -> Result<std::process::Output, String> {
+    quiet_command("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .output()
+        .map_err(|e| format!("调用 PowerShell 失败: {e}"))
+}
+
+#[cfg(target_os = "windows")]
+fn run_powershell_expect_success(script: &str) -> Result<std::process::Output, String> {
+    let output = run_powershell(script)?;
+    if output.status.success() {
+        return Ok(output);
+    }
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stderr_head: String = stderr.trim().chars().take(300).collect();
+    Err(if stderr_head.is_empty() {
+        format!("PowerShell 退出码 {}", output.status)
+    } else {
+        stderr_head
+    })
+}
+
+/// WindowsApps 直接 spawn 被拒后的 shell 启动：
+/// 先 `Start-Process` exe 路径（走 ShellExecute），再退到商店应用入口激活。
+#[cfg(target_os = "windows")]
+fn launch_codex_app_via_shell(exe: &Path) -> Result<(), String> {
+    let script = format!(
+        "Start-Process -FilePath '{}' -ErrorAction Stop | Out-Null",
+        escape_powershell_single_quoted(&exe.to_string_lossy())
+    );
+    let direct_error = match run_powershell_expect_success(&script) {
+        Ok(_) => return Ok(()),
+        Err(error) => error,
+    };
+    let app_id = detect_codex_store_app_id().ok_or_else(|| {
+        format!("启动 Codex 应用失败（商店版需 shell 启动）: {direct_error}；且未检测到商店应用入口")
+    })?;
+    let script = format!(
+        "Start-Process -FilePath ('shell:AppsFolder\\' + '{}') -ErrorAction Stop | Out-Null",
+        escape_powershell_single_quoted(&app_id)
+    );
+    run_powershell_expect_success(&script)
+        .map(|_| ())
+        .map_err(|error| format!("启动 Codex 应用失败（商店入口 {app_id}）: {error}"))
+}
+
+/// 探测商店版 Codex 的 AppUserModelId（`<PackageFamilyName>!<AppId>`）：
+/// 先 `Get-StartApps`（开始菜单注册的真实入口），拿不到再用 Appx 包名拼 `!App`。
+#[cfg(target_os = "windows")]
+fn detect_codex_store_app_id() -> Option<String> {
+    let stdout_first_line = |output: std::process::Output| {
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(str::trim)
+            .find(|line| !line.is_empty())
+            .map(str::to_string)
+    };
+    if let Some(app_id) = run_powershell(
+        "$entry = Get-StartApps | Where-Object { $_.AppID -like 'OpenAI.Codex_*' } | Select-Object -First 1; if ($entry) { [string]$entry.AppID }",
+    )
+    .ok()
+    .and_then(stdout_first_line)
+    {
+        return Some(app_id);
+    }
+    run_powershell(
+        "$pkg = Get-AppxPackage -Name *Codex* -ErrorAction SilentlyContinue | Sort-Object -Property Version -Descending | Select-Object -First 1; if ($pkg) { [string]($pkg.PackageFamilyName + '!App') }",
+    )
+    .ok()
+    .and_then(stdout_first_line)
+}
+
+/// 在超时时间内按进程名轮询 Codex 应用 pid（shell 启动拿不到子进程句柄时用）。
+#[cfg(target_os = "windows")]
+fn resolve_codex_app_pid_within(timeout: std::time::Duration) -> Option<u32> {
+    let started = std::time::Instant::now();
+    loop {
+        if let Ok(output) = run_powershell(
+            "(Get-Process -Name Codex -ErrorAction SilentlyContinue | Select-Object -First 1).Id",
+        ) {
+            if let Ok(pid) = String::from_utf8_lossy(&output.stdout).trim().parse::<u32>() {
+                return Some(pid);
+            }
+        }
+        if started.elapsed() >= timeout {
+            return None;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(300));
+    }
 }
 
 /// 构建 CLI 启动命令（用默认 `~/.codex`，配置已写好，直接跑 `codex`）。纯函数，便于测试。
@@ -675,6 +796,25 @@ mod tests {
     #[test]
     fn cli_launch_command_runs_codex() {
         assert!(build_cli_launch_command().contains("codex"));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn recognizes_windowsapps_paths_case_insensitively() {
+        assert!(is_windowsapps_path(Path::new(
+            r"C:\Program Files\WindowsApps\OpenAI.Codex_26.609.3341.0_x64__2p2nqsd0c76g0\app\Codex.exe"
+        )));
+        assert!(is_windowsapps_path(Path::new(r"D:\windowsapps\pkg\app\Codex.exe")));
+        assert!(!is_windowsapps_path(Path::new(
+            r"C:\Users\me\AppData\Local\Programs\Codex\Codex.exe"
+        )));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn escapes_powershell_single_quotes() {
+        assert_eq!(escape_powershell_single_quoted("plain"), "plain");
+        assert_eq!(escape_powershell_single_quoted("it's"), "it''s");
     }
 
     #[test]

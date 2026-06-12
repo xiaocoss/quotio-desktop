@@ -150,6 +150,17 @@ fn codex_launch_active(state: State<'_, DesktopState>) -> Result<bool, String> {
     Ok(core.codex_active())
 }
 
+/// 修复 Codex 历史会话可见性：对齐 rollout/state_5.sqlite 里的 provider 元数据。
+#[tauri::command]
+async fn codex_repair_session_visibility() -> Result<String, String> {
+    let summary = tauri::async_runtime::spawn_blocking(|| {
+        quotio_core::codex_session_visibility::repair_session_visibility_in_default_dir()
+    })
+    .await
+    .map_err(|error| format!("修复任务异常：{}", error))??;
+    Ok(summary.message)
+}
+
 /// 拉取代理实际服务的 codex 模型（前端模型下拉用）。best-effort：拿不到返回空，前端回退内置列表。
 #[tauri::command]
 fn fetch_codex_models(state: State<'_, DesktopState>) -> Result<Vec<String>, String> {
@@ -1355,6 +1366,7 @@ pub fn run() {
             codex_start,
             codex_stop,
             codex_launch_active,
+            codex_repair_session_visibility,
             fetch_codex_models,
             discover_available_models,
             refresh_fallback_route_state,

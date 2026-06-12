@@ -115,6 +115,7 @@ export function AgentsScreen({
   const [codexActive, setCodexActive] = useState(false);
   const [proxyModels, setProxyModels] = useState<string[]>([]);
   const [launchBusy, setLaunchBusy] = useState(false);
+  const [repairVisibilityBusy, setRepairVisibilityBusy] = useState(false);
   const [launchMsg, setLaunchMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
@@ -177,6 +178,19 @@ export function AgentsScreen({
       setLaunchMsg({ ok: false, text: String(error) });
     } finally {
       setLaunchBusy(false);
+    }
+  }
+
+  async function repairCodexVisibility() {
+    setRepairVisibilityBusy(true);
+    setLaunchMsg(null);
+    try {
+      const message = await invoke<string>("codex_repair_session_visibility");
+      setLaunchMsg({ ok: true, text: message });
+    } catch (error) {
+      setLaunchMsg({ ok: false, text: String(error) });
+    } finally {
+      setRepairVisibilityBusy(false);
     }
   }
 
@@ -458,10 +472,12 @@ export function AgentsScreen({
                   status.agent.id === "codex"
                     ? {
                         active: codexActive,
-                        busy: launchBusy,
+                        busy: launchBusy || repairVisibilityBusy,
+                        repairBusy: repairVisibilityBusy,
                         canStart: (appState.settings.codex_bound_account ?? "").trim().length > 0,
                         onStart: () => void startCodex(false),
                         onStop: () => void stopCodex(),
+                        onRepairVisibility: () => void repairCodexVisibility(),
                       }
                     : undefined
                 }
@@ -506,9 +522,11 @@ function AgentCard({
   codexControls?: {
     active: boolean;
     busy: boolean;
+    repairBusy: boolean;
     canStart: boolean;
     onStart: () => void;
     onStop: () => void;
+    onRepairVisibility: () => void;
   };
 }) {
   const t = useT();
@@ -530,26 +548,36 @@ function AgentCard({
         {status.binary_path ? <p className="agent-card-path">{status.binary_path}</p> : null}
       </div>
       {codexControls ? (
-        codexControls.active ? (
+        <div className="agent-codex-actions">
+          {codexControls.active ? (
+            <button
+              className="agent-launch-btn agent-launch-btn--stop"
+              type="button"
+              onClick={codexControls.onStop}
+              disabled={codexControls.busy}
+            >
+              {codexControls.busy ? t("agents.launch.working", "处理中…") : t("agents.launch.stop", "停止")}
+            </button>
+          ) : (
+            <button
+              className="agent-launch-btn agent-launch-btn--start"
+              type="button"
+              onClick={codexControls.onStart}
+              disabled={codexControls.busy || !codexControls.canStart}
+              title={codexControls.canStart ? undefined : t("agents.launch.needConfig", "请先展开配置、选好绑定账号并保存")}
+            >
+              {codexControls.busy ? t("agents.launch.working", "处理中…") : t("agents.launch.start", "启动")}
+            </button>
+          )}
           <button
-            className="agent-launch-btn agent-launch-btn--stop"
+            className="agent-launch-btn agent-launch-btn--repair"
             type="button"
-            onClick={codexControls.onStop}
+            onClick={codexControls.onRepairVisibility}
             disabled={codexControls.busy}
           >
-            {codexControls.busy ? t("agents.launch.working", "处理中…") : t("agents.launch.stop", "停止")}
+            {codexControls.repairBusy ? t("agents.launch.repairingVisibility", "修复中…") : t("agents.launch.repairVisibility", "修复可见性")}
           </button>
-        ) : (
-          <button
-            className="agent-launch-btn agent-launch-btn--start"
-            type="button"
-            onClick={codexControls.onStart}
-            disabled={codexControls.busy || !codexControls.canStart}
-            title={codexControls.canStart ? undefined : t("agents.launch.needConfig", "请先展开配置、选好绑定账号并保存")}
-          >
-            {codexControls.busy ? t("agents.launch.working", "处理中…") : t("agents.launch.start", "启动")}
-          </button>
-        )
+        </div>
       ) : null}
       {!muted && onConfigure ? (
         <button

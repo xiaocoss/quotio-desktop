@@ -3477,6 +3477,13 @@ h3 {
   white-space: nowrap;
 }
 
+.agent-codex-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
 .agent-configure-btn {
   flex: 0 0 auto;
   padding: 7px 14px;
@@ -3494,7 +3501,6 @@ h3 {
 
 .agent-launch-btn {
   flex: 0 0 auto;
-  margin-right: 8px;
   padding: 7px 14px;
   border: 0;
   border-radius: 8px;
@@ -3520,6 +3526,11 @@ h3 {
 
 .agent-launch-btn--stop {
   background: #d2453b;
+}
+
+.agent-launch-btn--repair {
+  color: #0f513f;
+  background: rgba(16, 163, 127, 0.14);
 }
 
 .agent-configure-btn:disabled {

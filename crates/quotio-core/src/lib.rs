@@ -17,7 +17,7 @@ use std::{
     process::{Child, Command, Stdio},
     sync::Arc,
     thread,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use management::{ManagementApiClient, ManagementApiError};
@@ -500,6 +500,21 @@ impl AppCore {
                 "请先在 Codex 卡片里选择并保存要绑定的账号".to_string(),
             ));
         }
+
+        // If Quotio was closed or a previous launch failed after creating the
+        // launch backup, no in-memory session exists but the backup file still
+        // blocks a new launch. Restore first so startup is self-healing.
+        if codex_launch::launch_backup_exists() {
+            codex_launch::close_codex_app();
+            thread::sleep(Duration::from_millis(400));
+            codex_launch::restore_codex_state_from_launch_backup().map_err(|error| {
+                ManagementCoreError::Unavailable(format!(
+                    "检测到上次 Codex 启动未完成，自动恢复失败：{}",
+                    error
+                ))
+            })?;
+        }
+
         codex_launch::mark_bound_account_login_only(&account_key)
             .map_err(ManagementCoreError::Unavailable)?;
         if !matches!(
@@ -568,7 +583,7 @@ impl AppCore {
                         "未找到 Codex 应用，请在 Codex 卡片里手填应用路径".to_string(),
                     )
                 })?;
-            Some(codex_launch::launch_codex_app(&exe).map_err(ManagementCoreError::Unavailable)?)
+            codex_launch::launch_codex_app(&exe).map_err(ManagementCoreError::Unavailable)?
         };
         self.codex_session = Some(codex_launch::CodexSession {
             pid,
@@ -577,7 +592,10 @@ impl AppCore {
         Ok(if mode == "cli" {
             "已在终端启动 Codex CLI（停止会还原配置）".to_string()
         } else {
-            format!("已启动 Codex 应用（pid={}）", pid.unwrap_or(0))
+            match pid {
+                Some(pid) => format!("已启动 Codex 应用（pid={pid}）"),
+                None => "已启动 Codex 应用".to_string(),
+            }
         })
     }
 
@@ -1436,6 +1454,10 @@ struct ProxyLifecycle {
     local_api_key: String,
     crash_count: u32,
     bridge: Option<crate::bridge::ProxyBridge>,
+    /// 端口监听者的短 TTL 缓存：refresh 被 UI 高频轮询，避免每次都跑 netstat/tasklist。
+    port_listener_cache: Option<(Instant, Option<(String, String)>)>,
+    /// 当前状态是否是「端口被其它程序占用」：占用解除后用它把状态收回 Stopped。
+    port_conflict: bool,
 }
 
 impl ProxyLifecycle {
@@ -1465,7 +1487,22 @@ impl ProxyLifecycle {
             local_api_key: load_or_create_local_api_key(),
             crash_count: 0,
             bridge: None,
+            port_listener_cache: None,
+            port_conflict: false,
         }
+    }
+
+    /// 带 10 秒 TTL 缓存的 [`port_listener`]。
+    fn port_listener_cached(&mut self, port: u16) -> Option<(String, String)> {
+        const TTL: Duration = Duration::from_secs(10);
+        if let Some((checked_at, listener)) = &self.port_listener_cache {
+            if checked_at.elapsed() < TTL {
+                return listener.clone();
+            }
+        }
+        let listener = port_listener(port);
+        self.port_listener_cache = Some((Instant::now(), listener.clone()));
+        listener
     }
 
     fn sync_settings(&mut self, settings: &AppSettings) {
@@ -1542,9 +1579,7 @@ impl ProxyLifecycle {
                 .file_name()
                 .and_then(|name| name.to_str())
                 .unwrap_or("CLIProxyAPI");
-            let is_own = holder.eq_ignore_ascii_case(proxy_bin)
-                || holder.to_ascii_lowercase().contains("cliproxyapi");
-            if is_own {
+            if is_own_proxy_process_name(&holder, proxy_bin) {
                 // Orphaned proxy from a previous session — reclaim the port.
                 kill_process_on_port(settings.proxy_port);
                 thread::sleep(Duration::from_millis(400));
@@ -1553,6 +1588,7 @@ impl ProxyLifecycle {
                     "端口 {} 已被『{}』占用，无法启动代理。请在设置中改用其它端口，或关闭占用该端口的程序后重试。",
                     settings.proxy_port, holder
                 );
+                self.port_conflict = true;
                 self.state = state_for_paths(
                     settings,
                     &self.paths,
@@ -1566,6 +1602,9 @@ impl ProxyLifecycle {
                 return Err(ProxyCoreError::StartupFailed(message));
             }
         }
+        // 预检后端口状态已变化（可能刚回收了孤儿代理），作废监听者缓存。
+        self.port_listener_cache = None;
+        self.port_conflict = false;
 
         let mut command = Command::new(&managed_binary);
         command
@@ -1686,6 +1725,9 @@ impl ProxyLifecycle {
 
     fn stop(&mut self, settings: &AppSettings) -> Result<(), ProxyCoreError> {
         self.refresh(settings);
+        // 停止会改变端口状态，作废监听者缓存。
+        self.port_listener_cache = None;
+        self.port_conflict = false;
 
         if let Some(mut bridge) = self.bridge.take() {
             bridge.stop();
@@ -1773,6 +1815,37 @@ impl ProxyLifecycle {
             // config) works regardless of who launched the proxy.
             let health = self.probe_health(settings);
             if health.ok == Some(true) {
+                // 探测返回 2xx ≠ 一定是我们的代理：对所有路径都回 200 的本地服务
+                // （开发服务器等）占了端口也会命中。领养前先确认监听者进程身份，
+                // 否则把别人的程序误报成「代理已启动」。
+                let proxy_bin = self
+                    .paths
+                    .managed_binary_path()
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .map(str::to_string)
+                    .unwrap_or_else(|| "CLIProxyAPI".to_string());
+                if let Some((pid, holder)) = self.port_listener_cached(settings.proxy_port) {
+                    if !is_own_proxy_process_name(&holder, &proxy_bin) {
+                        let message = format!(
+                            "端口 {} 已被『{}』(PID {}) 占用，本地代理并未启动。请在设置中改用其它端口，或关闭该程序后重试。",
+                            settings.proxy_port, holder, pid
+                        );
+                        self.port_conflict = true;
+                        self.state = state_for_paths(
+                            settings,
+                            &self.paths,
+                            ProxyStatusKind::Crashed,
+                            None,
+                            None,
+                            self.crash_count,
+                            ProxyHealthState::unhealthy(now_unix_seconds(), &message),
+                            message.clone(),
+                        );
+                        return;
+                    }
+                }
+                self.port_conflict = false;
                 self.state = state_for_paths(
                     settings,
                     &self.paths,
@@ -1782,6 +1855,19 @@ impl ProxyLifecycle {
                     self.crash_count,
                     health,
                     "检测到代理核心正在运行(非本会话启动)。",
+                );
+            } else if self.port_conflict {
+                // 占用方已不再响应：解除冲突态，回到「未启动」。
+                self.port_conflict = false;
+                self.state = state_for_paths(
+                    settings,
+                    &self.paths,
+                    ProxyStatusKind::Stopped,
+                    None,
+                    None,
+                    self.crash_count,
+                    ProxyHealthState::unknown("代理核心未运行。"),
+                    "端口占用已解除，代理核心尚未启动。",
                 );
             } else {
                 self.sync_settings(settings);
@@ -2328,6 +2414,12 @@ fn port_listener(_port: u16) -> Option<(String, String)> {
     None
 }
 
+/// 端口监听者的进程名是否是我们自己的代理（CLIProxyAPI）。
+/// 用于区分「自家孤儿代理」和「碰巧占了端口的别人程序」。
+fn is_own_proxy_process_name(holder: &str, proxy_bin: &str) -> bool {
+    holder.eq_ignore_ascii_case(proxy_bin) || holder.to_ascii_lowercase().contains("cliproxyapi")
+}
+
 /// Terminate the proxy listening on `port` — ONLY when it is our own CLIProxyAPI
 /// binary, never a foreign process that merely shares the port.
 fn kill_process_on_port(port: u16) {
@@ -2497,6 +2589,17 @@ mod tests {
         thread,
         time::{Duration, Instant},
     };
+
+    #[test]
+    fn own_proxy_listener_is_recognized_and_foreign_is_not() {
+        assert!(is_own_proxy_process_name("CLIProxyAPI.exe", "CLIProxyAPI.exe"));
+        assert!(is_own_proxy_process_name("cliproxyapi", "CLIProxyAPI.exe"));
+        // 自定义二进制名：与托管二进制同名也算自己的。
+        assert!(is_own_proxy_process_name("MyProxy.exe", "myproxy.exe"));
+        // 别人的程序占了端口，不能当成已启动的代理。
+        assert!(!is_own_proxy_process_name("node.exe", "CLIProxyAPI.exe"));
+        assert!(!is_own_proxy_process_name("未知程序", "CLIProxyAPI.exe"));
+    }
 
     #[test]
     fn proxy_resource_status_ignores_readme_only_platform_dir() {
