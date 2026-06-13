@@ -1,0 +1,4 @@
+# README screenshots go here. Expected files (referenced by README.md):
+#   dashboard.png  — the 仪表盘 / usage dashboard
+#   quota.png      — the 额度 / quota screen (Codex card shows 主动重置次数 + 重置)
+# Capture with Win+Shift+S on a running Quotio window, save as PNG into this folder.
