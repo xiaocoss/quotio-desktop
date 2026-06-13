@@ -1,0 +1,73 @@
+name: Release
+
+# 推送 v* 标签时，在 Windows / macOS / Linux 三端各自构建并把安装包传到对应 Release。
+# 用法：npm run version:set -- minor  →  git commit  →  git tag v0.3.0 && git push origin v0.3.0
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: # 也允许在 Actions 页手动触发（调试用）
+
+permissions:
+  contents: write # tauri-action 需要写权限来创建 Release / 上传附件
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest # 通用包，同时覆盖 Apple Silicon + Intel
+            args: "--target universal-apple-darwin"
+          - platform: ubuntu-22.04
+            args: ""
+          - platform: windows-latest
+            args: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend dependencies
+        working-directory: apps/desktop
+        run: npm install
+
+      - name: Build and publish to Release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: "Quotio ${{ github.ref_name }}"
+          releaseBody: |
+            自动构建的 Windows / macOS / Linux 安装包见下方附件。
+
+            - Windows：`.msi` 或 `-setup.exe`
+            - macOS：`.dmg`（通用包，未签名；首次打开在「系统设置 → 隐私与安全性」点允许）
+            - Linux：`.AppImage` / `.deb`
+
+            > 代理二进制（CLIProxyAPI）不随包分发，应用首次运行会自动下载。
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
