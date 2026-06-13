@@ -8,19 +8,37 @@ Migration state and reference-project mapping are tracked in [`docs/MIGRATION.md
 
 ## Screenshots
 
-<!-- Add screenshots to assets/ as dashboard.png and quota.png. Tip: on a running
-     Quotio window press Win+Shift+S to snip, or drag an image into a GitHub
-     issue/release to get a CDN URL and use that URL as the src instead. -->
-
 <p align="center">
-  <img src="assets/dashboard.png" width="760" alt="Quotio usage dashboard"><br>
-  <sub>Dashboard — calls, success rate, token usage and estimated cost by account / provider / model</sub>
+  <img src="assets/dashboard.png" width="820" alt="Quotio usage dashboard"><br>
+  <sub><b>仪表盘 Dashboard</b> — calls, success rate, token usage and estimated cost by account / provider / model</sub>
 </p>
 
 <p align="center">
-  <img src="assets/quota.png" width="760" alt="Quotio quota screen"><br>
-  <sub>Quota — per-account Session (5h) / Weekly windows, plan, expiry, and Codex reset credits</sub>
+  <img src="assets/quota.png" width="820" alt="Quotio quota screen"><br>
+  <sub><b>额度 Quota</b> — per-account Session (5h) / Weekly windows, plan, expiry, and Codex 主动重置次数 + reset</sub>
 </p>
+
+<details>
+<summary>More screens · 更多界面（服务商 / 智能体 / 日志 / 设置）</summary>
+
+<p align="center">
+  <img src="assets/providers.png" width="820" alt="Providers"><br>
+  <sub><b>服务商 Providers</b> — multi-account OAuth pool管理</sub>
+</p>
+<p align="center">
+  <img src="assets/agents.png" width="820" alt="Agents"><br>
+  <sub><b>智能体 Agents</b> — point CLI tools (Claude Code / Codex / Gemini …) at CLIProxyAPI</sub>
+</p>
+<p align="center">
+  <img src="assets/logs.png" width="820" alt="Logs"><br>
+  <sub><b>日志 Logs</b> — per-request history with tokens, latency and status</sub>
+</p>
+<p align="center">
+  <img src="assets/settings.png" width="820" alt="Settings"><br>
+  <sub><b>设置 Settings</b> — app mode, proxy, language, theme, privacy</sub>
+</p>
+
+</details>
 
 ## Structure
 
