@@ -58,5 +58,21 @@ Update-VersionLine $tauriConf '"version"\s*:\s*"[^"]*"' ('"version": "' + $new +
 Update-VersionLine (Join-Path $root 'package.json') '"version"\s*:\s*"[^"]*"' ('"version": "' + $new + '"')
 Update-VersionLine (Join-Path $root 'apps/desktop/package.json') '"version"\s*:\s*"[^"]*"' ('"version": "' + $new + '"')
 Update-VersionLine (Join-Path $root 'apps/desktop/src-tauri/Cargo.toml') '(?m)^version\s*=\s*"[^"]*"' ('version = "' + $new + '"')
+
+# README.md 的下载直链 / 版本文案：把旧版本号全局替换成新版本号
+# （覆盖 .../releases/download/v<旧>/Quotio_<旧>... 以及「v<旧>」字样；
+#  依赖 README 当前版本号与上面 4 处一致，version:set 一向是同步更新的）
+$readme = Join-Path $root 'README.md'
+if (Test-Path $readme) {
+  $rtext = Get-Content $readme -Raw
+  $hits = [regex]::Matches($rtext, [regex]::Escape($current)).Count
+  if ($hits -gt 0) {
+    Set-Content -Path $readme -Value $rtext.Replace($current, $new) -NoNewline -Encoding utf8
+    Write-Host "  OK  README.md（替换 $hits 处 $current -> $new）"
+  } else {
+    Write-Warning "  README.md 未找到 $current，跳过（可能已手动改过或与版本不同步）"
+  }
+}
+
 Write-Host ""
 Write-Host "下一步: npm run release   (编译 + 生成 Quotio_${new}_x64 安装包/便携版)"
