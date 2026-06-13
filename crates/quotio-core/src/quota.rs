@@ -22,6 +22,13 @@ use sha2::{Digest, Sha256};
 // ---- Codex / OpenAI ----
 const CODEX_USAGE_URL: &str = "https://chatgpt.com/backend-api/wham/usage";
 const CODEX_TOKEN_REFRESH_URL: &str = "https://token.oaifree.com/api/auth/refresh";
+// Spending one "主动重置次数" (rate-limit reset credit) force-resets the 5h
+// primary window. Same endpoint + payload the CLIProxyAPI Management Center uses.
+const CODEX_RESET_CREDITS_URL: &str =
+    "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits/consume";
+// Codex CLI's User-Agent. The reset-credits endpoint is a write and stricter than
+// the read-only usage endpoint, so we mirror what the official client sends.
+const CODEX_USER_AGENT: &str = "codex_cli_rs/0.76.0 (Debian 13.0.0; x86_64) WindowsTerminal";
 
 // ---- Claude Code ----
 const CLAUDE_USAGE_URL: &str = "https://api.anthropic.com/api/oauth/usage";
@@ -478,7 +485,7 @@ fn fetch_codex_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Option<A
             status_message: if auth_failed {
                 Some("auth_failed".to_string())
             } else {
-                codex_plan_status(&auth, None)
+                codex_plan_status(&auth, None, None)
             },
             models: Vec::new(),
         });
@@ -497,6 +504,10 @@ fn fetch_codex_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Option<A
         .unwrap_or(0);
     let session_reset = rate.primary_window.as_ref().and_then(|w| w.reset_at);
     let weekly_reset = rate.secondary_window.as_ref().and_then(|w| w.reset_at);
+    let reset_credits = usage
+        .rate_limit_reset_credits
+        .as_ref()
+        .and_then(|credits| credits.available_count);
 
     // Codex serves requests from the Session (5h primary) window, so the account
     // is only truly exhausted when THAT window is full. The API's top-level
@@ -508,7 +519,7 @@ fn fetch_codex_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Option<A
         account_label: label,
         account_key: key,
         is_forbidden: session_used >= 100,
-        status_message: codex_plan_status(&auth, usage.plan_type.as_deref()),
+        status_message: codex_plan_status(&auth, usage.plan_type.as_deref(), reset_credits),
         models: vec![
             model_usage_unix(
                 "Session",
@@ -562,6 +573,101 @@ fn refresh_codex_token(agent: &ureq::Agent, refresh_token: &str) -> Result<Strin
             .map(|parsed| parsed.access_token)
             .map_err(|_| FetchError::Other),
         Err(_) => Err(FetchError::Other),
+    }
+}
+
+/// Spend one "主动重置次数" (rate-limit reset credit) to force-reset the Codex
+/// 5h primary window for the account whose key matches `account_key`. Mirrors the
+/// CLIProxyAPI Management Center's reset action exactly: POST consume with a fresh
+/// `redeem_request_id`, using the account's OAuth token (refreshed on 401). On
+/// success the proactively-refreshed token is written back so the next usage fetch
+/// reflects the reset. Returns a localized error message on failure (e.g. no
+/// credits available, network, or re-auth needed).
+pub fn consume_codex_reset_credit(account_key: &str, proxy_url: Option<&str>) -> Result<(), String> {
+    let agent = build_agent(proxy_url);
+    let (path, _name) = list_codex_auth_files()
+        .into_iter()
+        .find(|(_, name)| clean_filename(name, "codex-") == account_key)
+        .ok_or_else(|| format!("未找到账号文件：{}", account_key))?;
+    let raw = fs::read_to_string(&path).map_err(|err| format!("读取账号文件失败：{}", err))?;
+    let auth: CodexAuthFile =
+        serde_json::from_str(&raw).map_err(|err| format!("解析账号文件失败：{}", err))?;
+    let raw_json: serde_json::Value = serde_json::from_str(&raw).unwrap_or(serde_json::Value::Null);
+    let account_id = resolve_codex_account_id(&auth, &raw_json);
+    // One redeem id reused across the (rare) refresh-and-retry, so a token that
+    // turned out to be valid can't double-spend a credit.
+    let redeem_id = uuid::Uuid::new_v4().to_string();
+
+    let mut access_token = auth.access_token.clone();
+    if jwt_token_expired(&access_token) {
+        if let Some(refresh_token) = auth.refresh_token.as_deref() {
+            if let Ok(refreshed) = refresh_codex_token(&agent, refresh_token) {
+                write_codex_access_token(&path, &refreshed);
+                access_token = refreshed;
+            }
+        }
+    }
+
+    match post_codex_reset(&agent, &access_token, account_id.as_deref(), &redeem_id) {
+        Ok(()) => Ok(()),
+        Err(ResetError::Unauthorized) => {
+            let refresh_token = auth
+                .refresh_token
+                .as_deref()
+                .ok_or_else(|| "账号需要重新授权".to_string())?;
+            let refreshed = refresh_codex_token(&agent, refresh_token)
+                .map_err(|_| "令牌刷新失败，账号可能需要重新授权".to_string())?;
+            write_codex_access_token(&path, &refreshed);
+            post_codex_reset(&agent, &refreshed, account_id.as_deref(), &redeem_id).map_err(
+                |err| match err {
+                    ResetError::Unauthorized => "重置失败：令牌刷新后仍被拒绝".to_string(),
+                    ResetError::Failed(message) => message,
+                },
+            )
+        }
+        Err(ResetError::Failed(message)) => Err(message),
+    }
+}
+
+enum ResetError {
+    Unauthorized,
+    Failed(String),
+}
+
+fn post_codex_reset(
+    agent: &ureq::Agent,
+    access_token: &str,
+    account_id: Option<&str>,
+    redeem_id: &str,
+) -> Result<(), ResetError> {
+    let mut request = agent
+        .post(CODEX_RESET_CREDITS_URL)
+        .set("Authorization", &format!("Bearer {}", access_token))
+        .set("Content-Type", "application/json")
+        .set("User-Agent", CODEX_USER_AGENT);
+    if let Some(id) = account_id {
+        if !id.is_empty() {
+            request = request.set("Chatgpt-Account-Id", id);
+        }
+    }
+    match request.send_json(serde_json::json!({ "redeem_request_id": redeem_id })) {
+        Ok(_) => Ok(()),
+        Err(ureq::Error::Status(401, _)) | Err(ureq::Error::Status(403, _)) => {
+            Err(ResetError::Unauthorized)
+        }
+        Err(ureq::Error::Status(code, response)) => {
+            // Surface the server's reason (e.g. no credits left) so the card can
+            // show why the reset didn't happen, not just a generic failure.
+            let body = response.into_string().unwrap_or_default();
+            // char-based truncation so a multibyte boundary can't panic.
+            let snippet: String = body.trim().chars().take(200).collect();
+            Err(ResetError::Failed(if snippet.is_empty() {
+                format!("重置失败（HTTP {}）", code)
+            } else {
+                format!("重置失败（HTTP {}）：{}", code, snippet)
+            }))
+        }
+        Err(_) => Err(ResetError::Failed("重置失败：网络异常".to_string())),
     }
 }
 
@@ -660,21 +766,34 @@ fn decode_jwt_plan(token: &str) -> Option<(Option<String>, Option<String>)> {
     Some((plan, until))
 }
 
-/// Encode plan tier + expiry into the status_message as
-/// "plan: <tier> | until: <YYYY-MM-DD>" for the Quota card to parse.
-fn codex_plan_status(auth: &CodexAuthFile, usage_plan: Option<&str>) -> Option<String> {
+/// Encode plan tier + expiry + reset credits into the status_message as
+/// "plan: <tier> | until: <YYYY-MM-DD> | resets: <N>" for the Quota card to
+/// parse. Any piece may be absent; returns None only when nothing is known.
+fn codex_plan_status(
+    auth: &CodexAuthFile,
+    usage_plan: Option<&str>,
+    reset_credits: Option<i64>,
+) -> Option<String> {
     let (jwt_plan, until) = auth
         .id_token
         .as_deref()
         .and_then(decode_jwt_plan)
         .unwrap_or((None, None));
-    let plan = jwt_plan.or_else(|| usage_plan.map(ToString::to_string))?;
-    let mut status = format!("plan: {}", plan);
-    if let Some(date) = until.as_deref().and_then(|value| value.split('T').next()) {
-        status.push_str(" | until: ");
-        status.push_str(date);
+    let plan = jwt_plan.or_else(|| usage_plan.map(ToString::to_string));
+    let mut parts: Vec<String> = Vec::new();
+    if let Some(plan) = plan {
+        parts.push(format!("plan: {}", plan));
     }
-    Some(status)
+    if let Some(date) = until.as_deref().and_then(|value| value.split('T').next()) {
+        parts.push(format!("until: {}", date));
+    }
+    if let Some(credits) = reset_credits {
+        parts.push(format!("resets: {}", credits));
+    }
+    if parts.is_empty() {
+        return None;
+    }
+    Some(parts.join(" | "))
 }
 
 fn cursor_state_db_path() -> Option<std::path::PathBuf> {
@@ -856,6 +975,15 @@ struct CodexUsageResponse {
     plan_type: Option<String>,
     #[serde(default)]
     rate_limit: Option<RateLimitInfo>,
+    /// 主动重置次数 — manual rate-limit reset credits (`{ available_count }`).
+    #[serde(default)]
+    rate_limit_reset_credits: Option<ResetCreditsInfo>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct ResetCreditsInfo {
+    #[serde(default)]
+    available_count: Option<i64>,
 }
 
 #[derive(Debug, Default, Deserialize)]

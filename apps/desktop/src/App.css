@@ -2764,6 +2764,56 @@ h3 {
   background: rgba(255, 69, 58, 0.13);
 }
 
+/* 主动重置次数: count text + the "spend a credit to reset" button, grouped on
+   the 用量 row (away from the status-pill cluster so they never collide). */
+.quota-reset-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quota-reset-credits {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--quotio-text-muted, #94a3b8);
+  white-space: nowrap;
+}
+
+.quota-reset-button {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--quotio-border, rgba(148, 163, 184, 0.35));
+  background: transparent;
+  color: var(--quotio-blue, #0a84ff);
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.quota-reset-button:hover:not(:disabled) {
+  background: rgba(10, 132, 255, 0.12);
+}
+
+.quota-reset-button:disabled {
+  color: var(--quotio-text-muted, #94a3b8);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.quota-reset-button--confirm {
+  color: #c0261d;
+  border-color: rgba(255, 69, 58, 0.4);
+  background: rgba(255, 69, 58, 0.1);
+}
+
+.quota-reset-error {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: #c0261d;
+}
+
 .quota-usage-head {
   display: flex;
   align-items: center;

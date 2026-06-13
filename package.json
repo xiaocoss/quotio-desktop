@@ -1,13 +1,16 @@
 {
   "name": "quotio-desktop-workspace",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "scripts": {
     "desktop:install": "npm --prefix apps/desktop install",
     "desktop:dev": "npm --prefix apps/desktop run tauri dev",
     "desktop:build": "npm --prefix apps/desktop run tauri build",
     "web:dev": "npm --prefix apps/desktop run dev",
     "web:build": "npm --prefix apps/desktop run build",
-    "cargo:check": "cargo check --workspace"
+    "cargo:check": "cargo check --workspace",
+    "version:set": "pwsh -NoProfile -File scripts/set-version.ps1",
+    "package:portable": "pwsh -NoProfile -File scripts/package-portable.ps1",
+    "release": "npm run desktop:build && npm run package:portable"
   }
 }

@@ -110,6 +110,17 @@ export function parsePlan(statusMessage: string | null | undefined): string | nu
   return statusMessage.match(/plan:\s*([^|]+)/i)?.[1]?.trim() || null;
 }
 
+// Codex encodes its "主动重置次数" (manual rate-limit reset credits) into the
+// same status_message as "... | resets: <N>". Returns the count, or null when
+// the account isn't Codex / the field wasn't present.
+export function parseResetCredits(statusMessage: string | null | undefined): number | null {
+  if (!statusMessage) return null;
+  const match = statusMessage.match(/resets:\s*(-?\d+)/i);
+  if (!match) return null;
+  const value = Number.parseInt(match[1], 10);
+  return Number.isFinite(value) ? value : null;
+}
+
 export type PlanTier = "free" | "plus" | "pro" | "team" | "business";
 
 // Map a plan name to a tier key used for badge coloring (shared by the Quota

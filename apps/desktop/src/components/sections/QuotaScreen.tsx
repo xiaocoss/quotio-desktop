@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import type { AccountQuota, AppSettings, AppState, AuthFile, ProviderSummary, QuotaModelUsage } from "../../types";
-import { maskEmail, quotaTone, parsePlan, planTier, matchAuthFile } from "../../lib/format";
+import { maskEmail, quotaTone, parsePlan, parseResetCredits, planTier, matchAuthFile } from "../../lib/format";
 import { RefreshIcon } from "../icons";
 import { HealthDots } from "../HealthDots";
 import { Switch } from "../Switch";
 import { useT } from "../../i18n";
+import { invoke } from "../../lib/tauri";
 
 type QuotaScreenProps = {
   appState: AppState;
@@ -95,7 +96,12 @@ export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSett
 
           <div className="quota-accounts">
             {active?.accounts.map((account) => (
-              <AccountQuotaCard key={account.account_key} account={account} authFiles={authFiles} />
+              <AccountQuotaCard
+                key={account.account_key}
+                account={account}
+                authFiles={authFiles}
+                onRefreshQuotas={onRefreshQuotas}
+              />
             ))}
           </div>
         </>
@@ -169,13 +175,51 @@ function SchedulerCard({
   );
 }
 
-function AccountQuotaCard({ account, authFiles }: { account: AccountQuota; authFiles: AuthFile[] }) {
+function AccountQuotaCard({
+  account,
+  authFiles,
+  onRefreshQuotas,
+}: {
+  account: AccountQuota;
+  authFiles: AuthFile[];
+  onRefreshQuotas: () => void;
+}) {
   const t = useT();
-  // The Codex fetcher encodes the subscription tier + expiry into status_message
-  // as "plan: <tier> | until: <YYYY-MM-DD>"; surface them as a badge + date.
+  // The Codex fetcher encodes the subscription tier + expiry + reset credits into
+  // status_message as "plan: <tier> | until: <YYYY-MM-DD> | resets: <N>"; surface
+  // them as a badge + date + the "主动重置次数" pill.
   const statusMessage = account.status_message ?? "";
   const plan = parsePlan(statusMessage);
   const expiry = statusMessage.match(/until:\s*([^|]+)/i)?.[1]?.trim();
+  // 主动重置次数: only Codex reports it; null means "not a Codex account / absent".
+  const isCodex = account.provider_id === "codex";
+  const resetCredits = isCodex ? parseResetCredits(statusMessage) : null;
+  const hasResetCredits = resetCredits != null;
+  const [resetting, setResetting] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+
+  // Two-step inline confirm (matches the app's "清空" pattern): first click arms
+  // it, second click within 4s spends a credit and force-resets the 5h window.
+  async function handleReset() {
+    if (resetting) return;
+    if (!confirmReset) {
+      setConfirmReset(true);
+      window.setTimeout(() => setConfirmReset(false), 4000);
+      return;
+    }
+    setConfirmReset(false);
+    setResetting(true);
+    setResetError(null);
+    try {
+      await invoke("consume_codex_reset_credit", { accountKey: account.account_key });
+      onRefreshQuotas();
+    } catch (error) {
+      setResetError(typeof error === "string" ? error : t("quota.resetFailed", "重置失败"));
+    } finally {
+      setResetting(false);
+    }
+  }
   // Codex accounts whose 401 couldn't be refreshed are flagged "auth_failed" by
   // the backend — mark them here too (matches the Providers list).
   const authFailed = statusMessage === "auth_failed";
@@ -250,7 +294,32 @@ function AccountQuotaCard({ account, authFiles }: { account: AccountQuota; authF
         <>
           <div className="quota-usage-head">
             <span>{t("quota.usage")}</span>
+            {hasResetCredits ? (
+              <span className="quota-reset-group">
+                <span className="quota-reset-credits" title={t("quota.resetCredits", "主动重置次数")}>
+                  {t("quota.resetCredits", "主动重置次数")} {resetCredits}
+                </span>
+                <button
+                  type="button"
+                  className={confirmReset ? "quota-reset-button quota-reset-button--confirm" : "quota-reset-button"}
+                  disabled={resetting || (resetCredits ?? 0) <= 0}
+                  onClick={handleReset}
+                  title={
+                    (resetCredits ?? 0) <= 0
+                      ? t("quota.resetNoCredits", "没有可用的主动重置次数")
+                      : t("quota.resetButton", "重置")
+                  }
+                >
+                  {resetting
+                    ? t("quota.resetting", "重置中…")
+                    : confirmReset
+                      ? t("quota.resetConfirm", "确认重置?")
+                      : t("quota.resetButton", "重置")}
+                </button>
+              </span>
+            ) : null}
           </div>
+          {resetError ? <p className="quota-reset-error">{resetError}</p> : null}
           <div className="quota-models">
             {account.models.map((model) => (
               <ModelQuotaRow key={model.model} model={model} />

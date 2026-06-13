@@ -893,6 +893,28 @@ async fn refresh_quotas(
     Ok(core.app_state())
 }
 
+/// Spend one Codex "主动重置次数" (rate-limit reset credit) for the given account,
+/// force-resetting its 5h window. The frontend refreshes quotas afterward to pick
+/// up the new state. Errors carry a localized message for inline display.
+#[tauri::command]
+async fn consume_codex_reset_credit(
+    account_key: String,
+    state: State<'_, DesktopState>,
+) -> Result<(), String> {
+    let proxy_url = {
+        let core = state
+            .core
+            .lock()
+            .map_err(|_| "无法访问代理核心".to_string())?;
+        core.proxy_upstream_url()
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        quotio_core::quota::consume_codex_reset_credit(&account_key, proxy_url.as_deref())
+    })
+    .await
+    .map_err(|error| format!("重置任务异常：{}", error))?
+}
+
 #[tauri::command]
 async fn get_management_debug(state: State<'_, DesktopState>) -> Result<bool, String> {
     let client = management_client(&state, "无法读取 debug 状态")?;
@@ -1511,6 +1533,7 @@ pub fn run() {
             remove_api_key,
             update_api_key,
             refresh_quotas,
+            consume_codex_reset_credit,
             get_management_debug,
             set_management_debug,
             get_management_routing_strategy,

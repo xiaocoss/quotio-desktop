@@ -121,13 +121,14 @@ function quota(
   warmingUp: boolean,
   inUse: boolean,
   models: QuotaModelUsage[],
+  statusMessage: string | null = null,
 ): AccountQuota {
   return {
     provider_id: providerId,
     account_label: accountLabel,
     account_key: accountKey,
     is_forbidden: false,
-    status_message: null,
+    status_message: statusMessage,
     models,
     account_type: accountType,
     warming_up: warmingUp,
@@ -148,10 +149,16 @@ const accountQuotas: AccountQuota[] = [
   quota("antigravity-1", "antigravity", "aurora@gmail.com", "Pro", true, true, antigravityModels(0, "2d 17h")),
   quota("antigravity-2", "antigravity", "borealis@gmail.com", "Pro", false, true, antigravityModels(9, "1h 47m")),
   quota("antigravity-3", "antigravity", "cosmos@gmail.com", "Pro", false, false, antigravityModels(64, "3h 12m")),
-  quota("codex-1", "codex", "dev@openai.example.com", "Plus", false, false, [
-    model("GPT-5", 72, "5h"),
-    model("GPT-5 Codex", 40, "5h"),
-  ]),
+  quota(
+    "codex-1",
+    "codex",
+    "dev@openai.example.com",
+    "Plus",
+    false,
+    false,
+    [model("GPT-5", 72, "5h"), model("GPT-5 Codex", 40, "5h")],
+    "plan: Plus | until: 2026-07-09 | resets: 2",
+  ),
   quota("copilot-1", "copilot", "team@github.example.com", "Business", false, true, [
     model("Claude Sonnet 4.5", 58, "12h"),
     model("GPT-5", 85, "12h"),
@@ -613,6 +620,9 @@ export async function mockInvoke<T>(command: string, args?: Record<string, unkno
     case "credential_status":
       return mockState.credentials as unknown as T;
     case "open_config_root":
+      return undefined as unknown as T;
+    case "consume_codex_reset_credit":
+      // Dev-only: pretend the reset succeeded; the UI then re-fetches quotas.
       return undefined as unknown as T;
     default:
       if (APP_STATE_COMMANDS.has(command)) return mockState as unknown as T;
