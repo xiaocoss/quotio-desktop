@@ -12,6 +12,8 @@
 
 > 本项目是 [quotio](https://github.com/nguyenphutrong/quotio)（原 macOS / SwiftUI 版）的跨平台移植，基于 Tauri 重写，一套代码覆盖 macOS / Windows / Linux。
 
+📥 **[下载最新版](https://github.com/xiaocoss/quotio-desktop/releases/latest)** —— macOS / Windows / Linux（或见下方[安装指南](#-安装)）
+
 ---
 
 ## ✨ 功能
@@ -70,12 +72,15 @@
 
 ### 选项 A：下载安装包（推荐）
 
-前往 [**GitHub Releases**](https://github.com/xiaocoss/quotio-desktop/releases/latest) 下载对应系统的安装包：
+点下表直达下载 **v0.3.0**，或前往 [**Releases**](https://github.com/xiaocoss/quotio-desktop/releases/latest) 取最新版：
 
-- **macOS**：`.dmg`（Apple Silicon & Intel 通用）
-- **Windows**：`.msi`（推荐）或 `-setup.exe`
-- **Linux**：`.deb`（Debian / Ubuntu）、`.rpm` 或 `.AppImage`（通用）
+| 平台 | 下载 |
+|---|---|
+| **Windows** | [`.msi`（推荐）](https://github.com/xiaocoss/quotio-desktop/releases/download/v0.3.0/Quotio_0.3.0_x64_en-US.msi) · [`-setup.exe`](https://github.com/xiaocoss/quotio-desktop/releases/download/v0.3.0/Quotio_0.3.0_x64-setup.exe) |
+| **macOS**（Apple Silicon & Intel 通用） | [`.dmg`](https://github.com/xiaocoss/quotio-desktop/releases/download/v0.3.0/Quotio_0.3.0_universal.dmg) |
+| **Linux** | [`.deb`](https://github.com/xiaocoss/quotio-desktop/releases/download/v0.3.0/Quotio_0.3.0_amd64.deb) · [`.rpm`](https://github.com/xiaocoss/quotio-desktop/releases/download/v0.3.0/Quotio-0.3.0-1.x86_64.rpm) · [`.AppImage`](https://github.com/xiaocoss/quotio-desktop/releases/download/v0.3.0/Quotio_0.3.0_amd64.AppImage) |
 
+> 上表为 v0.3.0 直链；后续新版请走 [Releases](https://github.com/xiaocoss/quotio-desktop/releases/latest) 页。
 > macOS 安装包未签名，若提示「已损坏 / 无法打开」，到「系统设置 → 隐私与安全性」点「仍要打开」即可。
 
 ### 选项 B：从源码构建
