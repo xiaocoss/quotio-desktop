@@ -354,18 +354,18 @@ async fn download_proxy_binary(
     // Resolve the destination path under a short-lived lock, then release it so
     // the (slow, blocking) network download never holds the core mutex or the
     // main thread — keeping the UI fully responsive.
-    let dest = {
+    let (dest, proxy_url) = {
         let core = state
             .core
             .lock()
             .map_err(|_| "无法访问代理核心".to_string())?;
-        core.proxy_managed_binary_path()
+        (core.proxy_managed_binary_path(), core.proxy_upstream_url())
     };
 
     let progress_app = app.clone();
     let tag = tauri::async_runtime::spawn_blocking(move || {
         let mut last_percent = u8::MAX;
-        quotio_core::proxy_download::download_proxy_binary(&dest, |downloaded, total| {
+        quotio_core::proxy_download::download_proxy_binary(&dest, proxy_url.as_deref(), |downloaded, total| {
             if total == 0 {
                 return;
             }
@@ -415,17 +415,17 @@ async fn download_cloudflared(
     app: AppHandle,
     state: State<'_, DesktopState>,
 ) -> Result<TunnelStatus, String> {
-    let dest = {
+    let (dest, proxy_url) = {
         let core = state
             .core
             .lock()
             .map_err(|_| "无法访问代理核心".to_string())?;
-        core.cloudflared_binary_path()
+        (core.cloudflared_binary_path(), core.proxy_upstream_url())
     };
     let progress_app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let mut last_percent = u8::MAX;
-        quotio_core::tunnel::download_cloudflared(&dest, |downloaded, total| {
+        quotio_core::tunnel::download_cloudflared(&dest, proxy_url.as_deref(), |downloaded, total| {
             if total == 0 {
                 return;
             }
@@ -844,6 +844,9 @@ async fn refresh_quotas(
             .core
             .lock()
             .map_err(|_| "无法访问代理核心".to_string())?;
+        // Clean up duplicate same-account files before listing (re-import / re-login
+        // can leave two files = two cards); keeps the bound / newest one.
+        core.dedup_codex_auth();
         core.proxy_upstream_url()
     };
     // Stream each account to the UI (event "quota-account") the moment it is
@@ -1123,6 +1126,11 @@ async fn start_management_oauth(
     is_webui: bool,
     state: State<'_, DesktopState>,
 ) -> Result<OAuthUrlResponse, String> {
+    // Codex 登录用本地 http://localhost:1455/auth/callback 接码；若 1455 绑不上
+    // （保留排除区间 / 被占），浏览器回调会失败、登录静默卡住——提前给明确提示。
+    if endpoint.to_lowercase().contains("codex") {
+        quotio_core::probe_codex_oauth_port()?;
+    }
     let client = management_client(&state, "无法启动 OAuth")?;
     client
         .get_oauth_url(&endpoint, project_id.as_deref(), is_webui)
@@ -1136,10 +1144,22 @@ async fn poll_management_oauth(
     state: State<'_, DesktopState>,
 ) -> Result<OAuthStatusResponse, String> {
     let client = management_client(&state, "无法轮询 OAuth 状态")?;
-    client
+    let response = client
         .poll_oauth_status(&token)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    // On a completed login CLIProxyAPI just wrote a fresh auth file; if it's a
+    // re-login of an existing account (under a different filename) this dedups so
+    // we don't end up with two files / two cards for the same account.
+    if matches!(
+        response.status.to_ascii_lowercase().as_str(),
+        "ok" | "success" | "completed"
+    ) {
+        if let Ok(core) = state.core.lock() {
+            core.dedup_codex_auth();
+        }
+    }
+    Ok(response)
 }
 
 /// Manually complete an OAuth login by replaying the pasted callback URL
@@ -1284,6 +1304,10 @@ fn spawn_usage_collector(app: AppHandle) {
         std::thread::sleep(std::time::Duration::from_secs(3));
         let mut tick: u64 = 0;
         loop {
+            // Isolate each iteration: a panic anywhere in the body must NOT kill
+            // the only queue consumer (that would silently stop usage collection
+            // for the rest of the process). Catch it and continue next tick.
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let prepared = app.try_state::<DesktopState>().and_then(|state| {
                 let mut core = state.core.lock().ok()?;
                 let client = core.management_client().ok()?;
@@ -1366,6 +1390,7 @@ fn spawn_usage_collector(app: AppHandle) {
                     }
                 }
             }
+            }));
             tick = tick.wrapping_add(1);
             std::thread::sleep(std::time::Duration::from_millis(USAGE_COLLECTOR_POLL_MS));
         }

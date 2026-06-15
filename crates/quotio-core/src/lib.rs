@@ -543,53 +543,29 @@ impl AppCore {
         if !base.to_ascii_lowercase().ends_with(".json") {
             return Err("仅支持 .json 账号文件".to_string());
         }
-        let parsed = serde_json::from_str::<serde_json::Value>(content)
+        serde_json::from_str::<serde_json::Value>(content)
             .map_err(|_| "文件内容不是有效的 JSON".to_string())?;
         let dir = quotio_platform::proxy_auth_dir();
         std::fs::create_dir_all(&dir).map_err(|error| format!("创建 auth 目录失败：{}", error))?;
         let target = dir.join(base);
 
-        // De-duplicate by account identity: if this account (same email, and
-        // same provider when both declare one) already exists under a different
-        // filename, remove the stale file(s) first so re-importing updates the
-        // account in place instead of creating a duplicate in the routing pool.
-        if let Some(new_email) = credential_email(&parsed) {
-            let new_provider = credential_provider(&parsed);
-            if let Ok(entries) = std::fs::read_dir(&dir) {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path == target {
-                        continue; // this is the file we're about to overwrite
-                    }
-                    let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
-                        continue;
-                    };
-                    let lower = name.to_ascii_lowercase();
-                    if !lower.ends_with(".json") || lower.starts_with("glm-keys") {
-                        continue;
-                    }
-                    let Some(existing) = std::fs::read_to_string(&path)
-                        .ok()
-                        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
-                    else {
-                        continue;
-                    };
-                    let same_email = credential_email(&existing)
-                        .map(|email| email.eq_ignore_ascii_case(&new_email))
-                        .unwrap_or(false);
-                    let same_provider = match (&new_provider, credential_provider(&existing)) {
-                        (Some(left), Some(right)) => left.eq_ignore_ascii_case(&right),
-                        _ => true,
-                    };
-                    if same_email && same_provider {
-                        let _ = std::fs::remove_file(&path);
-                    }
-                }
-            }
-        }
-
         std::fs::write(&target, content).map_err(|error| format!("写入账号文件失败：{}", error))?;
+        // De-duplicate by account identity (account_id, then email — robust to any
+        // file format, not just the flat CPA one). The just-written file is newest,
+        // so this keeps it and removes stale same-account files instead of leaving
+        // a duplicate in the routing pool; never touches the bound-login account.
+        dedup_codex_auth_keep_newest(&dir, &self.settings.codex_bound_account);
         Ok(self.app_state())
+    }
+
+    /// De-duplicate codex auth files by account identity (keep bound / newest),
+    /// so re-importing or re-logging-in the same account never leaves two files
+    /// (= two cards, two pool entries). Best-effort; safe to call repeatedly.
+    pub fn dedup_codex_auth(&self) {
+        dedup_codex_auth_keep_newest(
+            &quotio_platform::proxy_auth_dir(),
+            &self.settings.codex_bound_account,
+        );
     }
 
     pub fn update_fallback_configuration(
@@ -1311,12 +1287,88 @@ fn fallback_port(proxy_port: u16) -> u16 {
 /// the Providers page can show existing accounts even when the proxy isn't
 /// connected (the proxy's /auth-files is empty then).
 /// Extract the account email from a parsed CLIProxyAPI credential JSON.
+/// All JWT tokens a credential file carries — checks both the flat CPA format
+/// (top-level `id_token`/`access_token`) and the raw Codex format (nested under
+/// `tokens`).
+fn credential_tokens(value: &serde_json::Value) -> Vec<String> {
+    let mut tokens = Vec::new();
+    for key in ["id_token", "access_token"] {
+        if let Some(token) = value.get(key).and_then(|v| v.as_str()) {
+            if !token.is_empty() {
+                tokens.push(token.to_string());
+            }
+        }
+        if let Some(token) = value
+            .get("tokens")
+            .and_then(|t| t.get(key))
+            .and_then(|v| v.as_str())
+        {
+            if !token.is_empty() {
+                tokens.push(token.to_string());
+            }
+        }
+    }
+    tokens
+}
+
+/// Stable account identity (ChatGPT `account_id`) for de-dup: top-level/nested
+/// `account_id`, else the `chatgpt_account_id` claim inside any carried JWT — so
+/// it recognizes the same account regardless of file format (flat CPA export or a
+/// raw Codex `auth.json` whose identity only lives in the token).
+fn credential_account_id(value: &serde_json::Value) -> Option<String> {
+    for direct in [
+        value.get("account_id"),
+        value.get("tokens").and_then(|t| t.get("account_id")),
+    ] {
+        if let Some(id) = direct.and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
+            return Some(id.to_string());
+        }
+    }
+    for token in credential_tokens(value) {
+        if let Some(id) = crate::quota::decode_jwt_payload(&token).and_then(|payload| {
+            payload
+                .get("https://api.openai.com/auth")
+                .and_then(|auth| auth.get("chatgpt_account_id"))
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+        }) {
+            return Some(id);
+        }
+    }
+    None
+}
+
+/// Account email: top-level/nested `email`, else the email claim inside a carried
+/// JWT (handles files that don't store a top-level email).
 fn credential_email(value: &serde_json::Value) -> Option<String> {
-    value
-        .get("email")
-        .and_then(|email| email.as_str())
-        .map(str::to_string)
-        .filter(|email| !email.is_empty())
+    for direct in [
+        value.get("email"),
+        value.get("tokens").and_then(|t| t.get("email")),
+    ] {
+        if let Some(email) = direct.and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
+            return Some(email.to_string());
+        }
+    }
+    for token in credential_tokens(value) {
+        let Some(payload) = crate::quota::decode_jwt_payload(&token) else {
+            continue;
+        };
+        let claim = payload
+            .get("email")
+            .and_then(|v| v.as_str())
+            .or_else(|| {
+                payload
+                    .get("https://api.openai.com/profile")
+                    .and_then(|p| p.get("email"))
+                    .and_then(|v| v.as_str())
+            })
+            .filter(|s| !s.is_empty());
+        if let Some(email) = claim {
+            return Some(email.to_string());
+        }
+    }
+    None
 }
 
 /// Extract the provider/type declared inside a credential JSON (reads the file's
@@ -1329,6 +1381,81 @@ fn credential_provider(value: &serde_json::Value) -> Option<String> {
         .and_then(|kind| kind.as_str())
         .map(str::to_string)
         .filter(|kind| !kind.is_empty())
+}
+
+/// Remove duplicate credential files that point at the SAME account (by
+/// `account_id`, falling back to email), keeping ONE per account: the bound-login
+/// file if the group has one (its filename is referenced by settings, so deleting
+/// it would break Codex launch), otherwise the most-recently-modified file. Skips
+/// `glm-keys*` and non-JSON. Best-effort — fixes "re-import / re-login shows two
+/// cards" without touching distinct accounts.
+fn dedup_codex_auth_keep_newest(dir: &std::path::Path, bound_account: &str) {
+    use std::collections::HashMap;
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let bound = bound_account.trim();
+    let mut groups: HashMap<String, Vec<(PathBuf, std::time::SystemTime, bool)>> = HashMap::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|v| v.to_str()) else {
+            continue;
+        };
+        let lower = name.to_ascii_lowercase();
+        if !lower.ends_with(".json") || lower.starts_with("glm-keys") {
+            continue;
+        }
+        let Some(value) = std::fs::read_to_string(&path)
+            .ok()
+            .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+        else {
+            continue;
+        };
+        // Identity = account_id (provider-scoped already), else email+provider so
+        // two different-provider accounts that happen to share an email aren't
+        // merged. No identity at all → leave the file alone.
+        let identity = match credential_account_id(&value) {
+            Some(id) => id.to_ascii_lowercase(),
+            None => match credential_email(&value) {
+                Some(email) => format!(
+                    "{}|{}",
+                    email.to_ascii_lowercase(),
+                    credential_provider(&value).unwrap_or_default().to_ascii_lowercase()
+                ),
+                None => continue,
+            },
+        };
+        let stem = name.strip_suffix(".json").unwrap_or(name);
+        let is_bound = !bound.is_empty() && (name == bound || stem == bound);
+        let mtime = entry
+            .metadata()
+            .and_then(|meta| meta.modified())
+            .unwrap_or(std::time::UNIX_EPOCH);
+        groups
+            .entry(identity)
+            .or_default()
+            .push((path, mtime, is_bound));
+    }
+    for files in groups.into_values() {
+        if files.len() < 2 {
+            continue;
+        }
+        // Keep the bound file if present, else the newest; remove the rest.
+        let keep = files.iter().position(|f| f.2).unwrap_or_else(|| {
+            let mut best = 0usize;
+            for (index, file) in files.iter().enumerate() {
+                if file.1 > files[best].1 {
+                    best = index;
+                }
+            }
+            best
+        });
+        for (index, file) in files.iter().enumerate() {
+            if index != keep {
+                let _ = std::fs::remove_file(&file.0);
+            }
+        }
+    }
 }
 
 pub fn list_local_accounts() -> Vec<AuthFile> {
@@ -1549,27 +1676,27 @@ fn custom_providers_yaml() -> String {
         out.push_str(section);
         out.push_str(":\n");
         for provider in list {
-            let name = provider.name.replace('"', "'");
-            let base_url = provider.base_url.replace('"', "'");
-            let api_key = provider.api_key.replace('"', "'");
-            let prefix = provider.prefix.replace('"', "'");
+            // Single-quoted YAML via yaml_quote (safe for backslashes, quotes,
+            // colons). The old double-quoted form only did `"`→`'` and so
+            // mis-escaped backslashes / corrupted embedded quotes, which could
+            // make CLIProxyAPI fail to parse config.yaml and crash on start.
             if section == "openai-compatibility" {
-                out.push_str(&format!("  - name: \"{}\"\n", name));
-                out.push_str(&format!("    base-url: \"{}\"\n", base_url));
-                if !prefix.is_empty() {
-                    out.push_str(&format!("    prefix: \"{}\"\n", prefix));
+                out.push_str(&format!("  - name: {}\n", yaml_quote(&provider.name)));
+                out.push_str(&format!("    base-url: {}\n", yaml_quote(&provider.base_url)));
+                if !provider.prefix.is_empty() {
+                    out.push_str(&format!("    prefix: {}\n", yaml_quote(&provider.prefix)));
                 }
-                if !api_key.is_empty() {
+                if !provider.api_key.is_empty() {
                     out.push_str("    api-key-entries:\n");
-                    out.push_str(&format!("      - api-key: \"{}\"\n", api_key));
+                    out.push_str(&format!("      - api-key: {}\n", yaml_quote(&provider.api_key)));
                 }
             } else {
-                out.push_str(&format!("  - api-key: \"{}\"\n", api_key));
-                if !base_url.is_empty() {
-                    out.push_str(&format!("    base-url: \"{}\"\n", base_url));
+                out.push_str(&format!("  - api-key: {}\n", yaml_quote(&provider.api_key)));
+                if !provider.base_url.is_empty() {
+                    out.push_str(&format!("    base-url: {}\n", yaml_quote(&provider.base_url)));
                 }
-                if !prefix.is_empty() {
-                    out.push_str(&format!("    prefix: \"{}\"\n", prefix));
+                if !provider.prefix.is_empty() {
+                    out.push_str(&format!("    prefix: {}\n", yaml_quote(&provider.prefix)));
                 }
             }
         }
@@ -1941,14 +2068,10 @@ impl ProxyLifecycle {
             // it by binary name so Stop actually stops it instead of flipping
             // back to Running on the next refresh probe.
             if matches!(self.state.status, ProxyStatusKind::Running) {
-                let bin_name = self
-                    .paths
-                    .managed_binary_path()
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .map(str::to_string)
-                    .unwrap_or_else(|| "CLIProxyAPI".to_string());
-                kill_process_by_name(&bin_name);
+                // Only terminate the process holding OUR port — never `taskkill
+                // /IM` by image name, which would also kill any other CLIProxyAPI
+                // the user runs on a different port.
+                kill_process_on_port(settings.proxy_port);
             }
             self.state = state_for_paths(
                 settings,
@@ -2547,27 +2670,6 @@ fn health_connect_host(settings: &AppSettings) -> String {
 /// Best-effort terminate a proxy process by image/binary name. Used to stop a
 /// proxy this app session does not own (adopted from a previous session, an
 /// external launch, or orphaned by a restart) so the Stop button actually works.
-fn kill_process_by_name(name: &str) {
-    let name = name.trim();
-    if name.is_empty() {
-        return;
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        let _ = std::process::Command::new("taskkill")
-            .args(["/F", "/IM", name])
-            .creation_flags(0x0800_0000) // CREATE_NO_WINDOW: don't flash a console
-            .output();
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = std::process::Command::new("pkill")
-            .args(["-f", name])
-            .output();
-    }
-}
-
 /// Best-effort process image name for a PID on Windows (e.g. "CLIProxyAPI.exe").
 #[cfg(windows)]
 fn process_name_for_pid(pid: &str) -> Option<String> {
@@ -2673,6 +2775,33 @@ fn kill_process_on_port(port: u16) {
                     .output();
             }
         }
+    }
+}
+
+/// Probe whether the Codex OAuth callback port (1455) can be bound on loopback.
+/// Codex's redirect_uri is always `http://localhost:1455/auth/callback`; if 1455
+/// can't be bound, the browser redirect dies with ERR_CONNECTION_REFUSED and the
+/// login silently never completes. The classic Windows cause is 1455 falling in a
+/// reserved *excluded* port range (Hyper-V / WSL / winnat) where nothing can bind
+/// it. Returns Err with actionable guidance in that case; `AddrInUse` is treated
+/// as OK (likely CLIProxyAPI's own listener from a prior attempt — a retry is
+/// fine), so we only block on the genuinely fatal "can't bind at all" case.
+pub fn probe_codex_oauth_port() -> Result<(), String> {
+    use std::net::TcpListener;
+    const PORT: u16 = 1455;
+    match TcpListener::bind(("127.0.0.1", PORT)) {
+        Ok(listener) => {
+            drop(listener);
+            Ok(())
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => Ok(()),
+        Err(error) => Err(format!(
+            "无法绑定 Codex 登录回调端口 1455（{error}）。\n\
+             多见于 Windows 把 1455 划进了保留排除端口区间（Hyper-V / WSL / winnat），谁都绑不上——\
+             浏览器跳回 http://localhost:1455/auth/callback 时会“无法访问”，登录卡住。\n\
+             排查：管理员运行 `netsh int ipv4 show excludedportrange protocol=tcp`，\
+             若 1455 落在某区间内，可 `net stop winnat` 再 `net start winnat` 重置，或调整保留区间后重试。"
+        )),
     }
 }
 

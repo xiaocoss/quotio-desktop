@@ -28,7 +28,10 @@ type QuotaGroup = {
 export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSettings }: QuotaScreenProps) {
   const t = useT();
   const groups = useMemo(() => buildGroups(appState.quotas, appState.providers), [appState.quotas, appState.providers]);
-  const authFiles = appState.auth_files ?? [];
+  // Same source as Providers/gating (management.auth_files carries the live
+  // disabled / recent_requests / scheduler flags); top-level auth_files is the
+  // thinner backfill, so the health dots + standby/login-only pills would go stale.
+  const authFiles = appState.management.auth_files ?? appState.auth_files ?? [];
   const [activeId, setActiveId] = useState<string | null>(null);
   const active = groups.find((group) => group.id === activeId) ?? groups[0] ?? null;
   // Heuristic proxy-unreachable hint: a refresh finished but every account came

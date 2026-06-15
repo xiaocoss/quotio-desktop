@@ -25,9 +25,10 @@ fn download_url() -> &'static str {
 /// be 0 when the server omits Content-Length).
 pub fn download_cloudflared(
     dest: &Path,
+    proxy_url: Option<&str>,
     mut on_progress: impl FnMut(u64, u64),
 ) -> Result<(), String> {
-    let agent = build_agent();
+    let agent = build_agent(proxy_url);
 
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent).map_err(|error| format!("创建隧道目录失败：{}", error))?;
@@ -91,11 +92,17 @@ pub fn extract_tunnel_url(text: &str) -> Option<String> {
     Some(candidate.to_string())
 }
 
-fn build_agent() -> ureq::Agent {
+fn build_agent(proxy_url: Option<&str>) -> ureq::Agent {
     let mut builder = ureq::AgentBuilder::new()
         .timeout_connect(Duration::from_secs(15))
         .timeout_read(Duration::from_secs(180));
-    if let Some(url) = proxy_from_env() {
+    // 优先用 App 配置的代理，回退系统环境变量代理（与 quota.rs / proxy_download 一致）。
+    let chosen = proxy_url
+        .map(str::trim)
+        .filter(|url| !url.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(proxy_from_env);
+    if let Some(url) = chosen {
         if let Ok(proxy) = ureq::Proxy::new(&url) {
             builder = builder.proxy(proxy);
         }

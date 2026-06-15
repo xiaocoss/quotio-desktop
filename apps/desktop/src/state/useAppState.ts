@@ -318,6 +318,7 @@ export function useAppState() {
   /// 10%, once per account+model until it recovers. Best-effort (Tauri only).
   async function notifyLowQuotas(state: AppState) {
     if (!("__TAURI_INTERNALS__" in window)) return;
+    if (!state.settings.notifications_enabled) return; // respect the Settings toggle
     const low: string[] = [];
     for (const account of state.quotas) {
       for (const model of account.models) {

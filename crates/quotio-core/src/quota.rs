@@ -469,7 +469,26 @@ fn fetch_codex_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Option<A
         // wait briefly and retry once so a single hiccup doesn't drop the account.
         Err(FetchError::Other) => {
             std::thread::sleep(Duration::from_millis(400));
-            fetch_codex_usage(agent, &access_token, account_id.as_deref()).ok()
+            match fetch_codex_usage(agent, &access_token, account_id.as_deref()) {
+                Ok(usage) => Some(usage),
+                // The retry surfaced a real 401 — refresh + retry and flag re-auth
+                // if that fails, exactly like the primary Unauthorized arm. Without
+                // this, a token that expired during a transient blip is shown as a
+                // healthy account and the scheduler keeps picking a dead token.
+                Err(FetchError::Unauthorized) => {
+                    let recovered = auth
+                        .refresh_token
+                        .as_deref()
+                        .and_then(|token| refresh_codex_token(agent, token).ok())
+                        .and_then(|refreshed| {
+                            write_codex_access_token(path, &refreshed);
+                            fetch_codex_usage(agent, &refreshed, account_id.as_deref()).ok()
+                        });
+                    auth_failed = recovered.is_none();
+                    recovered
+                }
+                Err(FetchError::Other) => None,
+            }
         }
     };
 
@@ -509,16 +528,18 @@ fn fetch_codex_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Option<A
         .as_ref()
         .and_then(|credits| credits.available_count);
 
-    // Codex serves requests from the Session (5h primary) window, so the account
-    // is only truly exhausted when THAT window is full. The API's top-level
-    // `limit_reached` also fires when just the Weekly (secondary) window maxes
-    // out — but such an account keeps working via the session window, so using
-    // it here would both mislabel the card AND auto-disable a usable account.
+    // 当前能不能用——直接信 API 自己的闸门（`rate_limit.allowed` / `limit_reached`），
+    // 它同时反映 5h（primary）和周（secondary）两个窗口：周额度打满的账号即便 5h 窗口
+    // 几乎全空，API 也会返回 `allowed: false`，发任何请求都会 429，所以必须移出代理池、
+    // 等窗口刷新再回来。仅当 API 没给这两个字段时，才退回用 `session_used >= 100` 兜底。
+    let blocked = rate.allowed == Some(false)
+        || rate.limit_reached == Some(true)
+        || session_used >= 100;
     Some(AccountQuota {
         provider_id: "codex".to_string(),
         account_label: label,
         account_key: key,
-        is_forbidden: session_used >= 100,
+        is_forbidden: blocked,
         status_message: codex_plan_status(&auth, usage.plan_type.as_deref(), reset_credits),
         models: vec![
             model_usage_unix(
@@ -720,7 +741,7 @@ fn resolve_codex_account_id(auth: &CodexAuthFile, raw: &serde_json::Value) -> Op
     auth.id_token.as_deref().and_then(decode_jwt_account_id)
 }
 
-fn decode_jwt_payload(token: &str) -> Option<serde_json::Value> {
+pub(crate) fn decode_jwt_payload(token: &str) -> Option<serde_json::Value> {
     let segment = token.split('.').nth(1)?.trim_end_matches('=');
     let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(segment)
@@ -988,6 +1009,9 @@ struct ResetCreditsInfo {
 
 #[derive(Debug, Default, Deserialize)]
 struct RateLimitInfo {
+    /// API 的总闸门：false = 当前不允许请求（任一窗口打满都会置 false）。
+    #[serde(default)]
+    allowed: Option<bool>,
     #[serde(default)]
     limit_reached: Option<bool>,
     #[serde(default)]

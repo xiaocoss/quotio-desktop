@@ -36,9 +36,10 @@ struct Asset {
 /// so the UI can show a percentage (total may be 0 if unknown).
 pub fn download_proxy_binary(
     dest: &Path,
+    proxy_url: Option<&str>,
     mut on_progress: impl FnMut(u64, u64),
 ) -> Result<String, String> {
-    let agent = build_agent();
+    let agent = build_agent(proxy_url);
 
     let release: Release = agent
         .get(RELEASE_URL)
@@ -172,11 +173,18 @@ fn asset_matches_platform(name: &str) -> bool {
     os_ok && arch_ok && ext_ok
 }
 
-fn build_agent() -> ureq::Agent {
+fn build_agent(proxy_url: Option<&str>) -> ureq::Agent {
     let mut builder = ureq::AgentBuilder::new()
         .timeout_connect(Duration::from_secs(15))
         .timeout_read(Duration::from_secs(180));
-    if let Some(url) = proxy_from_env() {
+    // 优先用 App 里配置的代理，回退系统环境变量代理（与 quota.rs 一致），
+    // 否则国内直连 GitHub 下不动核心。
+    let chosen = proxy_url
+        .map(str::trim)
+        .filter(|url| !url.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(proxy_from_env);
+    if let Some(url) = chosen {
         if let Ok(proxy) = ureq::Proxy::new(&url) {
             builder = builder.proxy(proxy);
         }
