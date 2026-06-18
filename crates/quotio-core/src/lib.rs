@@ -967,7 +967,33 @@ fn open_usage_store() -> Arc<UsageStore> {
     }
 }
 
+/// Test-only redirect for [`api_keys_path`]. Management-snapshot tests point this
+/// at a seeded temp fixture so assertions read the fixture key instead of the
+/// developer's real on-disk `api-keys.json`. Mirrors `PROXY_RESOURCE_ROOT` in
+/// quotio-platform, but `#[cfg(test)]`-gated so it is compiled out of release builds.
+#[cfg(test)]
+static API_KEYS_PATH_OVERRIDE: std::sync::OnceLock<std::sync::RwLock<Option<PathBuf>>> =
+    std::sync::OnceLock::new();
+
+#[cfg(test)]
+fn set_api_keys_path_override(path: Option<PathBuf>) {
+    let lock = API_KEYS_PATH_OVERRIDE.get_or_init(|| std::sync::RwLock::new(None));
+    *lock.write().expect("api-keys path override lock poisoned") = path;
+}
+
 fn api_keys_path() -> PathBuf {
+    #[cfg(test)]
+    {
+        if let Some(lock) = API_KEYS_PATH_OVERRIDE.get() {
+            if let Some(path) = lock
+                .read()
+                .expect("api-keys path override lock poisoned")
+                .clone()
+            {
+                return path;
+            }
+        }
+    }
     quotio_platform::app_config_dir().join("api-keys.json")
 }
 
@@ -3211,8 +3237,38 @@ mod tests {
         assert!(error.to_string().contains("代理核心未运行"));
     }
 
+    /// Redirects [`api_keys_path`] to a throwaway temp file seeded with `keys`, so
+    /// management-snapshot tests assert against the fixture instead of the developer's
+    /// real on-disk `api-keys.json`. Restores the override and deletes the temp dir on
+    /// drop (even on panic). The override is process-global, so only one fixture may be
+    /// live at a time — fine while a single test uses it.
+    struct ApiKeysFixture {
+        dir: PathBuf,
+    }
+
+    impl ApiKeysFixture {
+        fn new(keys: &[&str]) -> Self {
+            let dir = std::env::temp_dir().join(format!("quotio-api-keys-test-{}", Uuid::new_v4()));
+            fs::create_dir_all(&dir).expect("fixture temp dir should be creatable");
+            let body = serde_json::to_string(keys).expect("fixture keys should serialize");
+            fs::write(dir.join("api-keys.json"), body).expect("fixture api-keys.json should write");
+            set_api_keys_path_override(Some(dir.join("api-keys.json")));
+            Self { dir }
+        }
+    }
+
+    impl Drop for ApiKeysFixture {
+        fn drop(&mut self) {
+            set_api_keys_path_override(None);
+            let _ = fs::remove_dir_all(&self.dir);
+        }
+    }
+
     #[tokio::test]
     async fn app_core_refreshes_management_snapshot_from_configured_endpoint() {
+        // Isolate from the real on-disk api-keys file so `state.api_keys` reflects this
+        // fixture, not whatever proxy key the developer has configured locally.
+        let _api_keys = ApiKeysFixture::new(&["sk-local-secret"]);
         let server = FakeManagementServer::new(vec![
             FakeResponse::json(
                 200,
