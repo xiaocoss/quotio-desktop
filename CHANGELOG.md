@@ -9,6 +9,10 @@
 
 ## v0.4.3 - 未发布
 
+### 新增
+
+- 账号导入兼容 **sub2api** 导出格式(`type: "sub2api-data"`):自动展开 `accounts[]`,把每个 OpenAI 账号 `credentials` 里的令牌转换成 CLIProxyAPI codex 账号格式(`chatgpt_account_id`→`account_id`、`expires_at`→`expired`,丢弃 codex 不需要的字段),按 `codex-<邮箱>.json` 落地、导入即用;支持一个文件多账号。其它平台暂跳过。
+
 ### 修复
 
 - 修复服务商页账号重复显示（ChatGPT Team 等）：真正的原因是**大小写**——代理的 `/auth-files` 会把账号文件名转成小写返回，而本地账号目录保留原始大小写；前端把「代理账号」与「本地补充账号」合并时按大小写敏感比对，导致文件名含大写字母的账号（如 `codex-MartilloOlivia…`）被当成「本地独有」又列了一遍（纯小写文件名的账号则正常）。改为大小写不敏感比对；后端账号信息富化、智能调度重启账号时的同名匹配也一并修正（避免「待命」账号被误显示为「已禁用」）。

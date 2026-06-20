@@ -621,9 +621,16 @@ impl AppCore {
         let dir = quotio_platform::proxy_auth_dir();
         std::fs::create_dir_all(&dir).map_err(|error| format!("创建 auth 目录失败：{}", error))?;
 
+        // sub2api-data export: tokens are nested under each account's
+        // `credentials`, so expand accounts[] and flatten/convert each to a
+        // CLIProxyAPI auth object before writing (openai → codex).
+        if let Some(items) = convert_sub2api_accounts(&parsed) {
+            for item in &items {
+                self.write_single_auth_import(&dir, item, base);
+            }
         // If the file is a JSON array (e.g. cpa-manager batch export), unpack
         // each element into its own auth file with a proper provider-email name.
-        if let Some(arr) = parsed.as_array() {
+        } else if let Some(arr) = parsed.as_array() {
             if arr.is_empty() {
                 return Err("导入文件为空数组".to_string());
             }
@@ -1617,6 +1624,66 @@ fn credential_provider(value: &serde_json::Value) -> Option<String> {
 /// it would break Codex launch), otherwise the most-recently-modified file. Skips
 /// `glm-keys*` and non-JSON. Best-effort — fixes "re-import / re-login of the same
 /// member shows two cards" without touching distinct logins/accounts.
+/// Detect & convert a `sub2api-data` export into CLIProxyAPI auth objects.
+///
+/// sub2api nests each account's OAuth tokens under `credentials` and wraps them
+/// in `{ type:"sub2api-data", accounts:[…] }`. We flatten the credentials to the
+/// top level and rename to the codex-auth shape (`chatgpt_account_id`→`account_id`,
+/// `expires_at`→`expired`), so the normal importer can write `codex-<email>.json`.
+/// Only `platform:"openai"` → `codex` is supported for now; other platforms are
+/// skipped. Returns `None` when the JSON isn't a sub2api export (so the caller
+/// falls back to the existing array/object handling).
+fn convert_sub2api_accounts(parsed: &serde_json::Value) -> Option<Vec<serde_json::Value>> {
+    let obj = parsed.as_object()?;
+    if obj.get("type").and_then(|v| v.as_str()) != Some("sub2api-data") {
+        return None;
+    }
+    let accounts = obj.get("accounts")?.as_array()?;
+    let mut out = Vec::new();
+    for account in accounts {
+        let Some(account) = account.as_object() else {
+            continue;
+        };
+        let provider = match account.get("platform").and_then(|v| v.as_str()) {
+            Some("openai") => "codex",
+            _ => continue, // 暂只支持 openai → codex,其它平台跳过
+        };
+        let Some(creds) = account.get("credentials").and_then(|v| v.as_object()) else {
+            continue;
+        };
+        // 至少要有 email(做文件名)和 access_token(可用)才转,否则跳过避免写废文件。
+        let has = |key: &str| {
+            creds
+                .get(key)
+                .and_then(|v| v.as_str())
+                .is_some_and(|s| !s.is_empty())
+        };
+        if !has("email") || !has("access_token") {
+            continue;
+        }
+        let mut auth = serde_json::Map::new();
+        auth.insert("type".to_string(), serde_json::Value::String(provider.to_string()));
+        for key in ["access_token", "refresh_token", "id_token", "email"] {
+            if let Some(value) = creds.get(key) {
+                auth.insert(key.to_string(), value.clone());
+            }
+        }
+        if let Some(value) = creds.get("chatgpt_account_id") {
+            auth.insert("account_id".to_string(), value.clone());
+        }
+        if let Some(value) = creds.get("expires_at") {
+            auth.insert("expired".to_string(), value.clone());
+        }
+        auth.insert("disabled".to_string(), serde_json::Value::Bool(false));
+        out.push(serde_json::Value::Object(auth));
+    }
+    if out.is_empty() {
+        None
+    } else {
+        Some(out)
+    }
+}
+
 fn dedup_codex_auth_keep_newest(dir: &std::path::Path, bound_account: &str) {
     use std::collections::HashMap;
     let Ok(entries) = std::fs::read_dir(dir) else {
@@ -3689,6 +3756,43 @@ mod tests {
         );
         assert!(remaining.iter().any(|n| n == "b.json"), "distinct Team member kept");
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn convert_sub2api_maps_openai_account_to_codex_auth() {
+        let input = serde_json::json!({
+            "type": "sub2api-data",
+            "version": 1,
+            "accounts": [{
+                "name": "a@x.com", "platform": "openai", "type": "oauth",
+                "credentials": {
+                    "access_token": "at", "refresh_token": "rt", "id_token": "it",
+                    "email": "a@x.com", "chatgpt_account_id": "acc-123",
+                    "expires_at": "2026-06-30T07:57:49Z", "client_id": "app_x",
+                    "plan_type": "k12"
+                }
+            }]
+        });
+        let out = convert_sub2api_accounts(&input).expect("应识别为 sub2api 并转换");
+        assert_eq!(out.len(), 1);
+        let a = out[0].as_object().unwrap();
+        assert_eq!(a.get("type").unwrap(), "codex");
+        assert_eq!(a.get("account_id").unwrap(), "acc-123"); // chatgpt_account_id 改名
+        assert_eq!(a.get("expired").unwrap(), "2026-06-30T07:57:49Z"); // expires_at 改名
+        assert_eq!(a.get("email").unwrap(), "a@x.com");
+        assert_eq!(a.get("access_token").unwrap(), "at");
+        assert_eq!(a.get("disabled").unwrap(), &serde_json::Value::Bool(false));
+        assert!(a.get("client_id").is_none(), "codex auth 不需要 client_id,应丢弃");
+        assert!(a.get("plan_type").is_none(), "plan_type 应丢弃");
+
+        // 非 sub2api → None,走原有导入逻辑
+        assert!(convert_sub2api_accounts(&serde_json::json!({"type": "codex"})).is_none());
+        // 缺 access_token 的账号被跳过 → 整体无可转账号 → None
+        let missing = serde_json::json!({
+            "type": "sub2api-data",
+            "accounts": [{ "platform": "openai", "credentials": { "email": "b@x.com" } }]
+        });
+        assert!(convert_sub2api_accounts(&missing).is_none());
     }
 
     #[test]
