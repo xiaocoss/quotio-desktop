@@ -2297,16 +2297,20 @@ fn key_router_plugins_yaml(proxy_dir: &Path) -> String {
         "quotio-key-router.so"
     };
     let managed_dll = plugins_dir.join(dll_name);
-    // Stage the bundled plugin into the managed plugins dir on first use, so a
-    // fresh install that ships the plugin under resources/proxy/<plat>/plugins/
-    // works without manual placement (mirrors kiro_sidecar::resolve_binary).
-    if !managed_dll.is_file() {
-        let bundled = quotio_platform::proxy_resource_dir()
-            .join("plugins")
-            .join(dll_name);
-        if bundled.is_file() {
+    // (Re)stage the bundled plugin whenever it differs (by size) from the managed
+    // copy: a fresh install that ships it under resources/proxy/<plat>/plugins/
+    // gets it without manual placement, AND an app upgrade shipping a newer plugin
+    // replaces the old one instead of the stale managed copy shadowing it. Mirrors
+    // kiro_sidecar::resolve_binary and the proxy core.
+    let bundled_dll = quotio_platform::proxy_resource_dir()
+        .join("plugins")
+        .join(dll_name);
+    if bundled_dll.is_file() {
+        let managed_len = std::fs::metadata(&managed_dll).map(|m| m.len()).ok();
+        let bundled_len = std::fs::metadata(&bundled_dll).map(|m| m.len()).ok();
+        if managed_len != bundled_len {
             let _ = std::fs::create_dir_all(&plugins_dir);
-            let _ = std::fs::copy(&bundled, &managed_dll);
+            let _ = std::fs::copy(&bundled_dll, &managed_dll);
         }
     }
     if !managed_dll.is_file() {

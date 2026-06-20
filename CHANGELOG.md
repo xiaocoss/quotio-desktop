@@ -2,6 +2,12 @@
 
 本文档记录 Quotio Desktop 已发布版本的主要变化。安装包请前往 [GitHub Releases](https://github.com/xiaocoss/quotio-desktop/releases)。
 
+## v0.4.3 - 未发布
+
+### 修复
+
+- 升级时自动刷新内置组件：kiro-rs sidecar 与「按 key 路由」插件原先只在首次安装时落地、升级不会替换，旧机子可能一直用着旧的 sidecar/插件。现在改为与安装包内置版本按文件大小比对，不一致即覆盖管理目录的旧版本——与核心（CLIProxyAPI 一直是每次启动覆盖）保持一致，三个组件升级都会跟着更新。
+
 ## v0.4.2 - 2026-06-20
 
 ### 新增

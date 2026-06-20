@@ -164,30 +164,45 @@ fn write_files(api_key: &str, creds: &[Value]) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Locate the kiro-rs binary. Resolution order: a managed copy in the kiro work
-/// dir, else the bundled resource (its own `resources/kiro/<platform>` dir,
-/// NEVER the proxy resource dir — that resolver would grab any `.exe` as the
-/// proxy core), copied into the work dir for a stable launch path.
+/// Locate the kiro-rs binary, keeping the managed copy in sync with the bundled
+/// one. The bundled resource (its OWN `resources/kiro/<platform>` dir — NEVER the
+/// proxy resource dir, whose resolver would grab any `.exe` as the proxy core) is
+/// the source of truth: it's (re)staged into the work dir whenever it differs by
+/// size from the managed copy, so an app upgrade shipping a newer kiro-rs replaces
+/// the old one instead of being shadowed by it. Falls back to an existing managed
+/// copy when there's no bundle (a platform without the asset) or the copy fails
+/// (binary in use). Mirrors the proxy core's `prepare_managed_binary`.
 fn resolve_binary() -> Option<PathBuf> {
     let name = if cfg!(windows) { "kiro-rs.exe" } else { "kiro-rs" };
-
     let managed = work_dir().join(name);
-    if managed.is_file() {
+    let bundled = quotio_platform::kiro_resource_dir().join(name);
+
+    if bundled.is_file() {
+        let stale = !managed.is_file() || file_len(&bundled) != file_len(&managed);
+        if stale {
+            let _ = fs::create_dir_all(work_dir());
+            if fs::copy(&bundled, &managed).is_ok() {
+                // Tauri's resource bundling can drop the unix exec bit; restore it
+                // so the staged sidecar is launchable on macOS/Linux. No-op on Win.
+                let _ = crate::make_executable(&managed);
+                return Some(managed);
+            }
+            // Copy failed (e.g. managed locked by a running sidecar) — use whatever
+            // copy already exists.
+            return if managed.is_file() { Some(managed) } else { Some(bundled) };
+        }
         return Some(managed);
     }
 
-    let bundled = quotio_platform::kiro_resource_dir().join(name);
-    if bundled.is_file() {
-        let _ = fs::create_dir_all(work_dir());
-        if fs::copy(&bundled, &managed).is_ok() {
-            // Tauri's resource bundling can drop the unix exec bit; restore it so
-            // the staged sidecar is launchable on macOS/Linux. No-op on Windows.
-            let _ = crate::make_executable(&managed);
-            return Some(managed);
-        }
-        return Some(bundled);
+    if managed.is_file() {
+        return Some(managed);
     }
     None
+}
+
+/// Byte size of `path`, or 0 if unreadable — cheap "did the binary change?" check.
+fn file_len(path: &Path) -> u64 {
+    fs::metadata(path).map(|meta| meta.len()).unwrap_or(0)
 }
 
 /// Single-quote a YAML scalar (doubling embedded quotes) — safe for keys/URLs.

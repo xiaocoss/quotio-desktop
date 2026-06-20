@@ -116,6 +116,7 @@ npm run release                # 编译 + 组装便携版（dist-portable/）
 ## 🙏 致谢
 
 - **[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)** —— 本项目依赖的核心本地代理服务
+- **[kiro.rs](https://github.com/hank9999/kiro.rs)** —— Kiro（AWS CodeWhisperer）→ Anthropic 兼容代理，Quotio 内置它作为 sidecar 接入 Kiro 代理池
 - **[cockpit-tools](https://github.com/jlcodes99/cockpit-tools)** —— 同类项目，产品与文档形态参考
 - **[quotio](https://github.com/nguyenphutrong/quotio)** —— 界面思路参考
 
