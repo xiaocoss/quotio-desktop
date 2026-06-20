@@ -1639,27 +1639,22 @@ fn dedup_codex_auth_keep_newest(dir: &std::path::Path, bound_account: &str) {
         else {
             continue;
         };
-        // Identity = account_id + member email. ChatGPT Team accounts share ONE
-        // account_id across members, but each member is a SEPARATE seat with its
-        // own quota/login — so keying on account_id alone would wrongly merge two
-        // Team members and delete one. Adding the email keeps members distinct
-        // (matching CLIProxyAPI's own `<account_id>-<email>` credential filename),
-        // while a genuine re-import of the SAME member (same account_id + email)
-        // still collapses. Fallback when no account_id: email+provider so two
-        // different-provider accounts sharing an email aren't merged. No identity
+        // Identity = member email + provider. ChatGPT Team members are SEPARATE
+        // seats that share ONE account_id but each has its OWN email, so keying on
+        // email keeps members distinct (a Team's members never collide) while a
+        // re-import of the SAME member (same email) collapses — INCLUDING a dead or
+        // stale copy whose token can't be parsed. The previous account_id+email key
+        // failed exactly there: a broken copy with no parseable account_id fell back
+        // to an email-only key and never matched its healthy twin (keyed on
+        // account_id+email), so duplicates piled up (the reported "导入 Team 显示重复
+        // 账号"). Provider keeps the same email on two providers (codex vs gemini)
+        // distinct. Fall back to account_id only when there is NO email; no identity
         // at all → leave the file alone.
-        let identity = match credential_account_id(&value) {
-            Some(id) => format!(
-                "{}|{}",
-                id.to_ascii_lowercase(),
-                credential_email(&value).unwrap_or_default().to_ascii_lowercase()
-            ),
-            None => match credential_email(&value) {
-                Some(email) => format!(
-                    "{}|{}",
-                    email.to_ascii_lowercase(),
-                    credential_provider(&value).unwrap_or_default().to_ascii_lowercase()
-                ),
+        let provider = credential_provider(&value).unwrap_or_default().to_ascii_lowercase();
+        let identity = match credential_email(&value) {
+            Some(email) => format!("{}|{}", email.to_ascii_lowercase(), provider),
+            None => match credential_account_id(&value) {
+                Some(id) => format!("aid:{}|{}", id.to_ascii_lowercase(), provider),
                 None => continue,
             },
         };
@@ -3664,6 +3659,14 @@ mod tests {
         write("b.json", "bob@x.com", "acct-1");
         // A genuine re-import of alice (same account_id + email) must still collapse.
         write("a2.json", "alice@x.com", "acct-1");
+        // A DEAD/stale copy of alice whose account_id can't be parsed (the failing
+        // ones that got disabled) must ALSO collapse into alice — these piling up was
+        // the "导入 Team 显示重复账号" bug. account_id-in-key never matched this twin.
+        fs::write(
+            dir.join("a3.json"),
+            r#"{"type":"codex","email":"alice@x.com","access_token":"x"}"#,
+        )
+        .unwrap();
 
         dedup_codex_auth_keep_newest(&dir, "");
 
@@ -3672,7 +3675,11 @@ mod tests {
             .flatten()
             .map(|e| e.file_name().to_string_lossy().to_string())
             .collect();
-        assert_eq!(remaining.len(), 2, "alice (deduped) + bob (distinct member): {remaining:?}");
+        assert_eq!(
+            remaining.len(),
+            2,
+            "alice (3 copies incl. a dead one → 1) + bob (distinct member): {remaining:?}"
+        );
         assert!(remaining.iter().any(|n| n == "b.json"), "distinct Team member kept");
         let _ = fs::remove_dir_all(&dir);
     }
