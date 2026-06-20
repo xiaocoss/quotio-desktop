@@ -52,6 +52,48 @@ jobs:
         working-directory: apps/desktop
         run: npm install
 
+      # 把 CLIProxyAPI 核心预先打进安装包，装完即用、首次运行不再下载。
+      # 内置二进制名是 cli-proxy-api[.exe]，app 期望 CLIProxyAPI[.exe]，解压后改名。
+      - name: Stage CLIProxyAPI core — Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ver = "7.2.20"
+          $url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v$ver/CLIProxyAPI_${ver}_windows_amd64.zip"
+          $dest = "resources/proxy/windows"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          $zip = Join-Path $env:RUNNER_TEMP "cpa.zip"
+          $ext = Join-Path $env:RUNNER_TEMP "cpa"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $ext -Force
+          $bin = Get-ChildItem -Path $ext -Recurse -Filter "cli-proxy-api*.exe" | Select-Object -First 1
+          if (-not $bin) { throw "cli-proxy-api.exe not found in CLIProxyAPI archive" }
+          Copy-Item $bin.FullName (Join-Path $dest "CLIProxyAPI.exe") -Force
+          Write-Host ("Staged " + $dest + "/CLIProxyAPI.exe")
+
+      - name: Stage CLIProxyAPI core — macOS/Linux
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ver=7.2.20
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            asset="CLIProxyAPI_${ver}_darwin_aarch64.tar.gz"; dir="darwin"
+          else
+            asset="CLIProxyAPI_${ver}_linux_amd64.tar.gz"; dir="linux"
+          fi
+          url="https://github.com/router-for-me/CLIProxyAPI/releases/download/v${ver}/${asset}"
+          dest="resources/proxy/${dir}"
+          mkdir -p "$dest"
+          tmp="$(mktemp -d)"
+          curl -fsSL --retry 3 "$url" -o "$tmp/cpa.tgz"
+          tar -xzf "$tmp/cpa.tgz" -C "$tmp"
+          bin="$(find "$tmp" -type f -name 'cli-proxy-api*' | head -1)"
+          if [ -z "$bin" ]; then echo "cli-proxy-api not found in archive"; ls -R "$tmp"; exit 1; fi
+          cp "$bin" "$dest/CLIProxyAPI"
+          chmod +x "$dest/CLIProxyAPI"
+          echo "Staged $dest/CLIProxyAPI"
+
       - name: Build and publish to Release
         uses: tauri-apps/tauri-action@v0
         env:
