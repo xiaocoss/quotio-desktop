@@ -139,6 +139,31 @@ jobs:
             rm -f "resources/proxy/$plat/plugins/quotio-key-router.$pext"
           fi
 
+      # 从 CHANGELOG.md 抽取本 tag 对应版本段,作为 Release 正文 + 自动更新弹窗内容。
+      # tauri-action 会把 releaseBody 原样写进 latest.json 的 notes 字段,app 的更新
+      # 对话框(UpdateDialog)显示它 —— 所以每次发版,GitHub 页面和应用内"发现新版本"
+      # 提示都会展示这一版到底改了什么。抽不到就回退到版本号。
+      - name: Extract changelog for this tag
+        id: notes
+        shell: bash
+        run: |
+          set -uo pipefail
+          tag="${{ github.ref_name }}"
+          ver="${tag#v}"
+          body="$(awk -v v="$ver" '
+            $0 ~ ("^## v" v "([ \t]|$)") {f=1; print; next}
+            /^## v/ && f {exit}
+            f {print}
+          ' CHANGELOG.md)"
+          [ -z "$body" ] && body="Quotio $tag"
+          footer=$'\n\n---\n安装包见下方附件：Windows `.msi` / `-setup.exe` · macOS `.dmg`（通用包，未签名；首次在「系统设置 → 隐私与安全性」放行）· Linux `.AppImage` / `.deb`。\n本版安装包已内置代理核心与 Kiro/插件，装完即用，首次运行无需联网下载核心。'
+          {
+            echo "body<<__QUOTIO_EOF__"
+            printf '%s\n' "$body$footer"
+            echo "__QUOTIO_EOF__"
+          } >> "$GITHUB_OUTPUT"
+          echo "--- notes preview ---"; printf '%s\n' "$body" | head -20
+
       - name: Build and publish to Release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -163,14 +188,7 @@ jobs:
           projectPath: apps/desktop
           tagName: ${{ github.ref_name }}
           releaseName: "Quotio ${{ github.ref_name }}"
-          releaseBody: |
-            自动构建的 Windows / macOS / Linux 安装包见下方附件。
-
-            - Windows：`.msi` 或 `-setup.exe`
-            - macOS：`.dmg`（通用包，未签名；首次打开在「系统设置 → 隐私与安全性」点允许）
-            - Linux：`.AppImage` / `.deb`
-
-            > 代理二进制（CLIProxyAPI）不随包分发，应用首次运行会自动下载。
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
