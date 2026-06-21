@@ -3111,7 +3111,7 @@ dependencies = [
 
 [[package]]
 name = "quotio-desktop"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "quotio-core",
  "quotio-platform",
