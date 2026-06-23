@@ -53,14 +53,14 @@ function GlobalActionsMenu({
 
   return (
     <div className="pv-card-menu-anchor" ref={ref}>
-      <button className="pv-card-more pv-global-more" type="button" onClick={() => setOpen((v) => !v)} aria-label="添加未连接的服务商">
+      <button className="pv-card-more pv-global-more" type="button" onClick={() => setOpen((v) => !v)} aria-label="Add unconnected provider">
         <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor"><circle cx="3" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="13" cy="8" r="1.3"/></svg>
       </button>
       {open ? (
         <div className="pv-card-dropdown pv-global-dropdown">
           {oauthProviders.map((p) => (
             <button key={p.id} type="button" onClick={() => { onSelectProvider(p); setOpen(false); }}>
-              添加 {p.display_name} 账号
+              Add {p.display_name} Account
             </button>
           ))}
         </div>
@@ -117,18 +117,18 @@ function CustomProviderCard({
         <span className="pv-card-title">{provider.name}</span>
         <span className="cp-kind-badge">{provider.kind}</span>
         {provider.proxy_mode === "direct" ? (
-          <span className="cp-kind-badge" title="此接口绕过全局代理直连" style={{ color: "var(--accent, #10a37f)", borderColor: "var(--accent, #10a37f)" }}>直连</span>
+          <span className="cp-kind-badge" title="This provider bypasses the global proxy" style={{ color: "var(--accent, #10a37f)", borderColor: "var(--accent, #10a37f)" }}>Direct</span>
         ) : null}
-        <button className="pv-card-more" type="button" onClick={() => setAddingKey(true)} aria-label="添加密钥" title="添加密钥">
+        <button className="pv-card-more" type="button" onClick={() => setAddingKey(true)} aria-label="Add key" title="Add key">
           <PlusIcon />
         </button>
         <div className="pv-card-menu-anchor" ref={menuRef}>
-          <button className="pv-card-more" type="button" onClick={() => setMenuOpen((v) => !v)} aria-label="更多">
+          <button className="pv-card-more" type="button" onClick={() => setMenuOpen((v) => !v)} aria-label="More">
             <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><circle cx="8" cy="3" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="8" cy="13" r="1.3"/></svg>
           </button>
           {menuOpen ? (
             <div className="pv-card-dropdown">
-              <button type="button" onClick={() => { onEdit(); setMenuOpen(false); }}>编辑接口</button>
+              <button type="button" onClick={() => { onEdit(); setMenuOpen(false); }}>Edit Provider</button>
               <button
                 type="button"
                 className={confirmDelete ? "pv-dropdown-danger" : ""}
@@ -137,7 +137,7 @@ function CustomProviderCard({
                   else { setConfirmDelete(true); window.setTimeout(() => setConfirmDelete(false), 3000); }
                 }}
               >
-                {confirmDelete ? "确认删除？" : "删除接口"}
+                {confirmDelete ? "Confirm delete?" : "Delete Provider"}
               </button>
             </div>
           ) : null}
@@ -152,29 +152,29 @@ function CustomProviderCard({
             {provider.models.length > 4 ? <code className="cp-model-pill">+{provider.models.length - 4}</code> : null}
           </>
         ) : (
-          <code className="cp-model-pill" style={{ color: "var(--danger, #d9534f)", borderColor: "var(--danger, #d9534f)" }} title="未配置模型，代理无法路由到此接口（请点编辑补充模型名）">
-            ⚠ 未配置模型
+          <code className="cp-model-pill" style={{ color: "var(--danger, #d9534f)", borderColor: "var(--danger, #d9534f)" }} title="No models configured, proxy cannot route to this provider (click edit to add models)">
+            ⚠ Unconfigured Models
           </code>
         )}
       </div>
 
       <div className="cp-key-pool">
         <div className="cp-key-pool-header">
-          <span>密钥池</span>
-          <span className="pv-count-badge">{enabledCount}/{provider.keys.length} 启用</span>
+          <span>Key Pool</span>
+          <span className="pv-count-badge">{enabledCount}/{provider.keys.length} Enabled</span>
         </div>
         {provider.keys.length === 0 ? (
-          <p className="cp-key-empty">暂无密钥。点击 + 添加。</p>
+          <p className="cp-key-empty">No keys. Click + to add.</p>
         ) : (
           <div className="cp-key-list">
             {provider.keys.map((k) => (
               <div className={`cp-key-row${k.enabled ? "" : " cp-key-disabled"}`} key={k.id}>
-                <button className="cp-key-toggle" type="button" onClick={() => onToggleKey(k.id)} title={k.enabled ? "禁用" : "启用"}>
+                <button className="cp-key-toggle" type="button" onClick={() => onToggleKey(k.id)} title={k.enabled ? "Disable" : "Enable"}>
                   <span className={`cp-key-dot${k.enabled ? " cp-key-dot--on" : ""}`} />
                 </button>
-                <span className="cp-key-label">{k.label || "未命名"}</span>
+                <span className="cp-key-label">{k.label || "Unnamed"}</span>
                 <span className="cp-key-masked">{maskKey(k.api_key)}</span>
-                <button className="row-icon-btn row-icon-btn--danger cp-key-del" type="button" onClick={() => onRemoveKey(k.id)} title="删除密钥" aria-label="删除密钥">
+                <button className="row-icon-btn row-icon-btn--danger cp-key-del" type="button" onClick={() => onRemoveKey(k.id)} title="Delete key" aria-label="Delete key">
                   <TrashIcon />
                 </button>
               </div>
@@ -185,7 +185,7 @@ function CustomProviderCard({
 
       {boundKeys.length > 0 ? (
         <div className="cp-bound-keys">
-          <span className="cp-bound-keys-label">绑定的客户端密钥</span>
+          <span className="cp-bound-keys-label">Bound Client Keys</span>
           {boundKeys.map((bk, i) => (
             <code className="cp-bound-key-tag" key={i}>{bk.masked}</code>
           ))}
@@ -194,13 +194,13 @@ function CustomProviderCard({
 
       {addingKey ? (
         <div className="cp-add-key-form">
-          <input placeholder="标签（可选）" value={newKeyLabel} onChange={(e) => setNewKeyLabel(e.target.value)} />
+          <input placeholder="Label (optional)" value={newKeyLabel} onChange={(e) => setNewKeyLabel(e.target.value)} />
           <input placeholder="API Key" type="password" value={newKeyValue} onChange={(e) => setNewKeyValue(e.target.value)} />
           <div className="cp-add-key-actions">
             <button type="button" className="primary-action" disabled={!newKeyValue.trim()} onClick={() => { onAddKey(newKeyLabel, newKeyValue); setNewKeyLabel(""); setNewKeyValue(""); setAddingKey(false); }}>
-              添加
+              Add
             </button>
-            <button type="button" onClick={() => { setAddingKey(false); setNewKeyLabel(""); setNewKeyValue(""); }}>取消</button>
+            <button type="button" onClick={() => { setAddingKey(false); setNewKeyLabel(""); setNewKeyValue(""); }}>Cancel</button>
           </div>
         </div>
       ) : null}
@@ -341,7 +341,7 @@ export function ProvidersScreen({
       }
       resetCustomForm();
     } catch (error) {
-      setCustomFormError(typeof error === "string" ? error : "添加失败,请检查名称/Base URL/密钥后重试。");
+      setCustomFormError(typeof error === "string" ? error : "Add failed, please check Name/Base URL/Key and try again.");
     }
   }
 
@@ -442,8 +442,8 @@ export function ProvidersScreen({
             type="button"
             onClick={onRefreshQuotas}
             disabled={isManagementBusy}
-            title="刷新账号(重新检测)"
-            aria-label="刷新账号"
+            title="Refresh accounts"
+            aria-label="Refresh accounts"
           >
             <RefreshIcon />
           </button>
@@ -535,19 +535,19 @@ export function ProvidersScreen({
               <input value={customForm.base_url} onChange={(e) => setCustomForm({ ...customForm, base_url: e.target.value })} placeholder="https://api.example.com/v1" />
             </label>
             {editingCustomId ? (
-              <p className="cp-form-hint">密钥在卡片上管理，编辑模式不显示密钥字段。</p>
+              <p className="cp-form-hint">Keys are managed on the card. Keys are hidden in edit mode.</p>
             ) : (
               <div className="cp-form-keys">
                 <div className="cp-form-keys-header">
-                  <span>API 密钥</span>
+                  <span>API Key</span>
                   <button type="button" className="cp-form-keys-add" onClick={() => setFormKeys([...formKeys, { label: "", api_key: "" }])}>
-                    <PlusIcon /> 添加密钥
+                    <PlusIcon /> Add Key
                   </button>
                 </div>
                 {formKeys.map((fk, i) => (
                   <div className="cp-form-key-row" key={i}>
                     <input
-                      placeholder="标签（可选）"
+                      placeholder="Label (optional)"
                       value={fk.label}
                       onChange={(e) => { const next = [...formKeys]; next[i] = { ...fk, label: e.target.value }; setFormKeys(next); }}
                     />
@@ -558,7 +558,7 @@ export function ProvidersScreen({
                       onChange={(e) => { const next = [...formKeys]; next[i] = { ...fk, api_key: e.target.value }; setFormKeys(next); }}
                     />
                     {formKeys.length > 1 ? (
-                      <button type="button" className="row-icon-btn row-icon-btn--danger" onClick={() => setFormKeys(formKeys.filter((_, j) => j !== i))} title="移除" aria-label="移除">
+                      <button type="button" className="row-icon-btn row-icon-btn--danger" onClick={() => setFormKeys(formKeys.filter((_, j) => j !== i))} title="Remove" aria-label="Remove">
                         <TrashIcon />
                       </button>
                     ) : null}
@@ -585,7 +585,7 @@ export function ProvidersScreen({
               </label>
             </div>
             <label>
-              模型列表（每行一个，路由必填）
+              Model List (one per line, required for routing)
               <textarea
                 value={customForm.models}
                 onChange={(e) => setCustomForm({ ...customForm, models: e.target.value })}
@@ -596,21 +596,21 @@ export function ProvidersScreen({
               />
             </label>
             <p className="cp-form-hint">
-              必须填写此接口实际提供的模型名，否则代理无法路由到它（会返回额度/线路错误）。逗号、空格或换行分隔均可。
+              Required: The actual models provided by this API. Otherwise the proxy cannot route to it (will return quota/routing error). Separate with comma, space or newline.
             </p>
             <label>
-              连接方式
+              Connection Mode
               <Select
                 value={customForm.proxy_mode}
                 options={[
-                  { value: "inherit", label: "走代理（跟随全局设置）" },
-                  { value: "direct", label: "直连（绕过代理）" },
+                  { value: "inherit", label: "Use Proxy (Follow global setting)" },
+                  { value: "direct", label: "Direct (Bypass proxy)" },
                 ]}
                 onChange={(value) => setCustomForm({ ...customForm, proxy_mode: value })}
               />
             </label>
             <p className="cp-form-hint">
-              「直连」让此接口绕过全局代理直接访问（国内中转站常需直连）；「走代理」沿用设置里的全局代理（OpenAI/Anthropic 等被墙服务需要）。
+              "Direct" allows this provider to bypass the global proxy; "Use Proxy" uses the global proxy defined in Settings.
             </p>
             {customFormError ? (
               <p className="cp-form-hint" style={{ color: "var(--danger, #d9534f)" }}>{customFormError}</p>
@@ -685,31 +685,31 @@ function accountState(
   //      persisted status codes — how cpa-manager judges a "real 401").
   // A blanket recent-failure count or the proxy's vague "error" status no longer
   // triggers re-auth, since 500/429 failures are rate-limit/transient, not auth.
-  if (authFailed) return { tone: "bad", key: "providers.stateNeedsReauth", fallback: "需重新授权", needsReauth: true };
-  if (health?.recommend_reauth) return { tone: "bad", key: "providers.stateNeedsReauth", fallback: "需重新授权", needsReauth: true };
+  if (authFailed) return { tone: "bad", key: "providers.stateNeedsReauth", fallback: "Needs Reauth", needsReauth: true };
+  if (health?.recommend_reauth) return { tone: "bad", key: "providers.stateNeedsReauth", fallback: "Needs Reauth", needsReauth: true };
   if (account.disabled && account.quotio_scheduler_standby)
-    return { tone: "muted", key: "providers.stateStandby", fallback: "待命(调度)", needsReauth: false };
+    return { tone: "muted", key: "providers.stateStandby", fallback: "Standby", needsReauth: false };
   if (account.disabled && account.quotio_bound_login_only)
-    return { tone: "muted", key: "providers.stateBoundLogin", fallback: "绑定登录", needsReauth: false };
-  if (account.disabled) return { tone: "muted", key: "providers.statusDisabled", fallback: "已禁用", needsReauth: false };
-  if (account.unavailable) return { tone: "bad", key: "providers.stateUnavailable", fallback: "不可用", needsReauth: true };
+    return { tone: "muted", key: "providers.stateBoundLogin", fallback: "Bound Login", needsReauth: false };
+  if (account.disabled) return { tone: "muted", key: "providers.statusDisabled", fallback: "Disabled", needsReauth: false };
+  if (account.unavailable) return { tone: "bad", key: "providers.stateUnavailable", fallback: "Unavailable", needsReauth: true };
   const status = (account.status ?? "").trim().toLowerCase();
-  if (status === "cooling") return { tone: "warn", key: "providers.stateCooling", fallback: "冷却中", needsReauth: false };
+  if (status === "cooling") return { tone: "warn", key: "providers.stateCooling", fallback: "Cooling", needsReauth: false };
 
   // Classify by REAL status codes when usage history exists (preferred).
   if (health && health.recent_total > 0) {
     const failures = health.auth_failures + health.rate_limited + health.server_errors;
-    if (failures === 0) return { tone: "good", key: "providers.stateActive", fallback: "正常", needsReauth: false };
+    if (failures === 0) return { tone: "good", key: "providers.stateActive", fallback: "Active", needsReauth: false };
     if (health.rate_limited > 0 && health.rate_limited >= health.server_errors && health.rate_limited >= health.auth_failures)
-      return { tone: "warn", key: "providers.stateRateLimited", fallback: "限流", needsReauth: false };
+      return { tone: "warn", key: "providers.stateRateLimited", fallback: "Rate Limited", needsReauth: false };
     // 5xx dominate the failures → upstream proxy / server congestion (the
     // "wsarecv: forcibly closed" resets), NOT a problem with this account. Flag it
     // as upstream-unstable (warn) rather than the alarming "失败偏多 / 异常".
     if (health.server_errors > 0 && health.server_errors >= health.auth_failures && health.server_errors >= health.rate_limited)
-      return { tone: "warn", key: "providers.stateUpstream", fallback: "上游不稳(5xx)", needsReauth: false };
+      return { tone: "warn", key: "providers.stateUpstream", fallback: "Upstream Unstable (5xx)", needsReauth: false };
     if (failures >= health.successes)
-      return { tone: "bad", key: "providers.stateFailing", fallback: "异常 · 失败偏多", needsReauth: false };
-    return { tone: "warn", key: "providers.stateDegraded", fallback: "部分失败", needsReauth: false };
+      return { tone: "bad", key: "providers.stateFailing", fallback: "Failing (High Error Rate)", needsReauth: false };
+    return { tone: "warn", key: "providers.stateDegraded", fallback: "Degraded", needsReauth: false };
   }
 
   // Fallback to the proxy's recent-request buckets when there's no usage history
@@ -717,10 +717,10 @@ function accountState(
   const recent = account.recent_requests ?? [];
   const ok = recent.reduce((sum, bucket) => sum + bucket.success, 0);
   const fail = recent.reduce((sum, bucket) => sum + bucket.failed, 0);
-  if (fail >= 3 && fail >= ok) return { tone: "bad", key: "providers.stateFailing", fallback: "异常 · 失败偏多", needsReauth: false };
-  if (fail > 0) return { tone: "warn", key: "providers.stateDegraded", fallback: "部分失败", needsReauth: false };
-  if (status === "error") return { tone: "bad", key: "providers.stateAnomaly", fallback: "异常", needsReauth: false };
-  return { tone: "good", key: "providers.stateActive", fallback: "正常", needsReauth: false };
+  if (fail >= 3 && fail >= ok) return { tone: "bad", key: "providers.stateFailing", fallback: "Failing (High Error Rate)", needsReauth: false };
+  if (fail > 0) return { tone: "warn", key: "providers.stateDegraded", fallback: "Degraded", needsReauth: false };
+  if (status === "error") return { tone: "bad", key: "providers.stateAnomaly", fallback: "Anomaly", needsReauth: false };
+  return { tone: "good", key: "providers.stateActive", fallback: "Active", needsReauth: false };
 }
 
 function ProviderCard({
