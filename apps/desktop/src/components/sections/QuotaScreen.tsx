@@ -200,7 +200,7 @@ function SchedulerCard({
   if (!schedulerOn) {
     statusText = t(
       "quota.scheduler.descOff",
-      "开启后只让「额度最快刷新」的账号进代理池,其余临时待命;到点自动换号,余量不浪费。",
+      "When enabled, only accounts with the closest refresh time enter the proxy pool, while others wait; automatically switches accounts when time is up so quotas aren't wasted.",
     );
   } else if (activeLabel) {
     const windowText = resetText
@@ -218,8 +218,8 @@ function SchedulerCard({
   }
 
   const tagText = schedulerOn && totalScheduled > 0
-    ? t("quota.scheduler.rule", "临近刷新优先") + (providerEntry ? ` · ${providerLabel}` : ` · ${totalScheduled} 个服务商`)
-    : t("quota.scheduler.ruleGeneric", "临近刷新优先");
+    ? t("quota.scheduler.rule", "Refresh closest priority") + (providerEntry ? ` · ${providerLabel}` : ` · Total ${totalScheduled} providers`)
+    : t("quota.scheduler.ruleGeneric", "Refresh closest priority");
 
   return (
     <div className="scheduler-block">
@@ -329,7 +329,7 @@ function AccountQuotaCard({
           {isSchedulerStandby ? (
             <span
               className="quota-pill quota-pill--blue"
-              title={t("quota.schedulerStandby.desc", "被智能调度临时移出代理池;轮到它或关闭调度时自动恢复。")}
+              title={t("quota.schedulerStandby.desc", "Temporarily removed from the proxy pool by the smart scheduler; automatically restored when its turn comes or scheduling is disabled.")}
             >
               {t("quota.schedulerStandby", "调度待命")}
             </span>

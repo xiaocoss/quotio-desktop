@@ -464,9 +464,9 @@ export function ProvidersScreen({
 
       {/* ── Connected providers: card grid ── */}
       <div className="pv-section-header">
-        <h2 className="pv-section-title">已连接服务商</h2>
+        <h2 className="pv-section-title">{t("providers.connected", "Connected Providers")}</h2>
         <span className="pv-section-actions">
-          <span className="pv-count-badge">共 {groups.length} 个服务商</span>
+          <span className="pv-count-badge">{t("providers.count", `Total ${groups.length} providers`, { count: groups.length })}</span>
           <GlobalActionsMenu
             oauthProviders={oauthProviders.filter(
               // 只列「还没连接」(没卡片)的服务商——加首个账号的唯一入口;已连接的卡片上有 +。
@@ -517,9 +517,9 @@ export function ProvidersScreen({
 
       {/* ── Custom API management: table ── */}
       <div className="pv-section-header" style={{ marginTop: 28 }}>
-        <h2 className="pv-section-title">自定义接口管理</h2>
+        <h2 className="pv-section-title">{t("providers.customApi", "Custom API Management")}</h2>
         <button className="pv-add-btn" type="button" onClick={() => (showAddCustom ? resetCustomForm() : setShowAddCustom(true))}>
-          <PlusIcon /> 添加接口
+          <PlusIcon /> {t("providers.addApi", "Add API")}
         </button>
       </div>
 
@@ -623,7 +623,7 @@ export function ProvidersScreen({
       ) : null}
 
       {customProviders.length === 0 ? (
-        <p className="empty-copy" style={{ padding: "16px 0" }}>暂无自定义接口。点击「添加接口」导入 OpenAI / Gemini / Claude 兼容端点。</p>
+        <p className="empty-copy" style={{ padding: "16px 0" }}>{t("providers.noCustomApi", "No custom APIs yet. Click \"Add API\" to import OpenAI / Gemini / Claude compatible endpoints.")}</p>
       ) : (
         <div className="pv-card-grid">
           {customProviders.map((cp) => {
@@ -833,7 +833,7 @@ function ProviderCard({
         </div>
       </div>
 
-      <span className="pv-card-meta">{group.accounts.length} 个账户</span>
+      <span className="pv-card-meta">{group.accounts.length} {group.accounts.length === 1 ? "account" : "accounts"}</span>
 
       <div className="pv-card-accounts">
         {previewAccounts.map((account) => (

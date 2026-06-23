@@ -608,25 +608,25 @@ function AboutScreen({
         </div>
         <dl className="detail-list compact-details">
           <div>
-            <dt>平台</dt>
+            <dt>{t("about.platform", "Platform")}</dt>
             <dd>
               {appState.platform.os} / {appState.platform.arch}
             </dd>
           </div>
           <div>
-            <dt>运行模式</dt>
+            <dt>{t("about.runMode", "Run Mode")}</dt>
             <dd>{appState.settings.operating_mode}</dd>
           </div>
           <div>
-            <dt>代理地址</dt>
+            <dt>{t("about.proxyAddress", "Proxy Address")}</dt>
             <dd>{appState.proxy.endpoint}</dd>
           </div>
           <div>
-            <dt>配置目录</dt>
+            <dt>{t("about.configDir", "Config Directory")}</dt>
             <dd>{appState.config_root}</dd>
           </div>
         </dl>
-        <p className="about-copy">Quotio · 多服务商 AI 代理与额度管理工具。</p>
+        <p className="about-copy">Quotio &middot; Multi-provider AI proxy and quota management tool.</p>
       </article>
     </section>
   );
