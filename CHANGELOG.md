@@ -7,6 +7,22 @@
      从本文件抽取对应段作为 Release 正文 + 应用内更新弹窗内容；标题对不上就抽不到，
      这些改动不会出现在更新提示里。 -->
 
+## v0.4.8 - 未发布
+
+### 新增
+
+- 账号导入兼容 **`accounts-export.json`** 格式(`{ accounts: [{ token, refreshToken, email, accountId, … }] }`):自动把每个账号的扁平驼峰令牌转换成 CLIProxyAPI codex 账号(`token`→access、`refreshToken`→refresh、`accountId`→account_id),按 `codex-<邮箱>.json` 落地、支持一个文件多账号。该格式不带 `id_token`,导入时写空串占位,CLIProxyAPI 首次请求会用 `refresh_token` 续期补全。
+
+### 改进
+
+- 「API 密钥」页**防呆警告**:给密钥绑定了服务商、但运行环境缺少 `quotio-key-router` 插件时,弹横幅提示「绑定不会生效,代理仍按全局轮询命中所有池」。此前是悄无声息——看着绑了 Codex,请求却可能被轮询到别的池(用户实测踩坑)。
+- 安装包资源打包改为**显式映射**(`bundle.resources` 不再用 `../` 回溯):避免 Tauri 把 `..` 转义成 `_up_/…` 导致内置 CLIProxyAPI 核心 / key-router 插件定位失败、首次运行误联网下载核心。让「装完即用、不联网」在 macOS 上也真正兑现(本机 Windows 已实锤资源从 `_up_/…` 改落到 `resources/proxy/…`)。
+- 加固**管理 API 与 Cloudflare 隧道**流程:管理接口端点 URL 构造更稳(支持 HTTPS / 路径拼接);cloudflared 下载、解包(`.tgz`)、赋可执行更健壮;端口占用的进程检测与按端口杀进程更可靠。
+
+### 修复
+
+- 发版 CI:macOS / Linux 的 key-router 插件改为**下载失败即报错**(此前静默降级 `rm`,可能悄悄出一个不带插件、「按 key 路由」失效的包)。
+
 ## v0.4.7 - 2026-06-22
 
 ### 改进

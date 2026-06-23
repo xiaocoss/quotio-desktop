@@ -655,6 +655,12 @@ impl AppCore {
             for item in &items {
                 self.write_single_auth_import(&dir, item, base);
             }
+        // accounts-export.json: { accounts: [{ token, refreshToken, email, accountId, … }] }
+        // —— 扁平驼峰、无 id_token,转换成 codex auth 后逐个落地。
+        } else if let Some(items) = convert_accounts_export(&parsed) {
+            for item in &items {
+                self.write_single_auth_import(&dir, item, base);
+            }
         // If the file is a JSON array (e.g. cpa-manager batch export), unpack
         // each element into its own auth file with a proper provider-email name.
         } else if let Some(arr) = parsed.as_array() {
@@ -949,6 +955,32 @@ impl AppCore {
     /// 当前是否有 Codex 一键启动会话在运行。
     pub fn codex_active(&self) -> bool {
         self.codex_session.is_some() || codex_launch::launch_backup_exists()
+    }
+
+    /// quotio-key-router 插件是否就位(管理目录里已有,或安装包内置了待装载)。
+    /// 没有它,「按 key 绑定服务商」就不会生成 `plugins:` 路由配置、绑定形同虚设——
+    /// 代理仍按全局轮询命中所有可用池。前端据此给「绑了 key 却不隔离」做防呆警告。
+    pub fn key_router_plugin_staged(&self) -> bool {
+        let dll_name = if cfg!(windows) {
+            "quotio-key-router.dll"
+        } else if cfg!(target_os = "macos") {
+            "quotio-key-router.dylib"
+        } else {
+            "quotio-key-router.so"
+        };
+        // 管理目录的代理插件目录(与 ProxyPaths::new 一致:app_config_dir()/proxy)。
+        let managed = quotio_platform::app_config_dir()
+            .join("proxy")
+            .join("plugins")
+            .join(dll_name);
+        if managed.is_file() {
+            return true;
+        }
+        // 还没装载,但安装包内置了 → 下次写配置时会自动 stage,也算「有」。
+        quotio_platform::proxy_resource_dir()
+            .join("plugins")
+            .join(dll_name)
+            .is_file()
     }
 
     /// 当前在跑的启动方案 id（没有则 None，前端据此高亮「运行中」那套）。
@@ -1733,6 +1765,69 @@ fn convert_sub2api_accounts(parsed: &serde_json::Value) -> Option<Vec<serde_json
         }
         if let Some(value) = creds.get("expires_at") {
             auth.insert("expired".to_string(), value.clone());
+        }
+        auth.insert("disabled".to_string(), serde_json::Value::Bool(false));
+        out.push(serde_json::Value::Object(auth));
+    }
+    if out.is_empty() {
+        None
+    } else {
+        Some(out)
+    }
+}
+
+/// Detect & convert an `accounts-export.json` 导出 into CLIProxyAPI codex auth objects.
+///
+/// 该格式形如 `{ accounts: [{ token, refreshToken, email, accountId, ... }] }`:每个账号的 OAuth
+/// 令牌**扁平、驼峰命名**(`token`=access、`refreshToken`=refresh、`accountId`=account_id),且
+/// **没有 `id_token`**。这里把它们重命名成 codex-auth 结构;`id_token` 写空串占位(满足
+/// `is_codex_auth` 的存在性检查),CLIProxyAPI 首次请求会用 `refresh_token` 续期并补全。
+/// 不是这个形状就返回 `None`(交回上层的 sub2api / 数组 / 单对象处理)。
+fn convert_accounts_export(parsed: &serde_json::Value) -> Option<Vec<serde_json::Value>> {
+    let obj = parsed.as_object()?;
+    // sub2api 有自己的 type 标记,让它自己的转换器先处理。
+    if obj.get("type").and_then(|v| v.as_str()) == Some("sub2api-data") {
+        return None;
+    }
+    let accounts = obj.get("accounts")?.as_array()?;
+    let mut out = Vec::new();
+    for account in accounts {
+        let Some(account) = account.as_object() else {
+            continue;
+        };
+        let field = |key: &str| {
+            account
+                .get(key)
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+        };
+        // 该格式特征 + 最低可用要求:access(token)+ refreshToken,且至少有 email / accountId 做文件名。
+        let (Some(access), Some(refresh)) = (field("token"), field("refreshToken")) else {
+            continue;
+        };
+        if field("email").is_none() && field("accountId").is_none() {
+            continue;
+        }
+        let mut auth = serde_json::Map::new();
+        auth.insert("type".to_string(), serde_json::Value::String("codex".to_string()));
+        auth.insert(
+            "access_token".to_string(),
+            serde_json::Value::String(access.to_string()),
+        );
+        auth.insert(
+            "refresh_token".to_string(),
+            serde_json::Value::String(refresh.to_string()),
+        );
+        // 导出不带 id_token —— 空串占位,首次续期补全。
+        auth.insert("id_token".to_string(), serde_json::Value::String(String::new()));
+        if let Some(email) = field("email") {
+            auth.insert("email".to_string(), serde_json::Value::String(email.to_string()));
+        }
+        if let Some(account_id) = field("accountId") {
+            auth.insert(
+                "account_id".to_string(),
+                serde_json::Value::String(account_id.to_string()),
+            );
         }
         auth.insert("disabled".to_string(), serde_json::Value::Bool(false));
         out.push(serde_json::Value::Object(auth));
@@ -4089,6 +4184,34 @@ mod tests {
             "accounts": [{ "platform": "openai", "credentials": { "email": "b@x.com" } }]
         });
         assert!(convert_sub2api_accounts(&missing).is_none());
+    }
+
+    #[test]
+    fn convert_accounts_export_maps_flat_account_to_codex_auth() {
+        // accounts-export.json:扁平驼峰、无 id_token。(占位字符串,不放真实凭证。)
+        let input = serde_json::json!({
+            "accounts": [{
+                "id": "abc", "token": "access-jwt", "refreshToken": "rt-fake",
+                "email": "x@example.com", "accountId": "acc-123", "status": "expired"
+            }]
+        });
+        let out = convert_accounts_export(&input).expect("应识别 accounts-export 并转换");
+        assert_eq!(out.len(), 1);
+        let a = out[0].as_object().unwrap();
+        assert_eq!(a.get("type").unwrap(), "codex");
+        assert_eq!(a.get("access_token").unwrap(), "access-jwt"); // token → access_token
+        assert_eq!(a.get("refresh_token").unwrap(), "rt-fake"); // refreshToken → refresh_token
+        assert_eq!(a.get("account_id").unwrap(), "acc-123"); // accountId → account_id
+        assert_eq!(a.get("email").unwrap(), "x@example.com");
+        assert_eq!(a.get("id_token").unwrap(), ""); // 占位,首次续期补全
+        assert_eq!(a.get("disabled").unwrap(), &serde_json::Value::Bool(false));
+
+        // sub2api 交给它自己的转换器
+        assert!(convert_accounts_export(&serde_json::json!({"type":"sub2api-data","accounts":[]})).is_none());
+        // 缺 refreshToken 的账号被跳过 → 整体 None
+        assert!(convert_accounts_export(&serde_json::json!({"accounts":[{"token":"a","email":"x@e.com"}]})).is_none());
+        // 普通 JSON 数组不是这个格式 → None(走原有逻辑)
+        assert!(convert_accounts_export(&serde_json::json!([{"type":"codex"}])).is_none());
     }
 
     #[test]

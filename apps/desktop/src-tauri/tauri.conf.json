@@ -54,10 +54,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "../../../resources/proxy/**/*",
-      "../../../resources/kiro/**/*"
-    ]
+    "resources": {
+      "../../../resources/proxy": "resources/proxy",
+      "../../../resources/kiro": "resources/kiro"
+    }
   },
   "plugins": {
     "updater": {

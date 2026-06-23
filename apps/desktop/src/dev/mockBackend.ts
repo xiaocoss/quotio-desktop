@@ -645,6 +645,8 @@ export async function mockInvoke<T>(command: string, args?: Record<string, unkno
       return mockAuthHealth() as unknown as T;
     case "list_custom_providers":
       return mockCustomProviders as unknown as T;
+    case "key_router_available":
+      return false as unknown as T; // 演示防呆警告(有绑定 + 插件缺失 → 横幅)
     case "add_custom_provider": {
       const cp: MockCustomProvider = {
         id: `cp-${nextCpId++}`,

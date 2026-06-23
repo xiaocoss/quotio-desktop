@@ -33,6 +33,14 @@ export function ApiKeysScreen({ appState, isManagementBusy, onRunManagementState
   }, []);
   const allProviders: CustomProviderOption[] = [...builtinProviders, ...customProviders];
 
+  // key-router 插件是否就位:没有它,下面给密钥「绑定服务商」不会生成路由配置、不生效——
+  // 代理仍全局轮询命中所有可用池(请求可能落到你没想绑的服务商)。据此做防呆警告。
+  const [keyRouterAvailable, setKeyRouterAvailable] = useState<boolean | null>(null);
+  useEffect(() => {
+    void invoke<boolean>("key_router_available").then(setKeyRouterAvailable).catch(() => {});
+  }, []);
+  const hasBoundKeys = bindings.some((b) => Boolean(b.provider_id));
+
   function addKey() {
     const value = newApiKey.trim();
     if (!value) return;
@@ -88,6 +96,14 @@ export function ApiKeysScreen({ appState, isManagementBusy, onRunManagementState
           <span className="eyebrow">{t("nav.api_keys")}</span>
           <span className="count-pill">{apiKeys.length}</span>
         </div>
+
+        {hasBoundKeys && keyRouterAvailable === false ? (
+          <div className="apikey-router-warning">
+            ⚠ 你给密钥绑定了服务商,但当前运行环境<strong>缺少「按 key 路由」插件</strong>(quotio-key-router)——
+            绑定<strong>不会生效</strong>,代理仍按全局轮询命中所有可用池,请求可能落到你没想绑的服务商。
+            请用随包内置该插件的版本(0.4.x 安装包),或确认代理目录 <code>plugins/</code> 里有该插件。
+          </div>
+        ) : null}
 
         {showAdd ? (
           <div className="apikey-add">

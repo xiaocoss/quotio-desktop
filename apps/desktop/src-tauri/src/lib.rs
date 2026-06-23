@@ -180,6 +180,17 @@ fn codex_active_profile(state: State<'_, DesktopState>) -> Result<Option<String>
     Ok(core.active_codex_profile_id())
 }
 
+/// quotio-key-router 插件是否就位。没有它,「按 key 绑定服务商」就不会生成路由配置、绑定不生效
+/// (代理仍全局轮询命中所有池)。前端据此给「绑了 key 却不隔离」做防呆警告。
+#[tauri::command]
+fn key_router_available(state: State<'_, DesktopState>) -> bool {
+    state
+        .core
+        .lock()
+        .map(|core| core.key_router_plugin_staged())
+        .unwrap_or(false)
+}
+
 /// 修复 Codex 历史会话可见性：对齐 rollout/state_5.sqlite 里的 provider 元数据。
 #[tauri::command]
 async fn codex_repair_session_visibility() -> Result<String, String> {
@@ -1707,6 +1718,7 @@ pub fn run() {
             export_auth_files,
             list_local_accounts,
             list_custom_providers,
+            key_router_available,
             add_custom_provider,
             delete_custom_provider,
             update_custom_provider,

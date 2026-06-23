@@ -135,8 +135,9 @@ jobs:
           if curl -fsSL "$base/$passet" -o "resources/proxy/$plat/plugins/quotio-key-router.$pext"; then
             echo "Staged quotio-key-router.$pext ($plat)"
           else
-            echo "::warning::key-router 插件 ($plat) 下载失败,本次包不内置(优雅降级);先跑 build-deps。"
             rm -f "resources/proxy/$plat/plugins/quotio-key-router.$pext"
+            echo "::error::key-router 插件 ($plat) 下载失败 —— 缺它「按 key 路由」会失效,拒绝出一个不带插件的包。请先跑 build-deps 生成 deps 资产再发版。"
+            exit 1
           fi
 
       # 从 CHANGELOG.md 抽取本 tag 对应版本段,作为 Release 正文 + 自动更新弹窗内容。
