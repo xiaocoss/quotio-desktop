@@ -49,6 +49,45 @@ function App() {
     return () => media.removeEventListener("change", applyTheme);
   }, [theme]);
 
+  // 长按窗口任意处拖动:无边框窗口默认只有标题栏能拖。这里监听鼠标——左键按住约 260ms
+  // 不松开,即进入「拖窗」,之后不松开继续移动整窗跟着走;快速点击仍是正常点击。
+  // 按钮 / 输入框 / 下拉 / 滑块 / 可编辑 / 链接、以及标了 .no-window-drag 的区域排除
+  //(这些长按另有用途)。仅 Tauri 环境生效。
+  useEffect(() => {
+    if (!("__TAURI_INTERNALS__" in window)) return;
+    const HOLD_MS = 260;
+    const NO_DRAG =
+      "button, [role='button'], input, textarea, select, [contenteditable], [contenteditable=''], [role='slider'], a[href], .no-window-drag";
+    let timer: number | null = null;
+    const clear = () => {
+      if (timer !== null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+    };
+    const onDown = (event: MouseEvent) => {
+      if (event.button !== 0) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(NO_DRAG)) return;
+      clear();
+      timer = window.setTimeout(() => {
+        timer = null;
+        void import("@tauri-apps/api/window").then(({ getCurrentWindow }) =>
+          getCurrentWindow().startDragging().catch(() => {}),
+        );
+      }, HOLD_MS);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("mouseup", clear);
+    window.addEventListener("blur", clear);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("mouseup", clear);
+      window.removeEventListener("blur", clear);
+      clear();
+    };
+  }, []);
+
   if (!app.appState || !bootDone) {
     return (
       <main className="app-shell app-shell--centered">
