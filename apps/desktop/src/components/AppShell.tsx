@@ -106,13 +106,13 @@ async function toggleMaximize() {
 function proxyActionLabel(action: string | null): string | null {
   switch (action) {
     case "start_proxy":
-      return "正在启动代理…";
+      return "Starting proxy...";
     case "stop_proxy":
-      return "正在停止代理…";
+      return "Stopping proxy...";
     case "restart_proxy":
-      return "正在重启代理…";
+      return "Restarting proxy...";
     case "download_proxy_binary":
-      return "正在下载代理…";
+      return "Downloading proxy...";
     default:
       return null;
   }
@@ -342,7 +342,7 @@ export function AppShell(props: AppShellProps) {
             <div className="boot-bar" aria-hidden="true">
               <span />
             </div>
-            <p>正在刷新…</p>
+            <p>Refreshing...</p>
           </div>
         </div>
       ) : null}
