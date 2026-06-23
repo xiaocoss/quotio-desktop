@@ -144,6 +144,7 @@ fn provider_config(provider_id: &str) -> Option<ProviderOAuthConfig> {
 // Global state
 // ---------------------------------------------------------------------------
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 struct PendingOAuth {
     login_id: String,

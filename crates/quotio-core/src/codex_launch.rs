@@ -16,7 +16,8 @@ const PREVIOUS_DISABLED_FIELD: &str = "quotio_previous_disabled";
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-/// 新建一个不弹控制台窗口的 Command（仅 Windows 加标志；其它平台原样）。
+#[allow(dead_code)]
+#[allow(unused_mut)]
 fn quiet_command(program: &str) -> Command {
     let mut command = Command::new(program);
     #[cfg(target_os = "windows")]
