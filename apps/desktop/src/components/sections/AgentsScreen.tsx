@@ -226,6 +226,21 @@ export function AgentsScreen({
     });
   }
 
+  // 编辑:把现有方案预填进同一个小表单(submitProfileDraft 按 id 命中就更新而不是新增)。
+  function openEditProfile(profile: CodexLaunchProfile) {
+    setLaunchMsg(null);
+    setProfileDraft({
+      id: profile.id,
+      name: profile.name,
+      launch_mode: profile.launch_mode || "app",
+      bound_account: profile.bound_account,
+      proxy_url: profile.proxy_url,
+      model: profile.model,
+      reasoning: profile.reasoning || "high",
+      api_key: profile.api_key,
+    });
+  }
+
   function submitProfileDraft() {
     if (!profileDraft) return;
     const name = profileDraft.name.trim();
@@ -443,6 +458,14 @@ export function AgentsScreen({
                         {isStarting ? t("agents.launch.launching", "启动中…") : t("agents.launch.start", "启动")}
                       </button>
                     )}
+                    <button
+                      className="codex-profile-edit"
+                      type="button"
+                      onClick={() => openEditProfile(profile)}
+                      disabled={isRunning}
+                    >
+                      {t("common.edit", "编辑")}
+                    </button>
                     <button
                       className="codex-profile-del"
                       type="button"

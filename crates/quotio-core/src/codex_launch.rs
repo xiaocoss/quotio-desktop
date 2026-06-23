@@ -461,14 +461,14 @@ pub fn codex_app_process_running() -> bool {
     #[cfg(target_os = "windows")]
     {
         let Ok(output) = quiet_command("tasklist")
-            .args(["/FI", "IMAGENAME eq Codex.exe", "/NH"])
+            .args(["/FI", "IMAGENAME eq codex*", "/NH"])
             .output()
         else {
             return true;
         };
         String::from_utf8_lossy(&output.stdout)
             .to_lowercase()
-            .contains("codex.exe")
+            .contains("codex")
     }
     #[cfg(target_os = "macos")]
     {
@@ -602,18 +602,36 @@ pub fn kill_process(pid: u32) {
     }
 }
 
-/// 关掉所有 Codex 桌面应用进程（按名字，best-effort，不弹窗）。
-/// 启动前调用：避免运行中的实例把我们写的 config.toml 覆盖掉，并让它重启时读到新配置。
+/// 关掉所有 Codex 进程（best-effort，不弹窗）：
+///   - 桌面应用 `Codex.exe` + CLI 原生二进制（可能叫 `codex.exe`，或带平台后缀 `codex-*.exe`）
+///     —— 统一按 `codex*` 进程名匹配，一并收掉；
+///   - node 起的 codex CLI（进程名是 `node.exe`、命令行里含 codex）—— 按命令行兜底。
+///
+/// 之前只按 `Codex.exe` 杀：用「终端」方案起的 codex（原生二进制名带后缀 / node 起的）根本杀不掉，
+/// 且终端是用 `wt` 开的、记下的 pid 是个转瞬即逝的启动器并不可靠；于是停止/切方案后旧 codex 还活着、
+/// 还拿着启动时读进内存的旧配置（旧 key）在发请求（用户实测：停了卫龙、起了 codex，日志里还在请求
+/// 卫龙、会话卡思考）。停止 / 切换 / 启动自愈都走这里，所以一处修好就全修好。
 pub fn close_codex_app() {
     #[cfg(target_os = "windows")]
     {
+        // `codex*` 覆盖桌面应用 `Codex.exe` + 原生 CLI `codex*.exe`（含平台后缀）；/T 连子进程一起杀。
         let _ = quiet_command("taskkill")
-            .args(["/IM", "Codex.exe", "/T", "/F"])
+            .args(["/F", "/T", "/FI", "IMAGENAME eq codex*"])
+            .output();
+        // 兜底：node 起的 codex CLI（按进程名抓不到，按命令行含 codex 抓）。
+        let _ = quiet_command("powershell")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -like '*codex*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }",
+            ])
             .output();
     }
     #[cfg(target_os = "macos")]
     {
         let _ = Command::new("pkill").args(["-f", "Codex.app"]).output();
+        let _ = Command::new("pkill").args(["-x", "codex"]).output();
     }
     #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
     {
