@@ -61,7 +61,7 @@ function App() {
             <span />
           </div>
           <p className={app.error ? "boot-hint boot-hint--error" : "boot-hint"}>
-            {app.error ?? "正在加载…"}
+            {app.error ?? "Loading..."}
           </p>
         </div>
       </main>
