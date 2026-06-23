@@ -5,7 +5,7 @@ import { Select } from "../Select";
 import { useT } from "../../i18n";
 import { invoke } from "../../lib/tauri";
 import { isHideSensitiveEnabled, setHideSensitiveEnabled } from "../../lib/format";
-import { TunnelCard, WarmupCard, AutostartCard } from "../TunnelCard";
+import { TunnelCard, WarmupCard } from "../TunnelCard";
 
 type SettingsScreenProps = {
   appState: AppState;
@@ -651,7 +651,6 @@ export function SettingsScreen({
 
       <TunnelCard />
       <WarmupCard />
-      <AutostartCard />
     </section>
   );
 }

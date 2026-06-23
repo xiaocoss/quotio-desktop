@@ -277,10 +277,15 @@ impl AppCore {
 
     /// Path where the managed cloudflared binary lives (next to the proxy core).
     pub fn cloudflared_binary_path(&self) -> PathBuf {
+        let binary_name = if cfg!(target_os = "windows") {
+            "cloudflared.exe"
+        } else {
+            "cloudflared"
+        };
         self.proxy_managed_binary_path()
             .parent()
-            .map(|dir| dir.join("cloudflared.exe"))
-            .unwrap_or_else(|| PathBuf::from("cloudflared.exe"))
+            .map(|dir| dir.join(binary_name))
+            .unwrap_or_else(|| PathBuf::from(binary_name))
     }
 
     /// The local port the proxy listens on (used by the tunnel target URL).
@@ -309,6 +314,25 @@ impl AppCore {
             ));
         }
 
+        let management_endpoint = match self.settings.connection_mode {
+            ConnectionMode::Local => self.proxy.state.management_endpoint.clone(),
+            ConnectionMode::Remote => {
+                if self
+                    .settings
+                    .remote_endpoint_url
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|endpoint| !endpoint.is_empty())
+                    .is_none()
+                {
+                    return Err(ManagementCoreError::Unavailable(
+                        "远程管理接口地址未配置。".to_string(),
+                    ));
+                }
+                self.settings.management_endpoint()
+            }
+        };
+
         let management_key = match self.settings.connection_mode {
             ConnectionMode::Local => self.proxy.management_key.clone(),
             ConnectionMode::Remote => self
@@ -325,7 +349,7 @@ impl AppCore {
         };
 
         Ok(ManagementApiClient::local(
-            self.proxy.state.management_endpoint.clone(),
+            management_endpoint,
             management_key,
         ))
     }
@@ -2816,7 +2840,7 @@ impl ProxyLifecycle {
                 .unwrap_or("CLIProxyAPI");
             if is_own_proxy_process_name(&holder, proxy_bin) {
                 // Orphaned proxy from a previous session — reclaim the port.
-                kill_process_on_port(settings.proxy_port);
+                kill_process_on_port(settings.proxy_port, proxy_bin);
                 thread::sleep(Duration::from_millis(400));
             } else {
                 let message = format!(
@@ -2980,7 +3004,14 @@ impl ProxyLifecycle {
                 // Only terminate the process holding OUR port — never `taskkill
                 // /IM` by image name, which would also kill any other CLIProxyAPI
                 // the user runs on a different port.
-                kill_process_on_port(settings.proxy_port);
+                let proxy_bin = self
+                    .paths
+                    .managed_binary_path()
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .map(str::to_string)
+                    .unwrap_or_else(|| "CLIProxyAPI".to_string());
+                kill_process_on_port(settings.proxy_port, &proxy_bin);
             }
             self.state = state_for_paths(
                 settings,
@@ -3038,7 +3069,14 @@ impl ProxyLifecycle {
         }
         // Also terminate an adopted/external proxy by its listening port, so
         // closing the app doesn't leave the proxy API running in the background.
-        kill_process_on_port(settings.proxy_port);
+        let proxy_bin = self
+            .paths
+            .managed_binary_path()
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(str::to_string)
+            .unwrap_or_else(|| "CLIProxyAPI".to_string());
+        kill_process_on_port(settings.proxy_port, &proxy_bin);
     }
 
     fn refresh(&mut self, settings: &AppSettings) {
@@ -3615,6 +3653,33 @@ fn process_name_for_pid(pid: &str) -> Option<String> {
         .filter(|name| !name.is_empty() && !name.contains("INFO"))
 }
 
+#[cfg(not(windows))]
+fn process_name_for_pid(pid: &str) -> Option<String> {
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(name) = fs::read_to_string(format!("/proc/{}/comm", pid)) {
+            let name = name.trim().to_string();
+            if !name.is_empty() {
+                return Some(name);
+            }
+        }
+    }
+
+    let output = Command::new("ps")
+        .args(["-p", pid, "-o", "comm="])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let name = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if name.is_empty() {
+        None
+    } else {
+        Some(name)
+    }
+}
+
 /// Best-effort (pid, image name) of whatever is LISTENING on `port`, so callers
 /// can tell our own orphaned proxy apart from a foreign process.
 #[cfg(windows)]
@@ -3642,19 +3707,43 @@ fn port_listener(port: u16) -> Option<(String, String)> {
 }
 
 #[cfg(not(windows))]
-fn port_listener(_port: u16) -> Option<(String, String)> {
-    None
+fn port_listener(port: u16) -> Option<(String, String)> {
+    let port_filter = format!("-iTCP:{}", port);
+    let output = Command::new("lsof")
+        .args(["-nP", &port_filter, "-sTCP:LISTEN", "-t"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let pid = String::from_utf8_lossy(&output.stdout)
+        .split_whitespace()
+        .find(|pid| pid.chars().all(|c| c.is_ascii_digit()) && *pid != "0")?
+        .to_string();
+    let name = process_name_for_pid(&pid).unwrap_or_else(|| "未知程序".to_string());
+    Some((pid, name))
 }
 
 /// 端口监听者的进程名是否是我们自己的代理（CLIProxyAPI）。
 /// 用于区分「自家孤儿代理」和「碰巧占了端口的别人程序」。
 fn is_own_proxy_process_name(holder: &str, proxy_bin: &str) -> bool {
-    holder.eq_ignore_ascii_case(proxy_bin) || holder.to_ascii_lowercase().contains("cliproxyapi")
+    let holder = normalized_process_name(holder);
+    let proxy_bin = normalized_process_name(proxy_bin);
+    !holder.is_empty()
+        && ((!proxy_bin.is_empty() && holder == proxy_bin) || holder.contains("cliproxyapi"))
+}
+
+fn normalized_process_name(value: &str) -> String {
+    value
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .map(|c| c.to_ascii_lowercase())
+        .collect()
 }
 
 /// Terminate the proxy listening on `port` — ONLY when it is our own CLIProxyAPI
 /// binary, never a foreign process that merely shares the port.
-fn kill_process_on_port(port: u16) {
+fn kill_process_on_port(port: u16, proxy_bin: &str) {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -3680,7 +3769,7 @@ fn kill_process_on_port(port: u16) {
         for pid in pids {
             // Never kill a foreign process that merely shares the port.
             let is_ours = process_name_for_pid(&pid)
-                .map(|name| name.to_ascii_lowercase().contains("cliproxyapi"))
+                .map(|name| is_own_proxy_process_name(&name, proxy_bin))
                 .unwrap_or(false);
             if !is_ours {
                 continue;
@@ -3693,15 +3782,27 @@ fn kill_process_on_port(port: u16) {
     }
     #[cfg(not(windows))]
     {
-        if let Ok(output) = std::process::Command::new("lsof")
-            .args(["-ti", &format!("tcp:{}", port)])
+        let port_filter = format!("-iTCP:{}", port);
+        let Ok(output) = Command::new("lsof")
+            .args(["-nP", &port_filter, "-sTCP:LISTEN", "-t"])
             .output()
+        else {
+            return;
+        };
+        if !output.status.success() {
+            return;
+        }
+        for pid in String::from_utf8_lossy(&output.stdout)
+            .split_whitespace()
+            .filter(|pid| pid.chars().all(|c| c.is_ascii_digit()) && *pid != "0")
         {
-            for pid in String::from_utf8_lossy(&output.stdout).split_whitespace() {
-                let _ = std::process::Command::new("kill")
-                    .args(["-9", pid])
-                    .output();
+            let is_ours = process_name_for_pid(pid)
+                .map(|name| is_own_proxy_process_name(&name, proxy_bin))
+                .unwrap_or(false);
+            if !is_ours {
+                continue;
             }
+            let _ = Command::new("kill").args(["-TERM", pid]).output();
         }
     }
 }
@@ -4205,6 +4306,10 @@ mod tests {
     fn own_proxy_listener_is_recognized_and_foreign_is_not() {
         assert!(is_own_proxy_process_name("CLIProxyAPI.exe", "CLIProxyAPI.exe"));
         assert!(is_own_proxy_process_name("cliproxyapi", "CLIProxyAPI.exe"));
+        assert!(is_own_proxy_process_name(
+            "cli-proxy-api",
+            "CLIProxyAPI.exe"
+        ));
         // 自定义二进制名：与托管二进制同名也算自己的。
         assert!(is_own_proxy_process_name("MyProxy.exe", "myproxy.exe"));
         // 别人的程序占了端口，不能当成已启动的代理。
@@ -4244,10 +4349,19 @@ mod tests {
 
     #[tokio::test]
     async fn app_core_rejects_local_management_refresh_when_proxy_is_not_running() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("unused port should bind");
+        let unused_port = listener
+            .local_addr()
+            .expect("unused port should have local address")
+            .port();
+        drop(listener);
+
         let mut core = AppCore::default();
         core.settings.connection_mode = ConnectionMode::Local;
+        core.settings.proxy_port = unused_port;
         core.settings.remote_endpoint_url = None;
         core.settings.remote_management_key = None;
+        core.proxy.sync_settings(&core.settings);
 
         let error = core
             .management_client()

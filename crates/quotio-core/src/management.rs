@@ -1,8 +1,4 @@
-use std::{
-    io::{Read as _, Write as _},
-    net::TcpStream,
-    time::Duration,
-};
+use std::time::Duration;
 
 use quotio_types::{
     APICallRequest, APICallResponse, ApiKeyUpdateRequest, ApiKeysResponse, AuthFile,
@@ -507,36 +503,31 @@ impl ManagementApiClient {
         path: &str,
         body: Option<&str>,
     ) -> Result<String, ManagementApiError> {
-        let target = HttpTarget::parse(&self.base_url, path)?;
+        let url = endpoint_url(&self.base_url, path)?;
         let body = body.unwrap_or_default();
-        let mut stream = TcpStream::connect((&*target.host, target.port))
-            .map_err(|error| ManagementApiError::Http(error.to_string()))?;
-        let timeout = Duration::from_secs(15);
-        stream
-            .set_read_timeout(Some(timeout))
-            .map_err(|error| ManagementApiError::Http(error.to_string()))?;
-        stream
-            .set_write_timeout(Some(timeout))
-            .map_err(|error| ManagementApiError::Http(error.to_string()))?;
+        let agent = ureq::AgentBuilder::new()
+            .timeout_connect(Duration::from_secs(15))
+            .timeout_read(Duration::from_secs(15))
+            .build();
+        let request = agent
+            .request(method, &url)
+            .set("Authorization", &format!("Bearer {}", self.auth_key))
+            .set("Content-Type", "application/json")
+            .set("Accept", "application/json");
 
-        let request = format!(
-            "{} {} HTTP/1.1\r\nHost: {}\r\nAuthorization: Bearer {}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-            method,
-            target.path,
-            target.host_header(),
-            self.auth_key,
-            body.len(),
-            body,
-        );
-        stream
-            .write_all(request.as_bytes())
-            .map_err(|error| ManagementApiError::Http(error.to_string()))?;
+        let response = if body.is_empty() {
+            request.call()
+        } else {
+            request.send_string(body)
+        };
 
-        let mut bytes = Vec::new();
-        stream
-            .read_to_end(&mut bytes)
-            .map_err(|error| ManagementApiError::Http(error.to_string()))?;
-        parse_http_response(&bytes)
+        match response {
+            Ok(response) => response
+                .into_string()
+                .map_err(|error| ManagementApiError::Http(error.to_string())),
+            Err(ureq::Error::Status(status, _response)) => Err(ManagementApiError::Status(status)),
+            Err(error) => Err(ManagementApiError::Http(error.to_string())),
+        }
     }
 }
 
@@ -870,40 +861,18 @@ mod usage_record_parse_test {
     }
 }
 
-struct HttpTarget {
-    host: String,
-    port: u16,
-    path: String,
-}
-
-impl HttpTarget {
-    fn parse(base_url: &str, endpoint_path: &str) -> Result<Self, ManagementApiError> {
-        let Some(raw) = base_url.strip_prefix("http://") else {
-            return Err(ManagementApiError::Http(
-                "当前管理接口客户端仅支持 http:// 端点".to_string(),
-            ));
-        };
-
-        let (authority, base_path) = raw.split_once('/').unwrap_or((raw, ""));
-        let (host, port) = parse_authority(authority)?;
-        let base_path = base_path.trim_matches('/');
-        let endpoint_path = endpoint_path.trim_start_matches('/');
-        let path = match (base_path.is_empty(), endpoint_path.is_empty()) {
-            (true, true) => "/".to_string(),
-            (true, false) => format!("/{}", endpoint_path),
-            (false, true) => format!("/{}", base_path),
-            (false, false) => format!("/{}/{}", base_path, endpoint_path),
-        };
-
-        Ok(Self { host, port, path })
+fn endpoint_url(base_url: &str, endpoint_path: &str) -> Result<String, ManagementApiError> {
+    let base_url = base_url.trim().trim_end_matches('/');
+    if !(base_url.starts_with("http://") || base_url.starts_with("https://")) {
+        return Err(ManagementApiError::Http(
+            "管理接口端点必须以 http:// 或 https:// 开头".to_string(),
+        ));
     }
-
-    fn host_header(&self) -> String {
-        if self.port == 80 {
-            self.host.clone()
-        } else {
-            format!("{}:{}", self.host, self.port)
-        }
+    let endpoint_path = endpoint_path.trim_start_matches('/');
+    if endpoint_path.is_empty() {
+        Ok(base_url.to_string())
+    } else {
+        Ok(format!("{}/{}", base_url, endpoint_path))
     }
 }
 
@@ -930,17 +899,7 @@ fn oauth_endpoint(endpoint: &str, project_id: Option<&str>, is_webui: bool) -> S
     }
 }
 
-fn parse_authority(authority: &str) -> Result<(String, u16), ManagementApiError> {
-    let (host, port) = authority.rsplit_once(':').unwrap_or((authority, "80"));
-    let port = port
-        .parse::<u16>()
-        .map_err(|error| ManagementApiError::Http(format!("无效端口：{}", error)))?;
-    if host.trim().is_empty() {
-        return Err(ManagementApiError::Http("管理接口主机为空".to_string()));
-    }
-    Ok((host.to_string(), port))
-}
-
+#[cfg(test)]
 fn parse_http_response(bytes: &[u8]) -> Result<String, ManagementApiError> {
     let raw = String::from_utf8_lossy(bytes);
     let (head, body) = raw
@@ -965,6 +924,7 @@ fn parse_http_response(bytes: &[u8]) -> Result<String, ManagementApiError> {
     Ok(body.to_string())
 }
 
+#[cfg(test)]
 fn has_chunked_transfer_encoding(head: &str) -> bool {
     head.lines().skip(1).any(|line| {
         let Some((name, value)) = line.split_once(':') else {
@@ -977,6 +937,7 @@ fn has_chunked_transfer_encoding(head: &str) -> bool {
     })
 }
 
+#[cfg(test)]
 fn decode_chunked_body(bytes: &[u8]) -> Result<String, ManagementApiError> {
     let mut cursor = 0;
     let mut decoded = Vec::new();
@@ -1016,6 +977,7 @@ fn decode_chunked_body(bytes: &[u8]) -> Result<String, ManagementApiError> {
     }
 }
 
+#[cfg(test)]
 fn find_crlf(bytes: &[u8], start: usize) -> Option<usize> {
     bytes
         .get(start..)?
@@ -1028,6 +990,7 @@ fn find_crlf(bytes: &[u8], start: usize) -> Option<usize> {
 mod tests {
     use super::*;
     use std::{
+        io::{Read as _, Write as _},
         net::{TcpListener, TcpStream},
         sync::{Arc, Mutex},
         thread,
@@ -1042,6 +1005,19 @@ mod tests {
         .expect("chunked response should decode");
 
         assert_eq!(body, r#"{"debug":true}"#);
+    }
+
+    #[test]
+    fn endpoint_url_accepts_https_and_joins_paths() {
+        assert_eq!(
+            endpoint_url("https://example.com/v0/management/", "/debug").unwrap(),
+            "https://example.com/v0/management/debug"
+        );
+        assert_eq!(
+            endpoint_url("http://127.0.0.1:28317", "config").unwrap(),
+            "http://127.0.0.1:28317/config"
+        );
+        assert!(endpoint_url("example.com/v0/management", "/debug").is_err());
     }
 
     #[tokio::test]

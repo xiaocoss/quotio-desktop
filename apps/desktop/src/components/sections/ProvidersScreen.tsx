@@ -504,9 +504,9 @@ export function ProvidersScreen({
                 const allDisabled = group.accounts.every((a) => a.disabled);
                 for (const account of group.accounts) {
                   if (allDisabled && account.disabled) {
-                    onRunManagementStateAction("enable_management_auth_file", { name: account.name });
+                    onRunManagementStateAction("set_management_auth_file_disabled", { name: account.name, disabled: false });
                   } else if (!allDisabled && !account.disabled) {
-                    onRunManagementStateAction("disable_management_auth_file", { name: account.name });
+                    onRunManagementStateAction("set_management_auth_file_disabled", { name: account.name, disabled: true });
                   }
                 }
               }}
