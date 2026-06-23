@@ -252,6 +252,16 @@ const en: Record<string, string> = {
   "providers.cpEdit": "Edit",
   // API Keys
   "apikeys.foot": "API keys for clients to authenticate with the proxy service.",
+  "apikeys.generate": "Generate Key",
+  "apikeys.add": "Add Key",
+  "apikeys.routerWarning": "⚠ You have bound a provider to this key, but the 'quotio-key-router' plugin is missing. The binding will not take effect, and requests will continue to use the global pool. Please use the installer containing the plugin, or ensure it is in the plugins/ directory.",
+  "apikeys.allProviders": "All Providers",
+  "common.generate": "Generate",
+  "apikeys.empty": "No API keys. Click the top right corner to generate or add a client key.",
+  "apikeys.newPlaceholder": "New API key",
+  "apikeys.copy": "Copy Key",
+  "apikeys.replace": "Replace Key",
+  "apikeys.delete": "Delete Key",
   // Fallback
   "fallback.settings": "Settings",
   "fallback.enable": "Enable Fallback",
@@ -685,6 +695,16 @@ const zh: Record<string, string> = {
   "providers.cpEdit": "编辑",
   // API Keys
   "apikeys.foot": "供客户端向代理服务认证的 API 密钥。",
+  "apikeys.generate": "生成密钥",
+  "apikeys.add": "新增密钥",
+  "apikeys.routerWarning": "⚠ 你给密钥绑定了服务商，但当前运行环境缺少「按 key 路由」插件(quotio-key-router)——绑定不会生效，代理仍按全局轮询命中所有可用池，请求可能落到你没想绑的服务商。请用随包内置该插件的版本，或确认代理目录 plugins/ 里有该插件。",
+  "apikeys.allProviders": "全部服务商",
+  "common.generate": "生成",
+  "apikeys.empty": "暂无密钥。点击右上角生成或新增一个客户端密钥。",
+  "apikeys.newPlaceholder": "新的 API key",
+  "apikeys.copy": "复制密钥",
+  "apikeys.replace": "替换密钥",
+  "apikeys.delete": "删除密钥",
   // Fallback
   "fallback.settings": "设置",
   "fallback.enable": "启用回退",

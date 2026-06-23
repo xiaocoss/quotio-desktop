@@ -73,8 +73,8 @@ export function ApiKeysScreen({ appState, isManagementBusy, onRunManagementState
               setNewApiKey(generateApiKey());
             }}
             disabled={isManagementBusy}
-            title="生成密钥"
-            aria-label="生成密钥"
+            title={t("apikeys.generate")}
+            aria-label={t("apikeys.generate")}
           >
             <KeyIcon />
           </button>
@@ -83,8 +83,8 @@ export function ApiKeysScreen({ appState, isManagementBusy, onRunManagementState
             type="button"
             onClick={() => setShowAdd((value) => !value)}
             disabled={isManagementBusy}
-            title="新增密钥"
-            aria-label="新增密钥"
+            title={t("apikeys.add")}
+            aria-label={t("apikeys.add")}
           >
             <PlusIcon />
           </button>
@@ -99,9 +99,7 @@ export function ApiKeysScreen({ appState, isManagementBusy, onRunManagementState
 
         {hasBoundKeys && keyRouterAvailable === false ? (
           <div className="apikey-router-warning">
-            ⚠ 你给密钥绑定了服务商,但当前运行环境<strong>缺少「按 key 路由」插件</strong>(quotio-key-router)——
-            绑定<strong>不会生效</strong>,代理仍按全局轮询命中所有可用池,请求可能落到你没想绑的服务商。
-            请用随包内置该插件的版本(0.4.x 安装包),或确认代理目录 <code>plugins/</code> 里有该插件。
+            {t("apikeys.routerWarning")}
           </div>
         ) : null}
 
@@ -115,16 +113,16 @@ export function ApiKeysScreen({ appState, isManagementBusy, onRunManagementState
               autoFocus
             />
             <button className="ghost-action" type="button" onClick={() => setNewApiKey(generateApiKey())} disabled={isManagementBusy}>
-              生成
+              {t("common.generate")}
             </button>
             <button className="secondary-action" type="button" onClick={addKey} disabled={isManagementBusy || newApiKey.trim().length === 0}>
-              保存
+              {t("common.save")}
             </button>
           </div>
         ) : null}
 
         {apiKeys.length === 0 ? (
-          <p className="empty-copy">暂无密钥。点击右上角生成或新增一个客户端密钥。</p>
+          <p className="empty-copy">{t("apikeys.empty")}</p>
         ) : (
           <div className="apikey-list">
             {apiKeys.map((entry, index) => (
@@ -195,6 +193,7 @@ function ApiKeyRow({
   onSave: () => void;
   onDelete: () => void;
 }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -219,7 +218,7 @@ function ApiKeyRow({
             value={boundProviderId}
             onChange={(e) => onBindingChange(e.target.value)}
           >
-            <option value="">全部服务商</option>
+            <option value="">{t("apikeys.allProviders")}</option>
             {providers.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
@@ -234,25 +233,25 @@ function ApiKeyRow({
             type="text"
             value={replacementValue}
             onChange={(event) => onReplacementChange(event.target.value)}
-            placeholder="新的 API key"
+            placeholder={t("apikeys.newPlaceholder")}
             autoFocus
           />
           <button className="secondary-action" type="button" onClick={onSave} disabled={isBusy || replacementValue.trim().length === 0}>
-            保存
+            {t("common.save")}
           </button>
           <button className="ghost-action" type="button" onClick={onCancel} disabled={isBusy}>
-            取消
+            {t("common.cancel")}
           </button>
         </div>
       ) : (
         <div className="apikey-actions">
-          <button className="row-icon-btn" type="button" onClick={copy} title="复制密钥" aria-label="复制密钥">
+          <button className="row-icon-btn" type="button" onClick={copy} title={t("apikeys.copy")} aria-label={t("apikeys.copy")}>
             {copied ? <CheckIcon /> : <CopyIcon />}
           </button>
-          <button className="row-icon-btn" type="button" onClick={onEdit} disabled={isBusy} title="替换密钥" aria-label="替换密钥">
+          <button className="row-icon-btn" type="button" onClick={onEdit} disabled={isBusy} title={t("apikeys.replace")} aria-label={t("apikeys.replace")}>
             <PencilIcon />
           </button>
-          <button className="row-icon-btn row-icon-btn--danger" type="button" onClick={onDelete} disabled={isBusy} title="删除密钥" aria-label="删除密钥">
+          <button className="row-icon-btn row-icon-btn--danger" type="button" onClick={onDelete} disabled={isBusy} title={t("apikeys.delete")} aria-label={t("apikeys.delete")}>
             <TrashIcon />
           </button>
         </div>

@@ -102,12 +102,29 @@ pub fn download_proxy_binary(
 fn extract_binary(archive: &Path, dest: &Path, asset_name: &str) -> Result<(), String> {
     let lower = asset_name.to_lowercase();
     if lower.ends_with(".zip") {
-        extract_from_zip(archive, dest)
+        let result = extract_from_zip(archive, dest);
+        #[cfg(unix)]
+        make_executable(dest);
+        result
+    } else if lower.ends_with(".tar.gz") || lower.ends_with(".tgz") {
+        let result = extract_from_tar_gz(archive, dest);
+        #[cfg(unix)]
+        make_executable(dest);
+        result
     } else {
         Err(format!(
-            "暂不支持自动解包该资产格式（{}）。目前支持 Windows 的 .zip。",
+            "暂不支持自动解包该资产格式（{}）。目前支持 .zip 和 .tar.gz。",
             asset_name
         ))
+    }
+}
+
+#[cfg(unix)]
+fn make_executable(path: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    if let Ok(mut perms) = fs::metadata(path).map(|m| m.permissions()) {
+        perms.set_mode(0o755);
+        let _ = fs::set_permissions(path, perms);
     }
 }
 
@@ -143,6 +160,37 @@ fn extract_from_zip(archive: &Path, dest: &Path) -> Result<(), String> {
     let mut out = fs::File::create(dest).map_err(|error| format!("写入二进制失败：{}", error))?;
     copy(&mut entry, &mut out).map_err(|error| format!("解包二进制失败：{}", error))?;
     Ok(())
+}
+
+fn extract_from_tar_gz(archive: &Path, dest: &Path) -> Result<(), String> {
+    let file = fs::File::open(archive).map_err(|error| format!("打开压缩包失败：{}", error))?;
+    let tar = flate2::read::GzDecoder::new(file);
+    let mut archive = tar::Archive::new(tar);
+
+    for entry in archive.entries().map_err(|error| format!("读取 tar 失败：{}", error))? {
+        let mut entry = entry.map_err(|error| format!("读取 tar 条目失败：{}", error))?;
+        if entry.header().entry_type() != tar::EntryType::Regular {
+            continue;
+        }
+
+        let path = entry.path().map_err(|error| format!("获取条目路径失败：{}", error))?;
+        let name = path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        
+        let looks_like_binary = name == "cliproxyapi"
+            || name == "cli-proxy-api"
+            || name.starts_with("cliproxyapi");
+
+        if looks_like_binary {
+            let mut out = fs::File::create(dest).map_err(|error| format!("写入二进制失败：{}", error))?;
+            copy(&mut entry, &mut out).map_err(|error| format!("解包二进制失败：{}", error))?;
+            return Ok(());
+        }
+    }
+
+    Err("压缩包内未找到代理可执行文件。".to_string())
 }
 
 /// Match a release asset name to the current platform (OS + architecture).
