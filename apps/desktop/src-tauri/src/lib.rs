@@ -1659,6 +1659,26 @@ pub fn run() {
 
             spawn_usage_collector(app.handle().clone());
 
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                use tauri::Manager;
+                let core = handle.state::<DesktopState>().core.clone();
+                let auto_start = {
+                    let core_lock = core.lock().unwrap();
+                    core_lock.settings().auto_start_proxy
+                        && core_lock.settings().connection_mode == quotio_types::ConnectionMode::Local
+                };
+                if auto_start {
+                    let _ = tauri::async_runtime::spawn_blocking(move || {
+                        let mut core_mut = core.lock().unwrap();
+                        let _ = core_mut.start_proxy();
+                    })
+                    .await;
+                    use tauri::Emitter;
+                    let _ = handle.emit("proxy-changed", ());
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

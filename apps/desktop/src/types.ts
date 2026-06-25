@@ -19,6 +19,7 @@ export type AppSettings = {
   proxy_host: string;
   proxy_port: number;
   allow_remote: boolean;
+  auto_start_proxy: boolean;
   launch_at_login: boolean;
   notifications_enabled: boolean;
   theme: ThemeMode;

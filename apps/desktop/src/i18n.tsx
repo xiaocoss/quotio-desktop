@@ -71,6 +71,9 @@ const en: Record<string, string> = {
   "settings.remoteProxy.desc": "Connect to a remote CLIProxyAPI server",
   // Settings rows
   "settings.launchAtLogin": "Launch at login",
+  "settings.launchAtLogin.desc": "Start CLIProxyAPI silently when your computer boots.",
+  "settings.autoStartProxy": "Auto start proxy",
+  "settings.autoStartProxy.desc": "Automatically start the proxy server when the app launches.",
   "settings.notifications": "Notifications",
   "settings.notifications.desc": "Desktop notification toggle.",
   "settings.notifications.unavailable": "Notifications are not available on this platform.",
@@ -530,6 +533,9 @@ const zh: Record<string, string> = {
   "settings.remoteProxy.desc": "连接到远程 CLIProxyAPI 服务",
   // Settings rows
   "settings.launchAtLogin": "开机自启",
+  "settings.launchAtLogin.desc": "在系统启动时静默运行，保证代理服务始终在线。",
+  "settings.autoStartProxy": "应用启动时自动运行代理",
+  "settings.autoStartProxy.desc": "应用打开后自动启动代理服务，无需手动点击启动。",
   "settings.notifications": "通知",
   "settings.notifications.desc": "桌面通知开关。",
   "settings.notifications.unavailable": "当前平台通知能力不可用。",

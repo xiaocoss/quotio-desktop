@@ -268,6 +268,7 @@ export const mockAppState: AppState = {
     proxy_host: "127.0.0.1",
     proxy_port: 28317,
     allow_remote: false,
+    auto_start_proxy: true,
     launch_at_login: true,
     notifications_enabled: true,
     theme: "system",

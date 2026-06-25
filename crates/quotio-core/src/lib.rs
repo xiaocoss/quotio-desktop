@@ -176,6 +176,10 @@ impl Default for AppCore {
 }
 
 impl AppCore {
+    pub fn settings(&self) -> &AppSettings {
+        &self.settings
+    }
+
     pub fn app_state(&mut self) -> AppState {
         self.proxy.refresh(&self.settings);
         self.state_snapshot()

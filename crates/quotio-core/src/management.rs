@@ -317,27 +317,47 @@ impl ManagementApiClient {
     }
 
     pub async fn get_logging_to_file(&self) -> Result<bool, ManagementApiError> {
-        let response: LoggingToFileResponse = self.get_json("/logging-to-file")?;
-        Ok(response.logging_to_file)
+        match self.get_json::<LoggingToFileResponse>("/config/logging-to-file") {
+            Ok(response) => Ok(response.logging_to_file),
+            Err(ManagementApiError::Status(404)) => {
+                let response: LoggingToFileResponse = self.get_json("/logging-to-file")?;
+                Ok(response.logging_to_file)
+            }
+            Err(e) => Err(e),
+        }
     }
 
     pub async fn set_logging_to_file(&self, enabled: bool) -> Result<(), ManagementApiError> {
-        self.request_json(
-            "PUT",
-            "/logging-to-file",
-            &BoolValueRequest { value: enabled },
-        )?;
-        Ok(())
+        match self.request_json("PUT", "/config/logging-to-file", &BoolValueRequest { value: enabled }) {
+            Ok(_) => Ok(()),
+            Err(ManagementApiError::Status(404)) => {
+                self.request_json("PUT", "/logging-to-file", &BoolValueRequest { value: enabled })?;
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
     }
 
     pub async fn get_request_log(&self) -> Result<bool, ManagementApiError> {
-        let response: RequestLogResponse = self.get_json("/request-log")?;
-        Ok(response.request_log)
+        match self.get_json::<RequestLogResponse>("/config/request-log") {
+            Ok(response) => Ok(response.request_log),
+            Err(ManagementApiError::Status(404)) => {
+                let response: RequestLogResponse = self.get_json("/request-log")?;
+                Ok(response.request_log)
+            }
+            Err(e) => Err(e),
+        }
     }
 
     pub async fn set_request_log(&self, enabled: bool) -> Result<(), ManagementApiError> {
-        self.request_json("PUT", "/request-log", &BoolValueRequest { value: enabled })?;
-        Ok(())
+        match self.request_json("PUT", "/config/request-log", &BoolValueRequest { value: enabled }) {
+            Ok(_) => Ok(()),
+            Err(ManagementApiError::Status(404)) => {
+                self.request_json("PUT", "/request-log", &BoolValueRequest { value: enabled })?;
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
     }
 
     /// Enable/disable per-request usage telemetry (fills the `/usage-queue`).

@@ -222,6 +222,20 @@ export function SettingsScreen({
           </div>
           <div className="settings-row">
             <div className="settings-row-text">
+              <strong>{t("settings.autoStartProxy")}</strong>
+              <small>{t("settings.autoStartProxy.desc")}</small>
+            </div>
+            <div className="settings-row-controls">
+              <Switch
+                on={settings.auto_start_proxy}
+                onChange={() => onSaveSettings({ ...settings, auto_start_proxy: !settings.auto_start_proxy })}
+                disabled={isSaving}
+                label="auto_start_proxy"
+              />
+            </div>
+          </div>
+          <div className="settings-row">
+            <div className="settings-row-text">
               <strong>{t("settings.notifications")}</strong>
               <small>{platform.notifications_available ? t("settings.notifications.desc") : t("settings.notifications.unavailable")}</small>
             </div>

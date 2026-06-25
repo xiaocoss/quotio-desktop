@@ -130,6 +130,8 @@ pub struct AppSettings {
     pub proxy_host: String,
     pub proxy_port: u16,
     pub allow_remote: bool,
+    #[serde(default = "default_true")]
+    pub auto_start_proxy: bool,
     pub launch_at_login: bool,
     pub notifications_enabled: bool,
     pub theme: ThemeMode,
@@ -182,6 +184,7 @@ impl Default for AppSettings {
             proxy_host: "127.0.0.1".to_string(),
             proxy_port: 28317,
             allow_remote: false,
+            auto_start_proxy: true,
             launch_at_login: false,
             notifications_enabled: true,
             theme: ThemeMode::System,
@@ -216,6 +219,10 @@ impl Default for AppSettings {
             scheduler_switch_margin_minutes: 15,
         }
     }
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl AppSettings {
