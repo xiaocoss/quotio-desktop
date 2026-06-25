@@ -82,7 +82,7 @@ export function useAppState() {
   const [isQuotaBusy, setIsQuotaBusy] = useState(false);
   // Non-blocking floating toast during a user-triggered quota refresh: counts
   // accounts as they stream in. Null = hidden (incl. the silent background poll).
-  const [quotaToast, setQuotaToast] = useState<{ loaded: number } | null>(null);
+  const [quotaToast, setQuotaToast] = useState<{ loaded: number; current?: string } | null>(null);
   const lowQuotaNotified = useRef<Set<string>>(new Set());
   const proxyDraftSeeded = useRef(false);
   const isMenuBarView =
@@ -198,7 +198,7 @@ export function useAppState() {
           for (const account of batch) quotas = upsertQuota(quotas, account);
           return { ...prev, quotas };
         });
-        setQuotaToast((toast) => (toast ? { loaded: toast.loaded + batch.length } : toast));
+        setQuotaToast((toast) => (toast ? { loaded: toast.loaded + batch.length, current: batch[batch.length - 1].account_label } : toast));
       };
       const tauriUnlisten = await listen<AccountQuota>("quota-account", (event) => {
         pending.push(event.payload);

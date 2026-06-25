@@ -35,7 +35,7 @@ type AppShellProps = {
   isProxyBusy: boolean;
   isManagementBusy: boolean;
   isQuotaBusy: boolean;
-  quotaToast: { loaded: number } | null;
+  quotaToast: { loaded: number; current?: string } | null;
   isRefreshing: boolean;
   proxyAction: string | null;
   managementAction: string | null;
@@ -115,6 +115,43 @@ function proxyActionLabel(action: string | null): string | null {
       return "正在下载代理…";
     default:
       return null;
+  }
+}
+
+function managementActionLabel(action: string | null): string | null {
+  switch (action) {
+    case "refresh_management_state":
+      return "正在刷新管理状态…";
+    case "get_management_proxy_url":
+      return "正在读取代理 URL…";
+    case "set_management_proxy_url":
+      return "正在写入代理 URL…";
+    case "clear_management_proxy_url":
+      return "正在清除代理 URL…";
+    case "set_management_debug":
+      return "正在切换调试模式…";
+    case "set_management_request_log":
+      return "正在切换请求日志…";
+    case "set_management_logging_to_file":
+      return "正在切换文件日志…";
+    case "set_management_routing_strategy":
+      return "正在设置路由策略…";
+    case "set_management_request_retry":
+      return "正在设置重试次数…";
+    case "clear_management_logs":
+      return "正在清除日志…";
+    case "delete_management_auth_file":
+      return "正在删除账号…";
+    case "set_management_auth_file_disabled":
+      return "正在切换账号状态…";
+    case "add_api_key":
+      return "正在添加 API Key…";
+    case "remove_api_key":
+      return "正在删除 API Key…";
+    case "update_api_key":
+      return "正在更新 API Key…";
+    default:
+      return action ? `正在执行 ${action}…` : null;
   }
 }
 
@@ -340,7 +377,7 @@ export function AppShell(props: AppShellProps) {
             <div className="boot-bar" aria-hidden="true">
               <span />
             </div>
-            <p>正在刷新…</p>
+            <p>{managementActionLabel(props.managementAction) ?? "正在刷新…"}</p>
           </div>
         </div>
       ) : null}
@@ -372,7 +409,7 @@ export function AppShell(props: AppShellProps) {
           <div className="boot-bar" aria-hidden="true">
             <span />
           </div>
-          <p>正在加载额度… {props.quotaToast.loaded}</p>
+          <p>正在加载额度… {props.quotaToast.loaded}{props.quotaToast.current ? ` — ${props.quotaToast.current}` : ""}</p>
         </div>
       ) : null}
     </main>

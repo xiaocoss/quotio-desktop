@@ -5990,7 +5990,13 @@ body,
   align-self: stretch;
 }
 
-/* ===== Tray menu-bar quota panel (menu_bar.png) ===== */
+/* ===== Tray menu-bar quota panel ===== */
+/* Override body min-size so the 280px menubar window isn't forced wider */
+body:has(.menubar-root) {
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
+}
 .menubar-root {
   position: fixed;
   inset: 0;
@@ -5999,10 +6005,14 @@ body,
   border-radius: 12px;
   overflow: hidden;
   color: var(--quotio-text);
-  background: var(--quotio-card-solid);
+  background: transparent;
   border: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.28);
   font-size: 11px;
+  animation: menubar-fade-in 0.15s ease-out;
+}
+@keyframes menubar-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 .menubar-root--loading {
   align-items: center;
@@ -6060,6 +6070,11 @@ body,
   font-weight: 700;
   color: var(--quotio-muted);
   background: transparent;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.menubar-tabs button:hover {
+  color: var(--quotio-text);
+  background: rgba(148, 163, 184, 0.12);
 }
 .menubar-tabs button.active {
   color: var(--quotio-text);
@@ -6229,6 +6244,59 @@ body,
 .menubar-plan-pill--business {
   background: linear-gradient(135deg, #64748b, #334155);
 }
+.menubar-overall {
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+.menubar-overall--good { color: #34c759; }
+.menubar-overall--warn { color: #f59e0b; }
+.menubar-overall--bad  { color: #ef4444; }
+.menubar-account-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.menubar-tag {
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 1px 6px;
+  color: var(--quotio-muted);
+  background: rgba(148, 163, 184, 0.14);
+  white-space: nowrap;
+}
+.menubar-tag--bad {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.14);
+}
+.menubar-tag--warn {
+  color: #92400e;
+  background: rgba(245, 158, 11, 0.14);
+}
+.menubar-tag--blue {
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.14);
+}
+[data-theme="dark"] .menubar-tag--bad {
+  color: #fca5a5;
+}
+[data-theme="dark"] .menubar-tag--warn {
+  color: #fcd34d;
+}
+[data-theme="dark"] .menubar-tag--blue {
+  color: #93c5fd;
+}
+.menubar-meta-text {
+  font-size: 10px;
+  color: var(--quotio-muted);
+  white-space: nowrap;
+}
+.menubar-fail {
+  color: #ef4444;
+}
 .menubar-model {
   display: flex;
   flex-direction: column;
@@ -6236,12 +6304,19 @@ body,
 }
 .menubar-model-top {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
+  align-items: baseline;
+  gap: 6px;
 }
 .menubar-model-name {
   color: var(--quotio-muted);
   font-size: 11px;
+}
+.menubar-model-reset {
+  flex: 1;
+  text-align: right;
+  color: var(--quotio-muted);
+  font-size: 10px;
+  opacity: 0.7;
 }
 .menubar-model-pct {
   font-variant-numeric: tabular-nums;
@@ -6249,7 +6324,7 @@ body,
   font-weight: 700;
 }
 .menubar-bar {
-  height: 5px;
+  height: 6px;
   border-radius: 999px;
   overflow: hidden;
   background: rgba(148, 163, 184, 0.22);
@@ -6257,6 +6332,7 @@ body,
 .menubar-bar-fill {
   height: 100%;
   border-radius: 999px;
+  transition: width 0.3s ease;
 }
 .menubar-foot {
   display: flex;
@@ -6279,9 +6355,13 @@ body,
   text-align: left;
   color: var(--quotio-text);
   background: transparent;
+  transition: background 0.12s ease;
 }
 .menubar-foot button:hover {
   background: rgba(148, 163, 184, 0.16);
+}
+.menubar-foot button:active {
+  background: rgba(148, 163, 184, 0.24);
 }
 .menubar-foot-icon {
   width: 16px;

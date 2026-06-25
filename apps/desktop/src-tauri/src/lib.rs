@@ -11,7 +11,9 @@ use quotio_types::{
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, State,
+    utils::config::WindowEffectsConfig,
+    window::Effect,
+    AppHandle, Emitter, Manager, State, WindowEvent,
 };
 use tauri_plugin_autostart::ManagerExt;
 
@@ -617,7 +619,7 @@ fn quit_app(app: AppHandle) {
 #[tauri::command]
 fn show_menubar(app: AppHandle) {
     if let Some(panel) = app.get_webview_window("menubar") {
-        position_menubar(&panel);
+        position_menubar(&panel, None);
     }
 }
 
@@ -1081,10 +1083,22 @@ async fn set_management_routing_strategy(
 #[tauri::command]
 async fn get_management_proxy_url(state: State<'_, DesktopState>) -> Result<String, String> {
     let client = management_client(&state, "无法读取代理 URL")?;
-    client
+    let url = client
         .get_proxy_url()
         .await
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    if !url.is_empty() {
+        return Ok(url);
+    }
+    let mut core = state.core.lock().map_err(|_| "无法读取代理 URL".to_string())?;
+    let config_url = core
+        .app_state()
+        .management
+        .config
+        .as_ref()
+        .and_then(|c| c.proxy_url.clone())
+        .unwrap_or_default();
+    Ok(config_url)
 }
 
 #[tauri::command]
@@ -1422,28 +1436,54 @@ async fn refresh_snapshot_with_client(
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-/// Position the menu-bar panel at the top-right of the primary monitor, then
-/// show + focus it.
-fn position_menubar(panel: &tauri::WebviewWindow) {
-    if let Ok(Some(monitor)) = panel.primary_monitor() {
+/// Position the menu-bar panel near the tray icon (like macOS NSMenu), then
+/// show + focus it.  Falls back to top-right if no tray rect is available.
+fn position_menubar(panel: &tauri::WebviewWindow, tray_rect: Option<tauri::Rect>) {
+    let panel_w = 280.0_f64;
+    if let Some(rect) = tray_rect {
+        if let Ok(Some(monitor)) = panel.primary_monitor() {
+            let scale = monitor.scale_factor();
+            let screen_h = monitor.size().height as f64 / scale;
+            let screen_w = monitor.size().width as f64 / scale;
+            let panel_h = panel
+                .outer_size()
+                .map(|s| s.height as f64 / scale)
+                .unwrap_or(500.0);
+            let icon_pos = rect.position.to_logical::<f64>(scale);
+            let icon_size = rect.size.to_logical::<f64>(scale);
+            let icon_cx = icon_pos.x + icon_size.width / 2.0;
+            let icon_y = icon_pos.y;
+            // Center horizontally on icon, clamp to screen
+            let x = (icon_cx - panel_w / 2.0).clamp(8.0, screen_w - panel_w - 8.0);
+            // Taskbar at bottom → place panel above; taskbar at top → place below
+            let y = if icon_y > screen_h / 2.0 {
+                (icon_y - panel_h - 8.0).max(8.0)
+            } else {
+                icon_y + icon_size.height + 8.0
+            };
+            let _ = panel.set_position(tauri::LogicalPosition::new(x, y));
+        }
+    } else if let Ok(Some(monitor)) = panel.primary_monitor() {
         let scale = monitor.scale_factor();
         let screen_w = monitor.size().width as f64 / scale;
-        let x = (screen_w - 280.0 - 12.0).max(0.0);
+        let x = (screen_w - panel_w - 12.0).max(0.0);
         let _ = panel.set_position(tauri::LogicalPosition::new(x, 20.0));
     }
     let _ = panel.show();
     let _ = panel.set_focus();
 }
 
-/// Show/hide the tray "menu bar" quota panel, anchored to the top-right corner.
-fn toggle_menubar(app: &AppHandle) {
+/// Show/hide the tray "menu bar" quota panel, anchored near the tray icon.
+fn toggle_menubar(app: &AppHandle, tray_rect: Option<tauri::Rect>) {
     let Some(panel) = app.get_webview_window("menubar") else {
         return;
     };
     if panel.is_visible().unwrap_or(false) {
         let _ = panel.hide();
     } else {
-        position_menubar(&panel);
+        // The blur auto-hide may have just fired; re-show is fine — position_menubar
+        // calls show() + set_focus() which will bring the panel back.
+        position_menubar(&panel, tray_rect);
     }
 }
 
@@ -1644,10 +1684,11 @@ pub fn run() {
                     if let TrayIconEvent::Click {
                         button: MouseButton::Left,
                         button_state: MouseButtonState::Up,
+                        rect,
                         ..
                     } = event
                     {
-                        toggle_menubar(tray.app_handle());
+                        toggle_menubar(tray.app_handle(), Some(rect));
                     }
                 });
             // Tauri's tray shows nothing without an explicit icon. Reuse the
@@ -1656,6 +1697,24 @@ pub fn run() {
                 tray_builder = tray_builder.icon(icon);
             }
             tray_builder.build(app)?;
+
+            // Menu-bar panel: apply Mica blur + auto-hide on focus loss
+            if let Some(panel) = app.get_webview_window("menubar") {
+                let _ = panel.set_effects(WindowEffectsConfig {
+                    effects: vec![Effect::Mica],
+                    ..Default::default()
+                });
+                let panel_clone = panel.clone();
+                panel.on_window_event(move |event| {
+                    if let WindowEvent::Focused(false) = event {
+                        let w = panel_clone.clone();
+                        std::thread::spawn(move || {
+                            std::thread::sleep(std::time::Duration::from_millis(150));
+                            let _ = w.hide();
+                        });
+                    }
+                });
+            }
 
             spawn_usage_collector(app.handle().clone());
 

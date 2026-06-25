@@ -245,7 +245,11 @@ impl ManagementApiClient {
     }
 
     pub async fn clear_logs(&self) -> Result<(), ManagementApiError> {
-        self.request_empty("DELETE", "/logs")
+        match self.request_empty("DELETE", "/logs") {
+            Ok(()) => Ok(()),
+            Err(ManagementApiError::Status(400 | 404)) => Ok(()),
+            Err(error) => Err(error),
+        }
     }
 
     pub async fn set_debug(&self, enabled: bool) -> Result<(), ManagementApiError> {
@@ -308,8 +312,11 @@ impl ManagementApiClient {
     }
 
     pub async fn get_proxy_url(&self) -> Result<String, ManagementApiError> {
-        let response: ProxyUrlResponse = self.get_json("/proxy-url")?;
-        Ok(response.proxy_url)
+        match self.get_json::<ProxyUrlResponse>("/proxy-url") {
+            Ok(response) => Ok(response.proxy_url),
+            Err(ManagementApiError::Status(400 | 404)) => Ok(String::new()),
+            Err(error) => Err(error),
+        }
     }
 
     pub async fn delete_proxy_url(&self) -> Result<(), ManagementApiError> {
