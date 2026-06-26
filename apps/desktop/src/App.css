@@ -6005,7 +6005,9 @@ body:has(.menubar-root) {
   border-radius: 12px;
   overflow: hidden;
   color: var(--quotio-text);
-  background: transparent;
+  /* 跟随主题的不透明底:否则悬浮窗透明、透出桌面/IDE 的深色,浅色主题下也"看着是深色"
+     (主窗口的 .app-shell 本就有 var(--quotio-bg) 实底,这里对齐)。 */
+  background: var(--quotio-bg);
   border: 1px solid rgba(148, 163, 184, 0.18);
   font-size: 11px;
   animation: menubar-fade-in 0.15s ease-out;
