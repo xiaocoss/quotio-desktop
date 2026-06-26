@@ -41,6 +41,11 @@ config.yaml
 logs/
 *.log
 
+# local test / scratch artifacts (proxy node test configs, runtime cache) — not for the repo
+cache.db
+mihomo-test-meixi.yaml
+xray-client-test.json
+
 # downloaded proxy binaries
 resources/proxy/**/*.exe
 resources/proxy/**/CLIProxyAPI*
