@@ -1659,8 +1659,14 @@ pub fn run() {
                     if let WindowEvent::Focused(false) = event {
                         let w = panel_clone.clone();
                         std::thread::spawn(move || {
-                            std::thread::sleep(std::time::Duration::from_millis(150));
-                            let _ = w.hide();
+                            std::thread::sleep(std::time::Duration::from_millis(180));
+                            // 拖动悬浮窗会触发一次 Focused(false)(webview 进入系统移动
+                            // 循环、失去输入焦点),但拖动期间/结束后窗口在 OS 层仍是焦点
+                            // 窗口。延迟后复查:只有真正切到别的应用(仍未聚焦)才隐藏,
+                            // 避免拖动时被误隐藏;保留「点别处自动收起」的行为。
+                            if !w.is_focused().unwrap_or(false) {
+                                let _ = w.hide();
+                            }
                         });
                     }
                 });
