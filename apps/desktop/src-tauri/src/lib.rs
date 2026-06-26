@@ -1,6 +1,9 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use quotio_core::{management::ManagementApiClient, AppCore};
+use quotio_core::{
+    management::{ManagementApiClient, ManagementApiError},
+    AppCore,
+};
 use quotio_types::{
     AccountAuthHealth, AccountSummaryRow, AgentBackupFile, AgentConfigurationRequest,
     AgentConfigurationResult, AppSettings, AppState, AuthFile, AvailableModel, CredentialStatus,
@@ -1052,20 +1055,37 @@ async fn set_management_proxy_url(
     state: State<'_, DesktopState>,
 ) -> Result<AppState, String> {
     let client = management_client(&state, "无法写入代理 URL")?;
-    client
-        .set_proxy_url(url)
-        .await
-        .map_err(|error| error.to_string())?;
+    match client.set_proxy_url(url.clone()).await {
+        Ok(()) => {}
+        // 该版本管理接口没有运行时 /proxy-url 端点:静默降级——proxy_url 已随设置写入
+        // config.yaml,代理热重载会读到,无需报错惊扰用户。
+        Err(ManagementApiError::Status(404)) => {
+            eprintln!("[set_management_proxy_url] 运行时端点不可用(404),已保存到配置,重载生效");
+        }
+        // 代理拒绝该地址(最常见:上游代理不可达/没有服务在监听,或值无效)。给清晰提示
+        // 而非裸 HTTP 400;设置已写进 config.yaml,但提醒用户确认该地址确实在跑。
+        Err(ManagementApiError::Status(400)) => {
+            return Err(format!(
+                "代理拒绝了上游地址「{}」——通常是该地址不可达(没有服务在监听)或格式无效。设置已保存到配置,但请确认该代理确实在运行。",
+                url.trim()
+            ));
+        }
+        Err(error) => return Err(error.to_string()),
+    }
     refresh_snapshot_with_client(&state, client, "无法刷新代理 URL 写入后的状态").await
 }
 
 #[tauri::command]
 async fn clear_management_proxy_url(state: State<'_, DesktopState>) -> Result<AppState, String> {
     let client = management_client(&state, "无法清空代理 URL")?;
-    client
-        .delete_proxy_url()
-        .await
-        .map_err(|error| error.to_string())?;
+    match client.delete_proxy_url().await {
+        Ok(()) => {}
+        // 运行时端点不可用(版本不支持):静默降级,config.yaml 已按设置清空、重载生效。
+        Err(ManagementApiError::Status(400 | 404)) => {
+            eprintln!("[clear_management_proxy_url] 运行时端点不可用,已按设置清空、重载生效");
+        }
+        Err(error) => return Err(error.to_string()),
+    }
     refresh_snapshot_with_client(&state, client, "无法刷新代理 URL 清空后的状态").await
 }
 
