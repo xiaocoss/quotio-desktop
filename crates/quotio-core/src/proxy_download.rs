@@ -12,6 +12,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use serde::Deserialize;
+use sha2::{Digest, Sha256};
 
 const RELEASE_URL: &str = "https://api.github.com/repos/router-for-me/CLIProxyAPI/releases/latest";
 
@@ -56,11 +57,15 @@ pub fn download_proxy_binary(
         .find(|asset| asset_matches_platform(&asset.name))
         .ok_or_else(|| "在最新 release 中未找到当前平台(OS/架构)的代理二进制资产。".to_string())?;
 
+    // 先取该资产的期望 SHA256(从 release 发布的 checksums 文件解析),供下载后比对。
+    let expected_sha = find_expected_sha256(&release, &agent, &asset.name);
+
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent).map_err(|error| format!("创建代理目录失败：{}", error))?;
     }
 
     let archive_path = std::env::temp_dir().join(format!("quotio-{}", asset.name));
+    let mut hasher = Sha256::new();
     {
         let response = agent
             .get(&asset.browser_download_url)
@@ -87,8 +92,28 @@ pub fn download_proxy_binary(
             }
             file.write_all(&buffer[..read])
                 .map_err(|error| format!("写入下载内容失败：{}", error))?;
+            hasher.update(&buffer[..read]);
             downloaded += read as u64;
             on_progress(downloaded, total);
+        }
+    }
+
+    // 完整性校验:与 release 发布的校验和比对。若校验和缺失则记录警告并继续(避免
+    // 上游改格式后下载彻底失败);匹配失败则中止,绝不解包/执行被篡改的二进制。
+    let actual_sha = format!("{:x}", hasher.finalize());
+    match &expected_sha {
+        Some(expected) if !expected.eq_ignore_ascii_case(&actual_sha) => {
+            let _ = fs::remove_file(&archive_path);
+            return Err(format!(
+                "代理二进制校验和不匹配(期望 {expected},实际 {actual_sha}),已中止以防执行被篡改的二进制。"
+            ));
+        }
+        Some(_) => {}
+        None => {
+            eprintln!(
+                "[proxy_download] 警告:release 未提供可匹配的校验和,跳过完整性校验({})",
+                asset.name
+            );
         }
     }
 
@@ -143,6 +168,58 @@ fn extract_from_zip(archive: &Path, dest: &Path) -> Result<(), String> {
     let mut out = fs::File::create(dest).map_err(|error| format!("写入二进制失败：{}", error))?;
     copy(&mut entry, &mut out).map_err(|error| format!("解包二进制失败：{}", error))?;
     Ok(())
+}
+
+/// 从 release 里找到适用于 `asset_name` 的 SHA256:优先整包 `*checksums*` 文件,
+/// 其次针对该资产的 `<name>.sha256`。解析 `<hash>  <filename>` 行,按 basename 匹配。
+/// 取不到(无校验和资产 / 下载失败 / 无匹配行)返回 None,由调用方决定降级处理。
+fn find_expected_sha256(release: &Release, agent: &ureq::Agent, asset_name: &str) -> Option<String> {
+    let want_base = asset_name
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(asset_name);
+    let per_asset = format!("{}.sha256", asset_name).to_lowercase();
+    let checksum_asset = release.assets.iter().find(|a| {
+        let lower = a.name.to_lowercase();
+        lower.contains("checksum") || lower == per_asset
+    })?;
+    let is_per_asset = checksum_asset.name.to_lowercase() == per_asset;
+
+    let body = agent
+        .get(&checksum_asset.browser_download_url)
+        .set("User-Agent", "quotio-desktop")
+        .call()
+        .ok()?
+        .into_string()
+        .ok()?;
+
+    // 针对单个资产的 `<name>.sha256`:内容通常就是该资产的哈希(可能后跟文件名),
+    // 直接取第一个 token。
+    if is_per_asset {
+        return body
+            .split_whitespace()
+            .next()
+            .filter(|value| !value.is_empty())
+            .map(|value| value.to_lowercase());
+    }
+
+    for line in body.lines() {
+        let mut parts = line.split_whitespace();
+        let hash = match parts.next() {
+            Some(value) if !value.is_empty() => value,
+            _ => continue,
+        };
+        // 文件名取该行最后一个字段;部分格式用 `*name` 标二进制模式,去掉前缀星号。
+        let file = match parts.last() {
+            Some(value) => value.trim_start_matches('*'),
+            None => continue,
+        };
+        let file_base = file.rsplit(['/', '\\']).next().unwrap_or(file);
+        if file_base.eq_ignore_ascii_case(want_base) {
+            return Some(hash.to_lowercase());
+        }
+    }
+    None
 }
 
 /// Match a release asset name to the current platform (OS + architecture).
