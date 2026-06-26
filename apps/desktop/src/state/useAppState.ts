@@ -82,7 +82,7 @@ export function useAppState() {
   const [isQuotaBusy, setIsQuotaBusy] = useState(false);
   // Non-blocking floating toast during a user-triggered quota refresh: counts
   // accounts as they stream in. Null = hidden (incl. the silent background poll).
-  const [quotaToast, setQuotaToast] = useState<{ loaded: number; current?: string } | null>(null);
+  const [quotaToast, setQuotaToast] = useState<{ loaded: number; total: number; current?: string } | null>(null);
   const lowQuotaNotified = useRef<Set<string>>(new Set());
   const proxyDraftSeeded = useRef(false);
   // 防重入:手动刷新 + 5 分钟后台轮询可能并发,导致重复注册 quota-account 监听器、
@@ -182,7 +182,13 @@ export function useAppState() {
     setIsQuotaBusy(true);
     // Floating toast only for user-triggered refreshes; the background poll
     // passes no `manual`, so it stays silent.
-    if (manual) setQuotaToast({ loaded: 0 });
+    if (manual) {
+      // 确定性进度条的分母=代理已知的账号(auth 文件)数。对文件型账号(codex/claude/
+      // copilot/antigravity/kiro 等)精确;glm/trae/cursor 等少数源可能略有出入,故下方
+      // flush 用 max(total, loaded) 钳位,保证 X 永不超过 N、进度条视觉始终正常。
+      const total = appState?.management?.auth_files?.length ?? appState?.auth_files?.length ?? 0;
+      setQuotaToast({ loaded: 0, total, current: undefined });
+    }
     // Stream accounts in as the backend fetches them ("quota-account" per
     // account), so they appear one-by-one and one unreachable account never
     // blocks the rest. Register before the invoke so no early account is missed;
@@ -204,7 +210,12 @@ export function useAppState() {
           for (const account of batch) quotas = upsertQuota(quotas, account);
           return { ...prev, quotas };
         });
-        setQuotaToast((toast) => (toast ? { loaded: toast.loaded + batch.length, current: batch[batch.length - 1].account_label } : toast));
+        setQuotaToast((toast) => {
+          if (!toast) return toast;
+          const loaded = toast.loaded + batch.length;
+          // total 取 max:万一实际流入账号超过 auth_files 估计,分母同步增长,X 永不超过 N。
+          return { loaded, total: Math.max(toast.total, loaded), current: batch[batch.length - 1].account_label };
+        });
       };
       const tauriUnlisten = await listen<AccountQuota>("quota-account", (event) => {
         pending.push(event.payload);

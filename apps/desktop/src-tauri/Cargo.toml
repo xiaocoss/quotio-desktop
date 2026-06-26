@@ -1,6 +1,6 @@
 [package]
 name = "quotio-desktop"
-version = "0.4.8"
+version = "0.5.0"
 description = "Quotio cross-platform desktop app"
 authors = ["Quotio contributors"]
 edition.workspace = true

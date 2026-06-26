@@ -1,6 +1,9 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use quotio_core::{management::ManagementApiClient, AppCore};
+use quotio_core::{
+    management::{ManagementApiClient, ManagementApiError},
+    AppCore,
+};
 use quotio_types::{
     AccountAuthHealth, AccountSummaryRow, AgentBackupFile, AgentConfigurationRequest,
     AgentConfigurationResult, AppSettings, AppState, AuthFile, AvailableModel, CredentialStatus,
@@ -1052,20 +1055,37 @@ async fn set_management_proxy_url(
     state: State<'_, DesktopState>,
 ) -> Result<AppState, String> {
     let client = management_client(&state, "无法写入代理 URL")?;
-    client
-        .set_proxy_url(url)
-        .await
-        .map_err(|error| error.to_string())?;
+    match client.set_proxy_url(url.clone()).await {
+        Ok(()) => {}
+        // 该版本管理接口没有运行时 /proxy-url 端点:静默降级——proxy_url 已随设置写入
+        // config.yaml,代理热重载会读到,无需报错惊扰用户。
+        Err(ManagementApiError::Status(404)) => {
+            eprintln!("[set_management_proxy_url] 运行时端点不可用(404),已保存到配置,重载生效");
+        }
+        // 代理拒绝该地址(最常见:上游代理不可达/没有服务在监听,或值无效)。给清晰提示
+        // 而非裸 HTTP 400;设置已写进 config.yaml,但提醒用户确认该地址确实在跑。
+        Err(ManagementApiError::Status(400)) => {
+            return Err(format!(
+                "代理拒绝了上游地址「{}」——通常是该地址不可达(没有服务在监听)或格式无效。设置已保存到配置,但请确认该代理确实在运行。",
+                url.trim()
+            ));
+        }
+        Err(error) => return Err(error.to_string()),
+    }
     refresh_snapshot_with_client(&state, client, "无法刷新代理 URL 写入后的状态").await
 }
 
 #[tauri::command]
 async fn clear_management_proxy_url(state: State<'_, DesktopState>) -> Result<AppState, String> {
     let client = management_client(&state, "无法清空代理 URL")?;
-    client
-        .delete_proxy_url()
-        .await
-        .map_err(|error| error.to_string())?;
+    match client.delete_proxy_url().await {
+        Ok(()) => {}
+        // 运行时端点不可用(版本不支持):静默降级,config.yaml 已按设置清空、重载生效。
+        Err(ManagementApiError::Status(400 | 404)) => {
+            eprintln!("[clear_management_proxy_url] 运行时端点不可用,已按设置清空、重载生效");
+        }
+        Err(error) => return Err(error.to_string()),
+    }
     refresh_snapshot_with_client(&state, client, "无法刷新代理 URL 清空后的状态").await
 }
 
@@ -1103,6 +1123,36 @@ async fn clear_management_logs(state: State<'_, DesktopState>) -> Result<AppStat
         .await
         .map_err(|error| error.to_string())?;
     refresh_snapshot_with_client(&state, client, "无法刷新日志清空后的状态").await
+}
+
+/// 清空「请求」日志(usage_store / SQLite)。日志页「请求」tab 删除调用——它和代理
+/// 文本日志(clear_management_logs)是两份不同数据,之前删除按钮只清后者,导致在
+/// 「请求」tab 点删除看着没反应。纯本地 SQLite 操作,放 spawn_blocking 不阻塞 UI。
+#[tauri::command]
+async fn clear_request_logs(app: AppHandle, state: State<'_, DesktopState>) -> Result<AppState, String> {
+    let core = Arc::clone(&state.core);
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let mut core = lock_core(&core);
+        core.clear_request_logs()
+    })
+    .await
+    .map_err(|error| format!("清空请求日志任务异常：{}", error))?;
+    // 仪表盘与请求日志同源,通知它刷新。
+    let _ = app.emit("usage-updated", 0u64);
+    Ok(result)
+}
+
+/// 请求日志总条数。日志页删除按钮在弹二次确认前调用,告知用户实际会删多少条
+/// (列表只显示最近 500,实际存储远多于此,必须如实告知以免误删全部历史)。
+#[tauri::command]
+async fn count_request_logs(state: State<'_, DesktopState>) -> Result<usize, String> {
+    let core = Arc::clone(&state.core);
+    tauri::async_runtime::spawn_blocking(move || {
+        let core = lock_core(&core);
+        core.count_request_logs()
+    })
+    .await
+    .map_err(|error| format!("统计请求日志任务异常：{}", error))
 }
 
 #[tauri::command]
@@ -1659,8 +1709,14 @@ pub fn run() {
                     if let WindowEvent::Focused(false) = event {
                         let w = panel_clone.clone();
                         std::thread::spawn(move || {
-                            std::thread::sleep(std::time::Duration::from_millis(150));
-                            let _ = w.hide();
+                            std::thread::sleep(std::time::Duration::from_millis(180));
+                            // 拖动悬浮窗会触发一次 Focused(false)(webview 进入系统移动
+                            // 循环、失去输入焦点),但拖动期间/结束后窗口在 OS 层仍是焦点
+                            // 窗口。延迟后复查:只有真正切到别的应用(仍未聚焦)才隐藏,
+                            // 避免拖动时被误隐藏;保留「点别处自动收起」的行为。
+                            if !w.is_focused().unwrap_or(false) {
+                                let _ = w.hide();
+                            }
                         });
                     }
                 });
@@ -1772,6 +1828,8 @@ pub fn run() {
             set_management_request_log,
             set_management_request_retry,
             clear_management_logs,
+            clear_request_logs,
+            count_request_logs,
             add_management_api_key,
             update_management_api_key,
             delete_management_api_key,

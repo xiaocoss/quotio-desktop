@@ -35,7 +35,7 @@ type AppShellProps = {
   isProxyBusy: boolean;
   isManagementBusy: boolean;
   isQuotaBusy: boolean;
-  quotaToast: { loaded: number; current?: string } | null;
+  quotaToast: { loaded: number; total: number; current?: string } | null;
   isRefreshing: boolean;
   proxyAction: string | null;
   managementAction: string | null;
@@ -140,6 +140,8 @@ function managementActionLabel(action: string | null): string | null {
       return "正在设置重试次数…";
     case "clear_management_logs":
       return "正在清除日志…";
+    case "clear_request_logs":
+      return "正在清空请求日志…";
     case "delete_management_auth_file":
       return "正在删除账号…";
     case "set_management_auth_file_disabled":
@@ -409,10 +411,24 @@ export function AppShell(props: AppShellProps) {
 
       {props.quotaToast ? (
         <div className="quota-toast">
-          <div className="boot-bar" aria-hidden="true">
-            <span />
-          </div>
-          <p>Loading quotas... {props.quotaToast.loaded}{props.quotaToast.current ? ` — ${props.quotaToast.current}` : ""}</p>
+          {props.quotaToast.total > 0 ? (
+            <div className="update-progress" aria-hidden="true">
+              <span
+                style={{
+                  width: `${Math.min(100, Math.round((props.quotaToast.loaded / props.quotaToast.total) * 100))}%`,
+                }}
+              />
+            </div>
+          ) : (
+            <div className="boot-bar" aria-hidden="true">
+              <span />
+            </div>
+          )}
+          <p>
+            Loading quotas... {Math.min(props.quotaToast.loaded, props.quotaToast.total || props.quotaToast.loaded)}
+            {props.quotaToast.total > 0 ? ` / ${props.quotaToast.total}` : ""}
+            {props.quotaToast.current ? ` — ${props.quotaToast.current}` : ""}
+          </p>
         </div>
       ) : null}
     </main>
@@ -486,6 +502,7 @@ function renderSection(section: AppSection, props: AppShellProps, updater: Retur
           managementAction={props.managementAction}
           onRefreshManagement={() => props.onRunManagementStateAction("refresh_management_state")}
           onClearLogs={() => props.onRunManagementStateAction("clear_management_logs")}
+          onClearRequests={() => props.onRunManagementStateAction("clear_request_logs")}
           onRunManagementStateAction={props.onRunManagementStateAction}
         />
       );

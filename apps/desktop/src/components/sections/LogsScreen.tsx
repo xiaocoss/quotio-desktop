@@ -4,6 +4,7 @@ import { RefreshIcon, TrashIcon } from "../icons";
 import { Select } from "../Select";
 import { maskEmail } from "../../lib/format";
 import { useT } from "../../i18n";
+import { invoke } from "../../lib/tauri";
 
 type LogsScreenProps = {
   appState: AppState;
@@ -11,12 +12,13 @@ type LogsScreenProps = {
   managementAction: string | null;
   onRefreshManagement: () => void;
   onClearLogs: () => void;
+  onClearRequests: () => void;
   onRunManagementStateAction: (command: string, args?: Record<string, unknown>) => void;
 };
 
 type LogTab = "requests" | "proxy";
 
-export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, onClearLogs }: LogsScreenProps) {
+export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, onClearLogs, onClearRequests }: LogsScreenProps) {
   const t = useT();
   const requests = appState.logs ?? [];
   const proxyLines = appState.management.logs?.lines ?? [];
@@ -27,6 +29,8 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
   const [todayOnly, setTodayOnly] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(0);
+  // null = 无弹窗;数字 = 待确认清空的请求记录总数(显示在二次确认里)。
+  const [pendingClear, setPendingClear] = useState<number | null>(null);
   const PAGE_SIZE = 20;
 
   async function handleRefresh() {
@@ -100,7 +104,28 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
           >
             <RefreshIcon />
           </button>
-          <button className="icon-button" type="button" onClick={onClearLogs} disabled={isManagementBusy} title="清空日志" aria-label="清空日志">
+          <button
+            className="icon-button"
+            type="button"
+            onClick={async () => {
+              if (tab === "requests") {
+                // 「请求」日志=SQLite 全部用量历史(也是仪表盘数据)。删前查真实总条数,
+                // 弹 app 内二次确认(不用容易点穿的系统弹窗),如实告知会删多少、不可恢复。
+                let count = filteredRequests.length;
+                try {
+                  count = await invoke<number>("count_request_logs");
+                } catch {
+                  /* 拿不到精确总数就退回可见条数 */
+                }
+                setPendingClear(count);
+              } else {
+                onClearLogs();
+              }
+            }}
+            disabled={isManagementBusy}
+            title={tab === "requests" ? "清空请求日志" : "清空代理日志"}
+            aria-label={tab === "requests" ? "清空请求日志" : "清空代理日志"}
+          >
             <TrashIcon />
           </button>
         </div>
@@ -221,6 +246,33 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
           )}
         </article>
       )}
+
+      {pendingClear !== null ? (
+        <div className="modal-overlay" onClick={() => setPendingClear(null)}>
+          <div className="close-dialog" onClick={(event) => event.stopPropagation()}>
+            <strong className="close-dialog-title">清空全部请求日志?</strong>
+            <p className="close-dialog-desc">
+              这将<strong>永久删除 {pendingClear.toLocaleString()} 条</strong>请求记录——它们也是
+              <strong>仪表盘的历史用量数据</strong>,删除后<strong>无法恢复</strong>。
+            </p>
+            <div className="close-dialog-actions">
+              <button type="button" className="ghost-action" onClick={() => setPendingClear(null)}>
+                取消
+              </button>
+              <button
+                type="button"
+                className="danger-action"
+                onClick={() => {
+                  setPendingClear(null);
+                  onClearRequests();
+                }}
+              >
+                永久删除
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
