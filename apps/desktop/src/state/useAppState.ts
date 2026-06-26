@@ -85,6 +85,9 @@ export function useAppState() {
   const [quotaToast, setQuotaToast] = useState<{ loaded: number; current?: string } | null>(null);
   const lowQuotaNotified = useRef<Set<string>>(new Set());
   const proxyDraftSeeded = useRef(false);
+  // 防重入:手动刷新 + 5 分钟后台轮询可能并发,导致重复注册 quota-account 监听器、
+  // 每个事件被多次处理、toast 计数翻倍。同一时刻只允许一次配额刷新在跑。
+  const quotaRefreshInFlight = useRef(false);
   const isMenuBarView =
     window.location.hash.replace(/^#/, "") === "menubar" ||
     new URLSearchParams(window.location.search).get("view") === "menubar";
@@ -173,6 +176,9 @@ export function useAppState() {
   }
 
   async function refreshQuotas(manual = false) {
+    // 已有刷新在跑就跳过本次,避免并发注册重复监听器/重复处理事件。
+    if (quotaRefreshInFlight.current) return;
+    quotaRefreshInFlight.current = true;
     setIsQuotaBusy(true);
     // Floating toast only for user-triggered refreshes; the background poll
     // passes no `manual`, so it stays silent.
@@ -221,6 +227,7 @@ export function useAppState() {
       unlisten?.();
       if (manual) setQuotaToast(null);
       setIsQuotaBusy(false);
+      quotaRefreshInFlight.current = false;
     }
   }
 

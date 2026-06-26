@@ -198,6 +198,7 @@ fn repair_rollout_file(path: &Path, target_provider: &str) -> Result<(), String>
             repaired_lines.push(line.to_string());
             continue;
         };
+        let mut line_changed = false;
         if is_session_meta_with_different_provider(&value, target_provider) {
             if let Some(payload) = value.get_mut("payload").and_then(|payload| payload.as_object_mut())
             {
@@ -205,10 +206,13 @@ fn repair_rollout_file(path: &Path, target_provider: &str) -> Result<(), String>
                     "model_provider".to_string(),
                     Value::String(target_provider.to_string()),
                 );
+                line_changed = true;
                 changed = true;
             }
         }
-        if changed {
+        // 只重新序列化真正被改的那一行;其余行保留原始字节。原先用粘连的 changed 标志,
+        // 导致某行一旦被改,后续所有行都会被 serde 重新序列化、丢失原始键序/格式。
+        if line_changed {
             repaired_lines.push(
                 serde_json::to_string(&value)
                     .map_err(|error| format!("序列化 rollout 文件失败：{error}"))?,
