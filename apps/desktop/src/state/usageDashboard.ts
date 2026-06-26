@@ -3,7 +3,7 @@
 // SQLite-backed usage store via the Tauri commands. Also subscribes to the
 // collector's `usage-updated` event for near-real-time refreshes.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "../lib/tauri";
 import { rangeBounds, type TimeRangeKey } from "./usageRange";
 import type {
@@ -66,6 +66,11 @@ export function useUsageDashboard() {
   const [options, setOptions] = useState<UsageFilterOptions>(EMPTY_OPTIONS);
   const [prices, setPrices] = useState<ModelPrice[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // 请求序号:并发刷新(筛选变化 + 自动刷新 + 事件触发)时,丢弃过期请求的结果,
+  // 防止较慢的旧查询在较新查询之后返回、把新数据覆盖回旧值。
+  const requestSeq = useRef(0);
 
   const query = useMemo<UsageQuery>(() => {
     const { start, end } = rangeBounds(range, customStart, customEnd);
@@ -83,6 +88,7 @@ export function useUsageDashboard() {
   }, [range, customStart, customEnd, filters]);
 
   const refresh = useCallback(async () => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     try {
       const bucket = chartBucketForRange(range);
@@ -92,16 +98,28 @@ export function useUsageDashboard() {
         invoke<UsageTimeSeriesPoint[]>("query_usage_timeseries", { query, bucket }),
         invoke<UsageModelBreakdownRow[]>("query_usage_model_breakdown", { query, limit: 10 }),
       ]);
+      // 过期请求:更晚的查询已在飞行中,丢弃旧结果,别覆盖新数据。
+      if (seq !== requestSeq.current) return;
       setStats(nextStats);
       setSummary(nextSummary);
       setTimeseries(nextTimeseries);
       setModelBreakdown(nextModelBreakdown);
-    } catch {
-      /* leave previous data on a transient failure */
+      setError(null);
+    } catch (err) {
+      if (seq !== requestSeq.current) return;
+      console.warn("[useUsageDashboard] refresh failed:", err);
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
   }, [query, range]);
+
+  // 始终持有最新的 refresh,供只想绑定一次的定时器/事件监听调用,避免它们随
+  // refresh(每次筛选/搜索变化都重建)而反复重建。
+  const latestRefresh = useRef(refresh);
+  useEffect(() => {
+    latestRefresh.current = refresh;
+  }, [refresh]);
 
   const refreshOptions = useCallback(async () => {
     try {
@@ -111,8 +129,8 @@ export function useUsageDashboard() {
       ]);
       setOptions(nextOptions);
       setPrices(nextPrices);
-    } catch {
-      /* ignore */
+    } catch (err) {
+      console.warn("[useUsageDashboard] refreshOptions failed:", err);
     }
   }, []);
 
@@ -125,12 +143,13 @@ export function useUsageDashboard() {
     void refreshOptions();
   }, [refreshOptions]);
 
-  // Periodic auto-refresh (0 = off).
+  // Periodic auto-refresh (0 = off). 只依赖间隔本身:通过 ref 取最新 refresh,
+  // 否则每次筛选/搜索按键(refresh 重建)都会清掉重建定时器、刷新计时被反复重置。
   useEffect(() => {
     if (autoRefreshSec <= 0) return;
-    const id = window.setInterval(() => void refresh(), autoRefreshSec * 1000);
+    const id = window.setInterval(() => void latestRefresh.current(), autoRefreshSec * 1000);
     return () => window.clearInterval(id);
-  }, [autoRefreshSec, refresh]);
+  }, [autoRefreshSec]);
 
   // Near-real-time: the background collector emits "usage-updated" when it
   // persists new events. Debounce a burst of inserts into one refresh (Tauri).
@@ -140,6 +159,7 @@ export function useUsageDashboard() {
   useEffect(() => {
     if (!("__TAURI_INTERNALS__" in window)) return;
     let unlisten: (() => void) | undefined;
+    let disposed = false;
     let timer: number | null = null;
     void import("@tauri-apps/api/event")
       .then(({ listen }) =>
@@ -147,18 +167,21 @@ export function useUsageDashboard() {
           if (timer !== null) return;
           timer = window.setTimeout(() => {
             timer = null;
-            void refresh();
+            void latestRefresh.current();
           }, 800);
         }),
       )
       .then((fn) => {
-        unlisten = fn;
+        // 卸载早于异步 listen 完成时,立即解绑,避免监听器泄漏到卸载之后。
+        if (disposed) fn();
+        else unlisten = fn;
       });
     return () => {
+      disposed = true;
       if (unlisten) unlisten();
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [refresh]);
+  }, []);
 
   const saveModelPrices = useCallback(
     async (next: ModelPrice[]) => {
@@ -204,6 +227,7 @@ export function useUsageDashboard() {
     options,
     prices,
     loading,
+    error,
     refresh,
     refreshOptions,
     saveModelPrices,
