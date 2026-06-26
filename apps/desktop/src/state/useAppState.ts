@@ -137,7 +137,7 @@ export function useAppState() {
     const interval = window.setInterval(() => {
       invoke<AppState>("refresh_management_state")
         .then(setAppState)
-        .catch(() => {});
+        .catch((err) => console.warn("[useAppState] refresh_management_state failed:", err));
     }, 5 * 60 * 1000);
     return () => window.clearInterval(interval);
   }, []);

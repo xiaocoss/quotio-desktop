@@ -1504,7 +1504,7 @@ fn spawn_usage_collector(app: AppHandle) {
             // Isolate each iteration: a panic anywhere in the body must NOT kill
             // the only queue consumer (that would silently stop usage collection
             // for the rest of the process). Catch it and continue next tick.
-            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let prepared = app.try_state::<DesktopState>().and_then(|state| {
                 let mut core = state.core.lock().ok()?;
                 let client = core.management_client().ok()?;
@@ -1588,7 +1588,12 @@ fn spawn_usage_collector(app: AppHandle) {
                     }
                 }
             }
-            }));
+            })) {
+                let msg = panic.downcast_ref::<&str>().copied()
+                    .or_else(|| panic.downcast_ref::<String>().map(|s| s.as_str()))
+                    .unwrap_or("unknown");
+                eprintln!("[usage-collector] panic caught (tick {tick}): {msg}");
+            }
             tick = tick.wrapping_add(1);
             std::thread::sleep(std::time::Duration::from_millis(USAGE_COLLECTOR_POLL_MS));
         }

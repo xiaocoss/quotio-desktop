@@ -223,10 +223,9 @@ impl AppCore {
             self.settings.remote_management_key = None;
         }
         self.proxy.sync_settings(&self.settings);
-        // Keep config.yaml in sync with settings immediately (not only on proxy
-        // start) so changes persist into CLIProxyAPI's config + a running proxy
-        // can pick them up on its next reload.
-        let _ = self.proxy.write_config(&self.settings);
+        if let Err(err) = self.proxy.write_config(&self.settings) {
+            eprintln!("[save_settings] write_config failed: {err}");
+        }
         Ok(self.app_state())
     }
 
@@ -244,18 +243,20 @@ impl AppCore {
     /// bridge, and terminate an adopted/external proxy by its port, so closing
     /// the app doesn't leave the proxy API running in the background.
     pub fn shutdown(&mut self) {
-        // 关闭软件时默认还原 Codex 注入：杀掉启动的进程 + 从固定备份文件还原。
         if let Some(session) = self.codex_session.take() {
             if let Some(pid) = session.pid {
                 codex_launch::kill_process(pid);
             }
             codex_launch::close_codex_app();
-            let _ = codex_launch::restore_codex_state_from_launch_backup();
+            if let Err(err) = codex_launch::restore_codex_state_from_launch_backup() {
+                eprintln!("[shutdown] restore codex state failed: {err}");
+            }
         } else if codex_launch::launch_backup_exists() {
             codex_launch::close_codex_app();
-            let _ = codex_launch::restore_codex_state_from_launch_backup();
+            if let Err(err) = codex_launch::restore_codex_state_from_launch_backup() {
+                eprintln!("[shutdown] restore codex state failed: {err}");
+            }
         }
-        // 退出时恢复被调度临时禁用的账号，别让池子带着 standby 状态过夜。
         let _ = scheduler::release_all_in(&quotio_platform::proxy_auth_dir());
         self.proxy.shutdown(&self.settings);
     }
@@ -268,7 +269,9 @@ impl AppCore {
     }
 
     pub fn rewrite_proxy_config(&self) {
-        let _ = self.proxy.write_config(&self.settings);
+        if let Err(err) = self.proxy.write_config(&self.settings) {
+            eprintln!("[rewrite_proxy_config] write_config failed: {err}");
+        }
     }
 
     pub fn proxy_managed_binary_path(&self) -> PathBuf {
@@ -1044,7 +1047,9 @@ impl AppCore {
         }
         self.codex_session = None;
         self.release_active_profile_binding();
-        let _ = codex_launch::restore_codex_state_from_launch_backup();
+        if let Err(err) = codex_launch::restore_codex_state_from_launch_backup() {
+            eprintln!("[codex_monitor] restore codex state failed: {err}");
+        }
         self.codex_active_profile_id = None;
         true
     }

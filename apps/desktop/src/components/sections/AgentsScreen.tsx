@@ -157,12 +157,11 @@ export function AgentsScreen({
   const [pendingStart, setPendingStart] = useState<{ profile: CodexLaunchProfile; warnings: string[] } | null>(null);
 
   useEffect(() => {
-    invoke<CodexAccountRef[]>("list_codex_launch_accounts").then(setCodexAccounts).catch(() => {});
+    invoke<CodexAccountRef[]>("list_codex_launch_accounts").then(setCodexAccounts).catch((err) => console.warn("[AgentsScreen] list_codex_launch_accounts:", err));
     invoke<string | null>("codex_active_profile")
       .then((id) => setActiveProfileId(id ?? null))
-      .catch(() => {});
-    // 从运行中的代理拉真实的 codex 模型（拉不到就用内置回退列表）。
-    invoke<string[]>("fetch_codex_models").then(setProxyModels).catch(() => {});
+      .catch((err) => console.warn("[AgentsScreen] codex_active_profile:", err));
+    invoke<string[]>("fetch_codex_models").then(setProxyModels).catch((err) => console.warn("[AgentsScreen] fetch_codex_models:", err));
     // 后台监控发现用户自己退出了 Codex（没点「停止」）：状态回落，配置已自动还原。
     if (!("__TAURI_INTERNALS__" in window)) return;
     let unlisten: (() => void) | undefined;

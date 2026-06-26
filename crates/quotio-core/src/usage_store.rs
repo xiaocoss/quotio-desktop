@@ -56,12 +56,18 @@ impl UsageStore {
         }
         let mut conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return 0,
+            Err(poisoned) => {
+                eprintln!("[usage_store] insert_events: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let now = now_ms();
         let tx = match conn.transaction() {
             Ok(tx) => tx,
-            Err(_) => return 0,
+            Err(err) => {
+                eprintln!("[usage_store] insert_events: begin transaction failed: {err}");
+                return 0;
+            }
         };
         let mut inserted = 0usize;
         {
@@ -124,7 +130,10 @@ impl UsageStore {
     pub fn recent_events(&self, limit: usize) -> Vec<RequestLogEntry> {
         let conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return Vec::new(),
+            Err(poisoned) => {
+                eprintln!("[usage_store] recent_events: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let mut stmt = match conn.prepare(
             "SELECT request_id, timestamp, method, endpoint, provider, model, resolved_model, \
@@ -175,7 +184,10 @@ impl UsageStore {
     pub fn query_stats(&self, query: &UsageQuery) -> UsageAggregate {
         let conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return UsageAggregate::default(),
+            Err(poisoned) => {
+                eprintln!("[usage_store] query_stats: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let (where_sql, query_params) = build_where(query);
         let sql = format!(
@@ -245,7 +257,10 @@ impl UsageStore {
     pub fn account_summary(&self, query: &UsageQuery) -> Vec<AccountSummaryRow> {
         let conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return Vec::new(),
+            Err(poisoned) => {
+                eprintln!("[usage_store] account_summary: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let (where_sql, query_params) = build_where(query);
         let prices_configured = has_prices(&conn);
@@ -303,7 +318,10 @@ impl UsageStore {
     ) -> Vec<UsageTimeSeriesPoint> {
         let conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return Vec::new(),
+            Err(poisoned) => {
+                eprintln!("[usage_store] usage_timeseries: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let (where_sql, query_params) = build_where(query);
         let prices_configured = has_prices(&conn);
@@ -353,7 +371,10 @@ impl UsageStore {
     pub fn model_breakdown(&self, query: &UsageQuery, limit: usize) -> Vec<UsageModelBreakdownRow> {
         let conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return Vec::new(),
+            Err(poisoned) => {
+                eprintln!("[usage_store] model_breakdown: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let (where_sql, query_params) = build_where(query);
         let prices_configured = has_prices(&conn);
@@ -405,7 +426,10 @@ impl UsageStore {
     pub fn filter_options(&self) -> UsageFilterOptions {
         let conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return UsageFilterOptions::default(),
+            Err(poisoned) => {
+                eprintln!("[usage_store] filter_options: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         UsageFilterOptions {
             accounts: distinct(&conn, "source"),
@@ -427,7 +451,10 @@ impl UsageStore {
     pub fn account_auth_health(&self, window: u32) -> Vec<AccountAuthHealth> {
         let conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return Vec::new(),
+            Err(poisoned) => {
+                eprintln!("[usage_store] account_auth_health: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let sql = "WITH ranked AS (\
                 SELECT source, failed, status_code, \
@@ -476,7 +503,10 @@ impl UsageStore {
     pub fn model_prices(&self) -> Vec<ModelPrice> {
         let conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return Vec::new(),
+            Err(poisoned) => {
+                eprintln!("[usage_store] model_prices: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let mut stmt = match conn.prepare(
             "SELECT model, prompt_per_1m, completion_per_1m, cache_per_1m, source \
@@ -504,7 +534,10 @@ impl UsageStore {
     pub fn set_model_prices(&self, prices: &[ModelPrice]) {
         let mut conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return,
+            Err(poisoned) => {
+                eprintln!("[usage_store] set_model_prices: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let now = now_ms();
         let tx = match conn.transaction() {
