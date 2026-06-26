@@ -678,7 +678,7 @@ impl UsageRecord {
         let input = tokens.input.unwrap_or(0);
         let output = tokens.output.unwrap_or(0);
         let reasoning = tokens.reasoning.unwrap_or(0);
-        let total = tokens.total.unwrap_or(input + output);
+        let total = tokens.total.unwrap_or(input.saturating_add(output));
         let status_code = self
             .fail
             .as_ref()
@@ -690,7 +690,8 @@ impl UsageRecord {
             .map(str::trim)
             .filter(|key| !key.is_empty() && *key != "[redacted]")
             .map(sha256_hex);
-        let event_hash = compute_event_hash(&self, timestamp_ms, &model, total);
+        let event_hash =
+            compute_event_hash(&self, timestamp_ms, &model, input, output, reasoning, total);
         UsageEvent {
             event_hash,
             request_id: self.request_id.clone().filter(|value| !value.is_empty()),
@@ -774,15 +775,28 @@ fn split_endpoint(endpoint: Option<&str>) -> (Option<String>, Option<String>) {
 }
 
 /// Stable SHA-256 over the event's identifying fields, used as the dedup key.
-fn compute_event_hash(record: &UsageRecord, timestamp_ms: i64, model: &str, total: u64) -> String {
+fn compute_event_hash(
+    record: &UsageRecord,
+    timestamp_ms: i64,
+    model: &str,
+    input: u64,
+    output: u64,
+    reasoning: u64,
+    total: u64,
+) -> String {
+    // 缺少 request_id 时,仅靠 timestamp/model/endpoint/total 容易把不同请求误判为
+    // 重复而误删;补上 token 明细(input/output/reasoning)增加区分度。
     let key = format!(
-        "{}|{}|{}|{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
         record.request_id.as_deref().unwrap_or(""),
         timestamp_ms,
         model,
         record.endpoint.as_deref().unwrap_or(""),
         record.latency_ms.unwrap_or(0),
         record.source.as_deref().unwrap_or(""),
+        input,
+        output,
+        reasoning,
         total,
     );
     sha256_hex(&key)

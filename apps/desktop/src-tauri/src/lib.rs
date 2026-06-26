@@ -64,10 +64,7 @@ async fn get_app_state(state: State<'_, DesktopState>) -> Result<AppState, Strin
 
 #[tauri::command]
 fn get_platform_info(state: State<'_, DesktopState>) -> Result<PlatformInfo, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取平台信息".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.platform_info())
 }
 
@@ -94,20 +91,14 @@ fn update_fallback_configuration(
     action: FallbackConfigAction,
     state: State<'_, DesktopState>,
 ) -> Result<AppState, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法更新 fallback 配置".to_string())?;
+    let mut core = lock_core(&state.core);
     core.update_fallback_configuration(action)
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 fn detect_agents(state: State<'_, DesktopState>) -> Result<AppState, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法检测 CLI agents".to_string())?;
+    let mut core = lock_core(&state.core);
     Ok(core.detect_agents())
 }
 
@@ -116,10 +107,7 @@ fn read_agent_configuration(
     agent_id: String,
     state: State<'_, DesktopState>,
 ) -> Result<SavedAgentConfiguration, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取 agent 配置".to_string())?;
+    let core = lock_core(&state.core);
     core.read_agent_configuration(&agent_id)
         .map_err(|error| error.to_string())
 }
@@ -129,10 +117,7 @@ fn configure_agent(
     request: AgentConfigurationRequest,
     state: State<'_, DesktopState>,
 ) -> Result<AgentConfigurationResult, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法配置 agent".to_string())?;
+    let mut core = lock_core(&state.core);
     core.configure_agent_with_result(request)
         .map_err(|error| error.to_string())
 }
@@ -178,20 +163,14 @@ async fn codex_stop(state: State<'_, DesktopState>) -> Result<String, String> {
 /// 当前 Codex 一键启动会话是否在运行。
 #[tauri::command]
 fn codex_launch_active(state: State<'_, DesktopState>) -> Result<bool, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取 Codex 状态".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.codex_active())
 }
 
 /// 当前在跑的启动方案 id（前端据此高亮「运行中」那套；无则 null）。
 #[tauri::command]
 fn codex_active_profile(state: State<'_, DesktopState>) -> Result<Option<String>, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取 Codex 状态".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.active_codex_profile_id())
 }
 
@@ -221,10 +200,7 @@ async fn codex_repair_session_visibility() -> Result<String, String> {
 #[tauri::command]
 fn fetch_codex_models(state: State<'_, DesktopState>) -> Result<Vec<String>, String> {
     let (endpoint, api_key) = {
-        let core = state
-            .core
-            .lock()
-            .map_err(|_| "无法读取 Codex 模型".to_string())?;
+        let core = lock_core(&state.core);
         core.codex_model_fetch_params()
     };
     Ok(quotio_core::codex_launch::fetch_proxy_codex_models(
@@ -237,10 +213,7 @@ fn list_agent_backups(
     agent_id: String,
     state: State<'_, DesktopState>,
 ) -> Result<Vec<AgentBackupFile>, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取 agent 备份".to_string())?;
+    let core = lock_core(&state.core);
     core.list_agent_backups(&agent_id)
         .map_err(|error| error.to_string())
 }
@@ -251,10 +224,7 @@ fn restore_agent_backup(
     backup_path: String,
     state: State<'_, DesktopState>,
 ) -> Result<AgentConfigurationResult, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法恢复 agent 备份".to_string())?;
+    let mut core = lock_core(&state.core);
     core.restore_agent_backup(&agent_id, &backup_path)
         .map_err(|error| error.to_string())
 }
@@ -264,10 +234,7 @@ fn reset_agent_configuration(
     agent_id: String,
     state: State<'_, DesktopState>,
 ) -> Result<AgentConfigurationResult, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法重置 agent 配置".to_string())?;
+    let mut core = lock_core(&state.core);
     core.reset_agent_configuration(&agent_id)
         .map_err(|error| error.to_string())
 }
@@ -285,38 +252,26 @@ fn discover_available_models(
 
 #[tauri::command]
 fn refresh_fallback_route_state(state: State<'_, DesktopState>) -> Result<AppState, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法刷新 fallback route state".to_string())?;
+    let mut core = lock_core(&state.core);
     Ok(core.refresh_fallback_route_state())
 }
 
 #[tauri::command]
 fn credential_status(state: State<'_, DesktopState>) -> Result<CredentialStatus, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取凭据状态".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.credential_status())
 }
 
 #[tauri::command]
 fn clear_remote_management_key(state: State<'_, DesktopState>) -> Result<AppState, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法清理远程管理密钥".to_string())?;
+    let mut core = lock_core(&state.core);
     core.clear_remote_management_key()
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 fn open_config_root(state: State<'_, DesktopState>) -> Result<(), String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法打开配置目录".to_string())?;
+    let core = lock_core(&state.core);
     core.open_config_root().map_err(|error| error.to_string())
 }
 
@@ -341,10 +296,7 @@ fn set_launch_at_login(
             .map_err(|error| error.to_string())?;
     }
 
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法保存开机自启状态".to_string())?;
+    let mut core = lock_core(&state.core);
     let mut settings = core.app_state().settings;
     settings.launch_at_login = app.autolaunch().is_enabled().unwrap_or(enabled);
     core.save_settings(settings)
@@ -392,10 +344,7 @@ async fn stop_proxy(app: AppHandle, state: State<'_, DesktopState>) -> Result<Ap
 
 #[tauri::command]
 fn restart_proxy(state: State<'_, DesktopState>) -> Result<AppState, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法重启代理核心".to_string())?;
+    let mut core = lock_core(&state.core);
     core.restart_proxy().map_err(|error| error.to_string())
 }
 
@@ -408,10 +357,7 @@ async fn download_proxy_binary(
     // the (slow, blocking) network download never holds the core mutex or the
     // main thread — keeping the UI fully responsive.
     let (dest, proxy_url) = {
-        let core = state
-            .core
-            .lock()
-            .map_err(|_| "无法访问代理核心".to_string())?;
+        let core = lock_core(&state.core);
         (core.proxy_managed_binary_path(), core.proxy_upstream_url())
     };
 
@@ -433,10 +379,7 @@ async fn download_proxy_binary(
     .map_err(|error| format!("下载任务异常：{}", error))??;
 
     let _ = app.emit("proxy-download-progress", 100u8);
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法访问代理核心".to_string())?;
+    let mut core = lock_core(&state.core);
     Ok(core.finalize_proxy_download(tag))
 }
 
@@ -469,10 +412,7 @@ async fn download_cloudflared(
     state: State<'_, DesktopState>,
 ) -> Result<TunnelStatus, String> {
     let (dest, proxy_url) = {
-        let core = state
-            .core
-            .lock()
-            .map_err(|_| "无法访问代理核心".to_string())?;
+        let core = lock_core(&state.core);
         (core.cloudflared_binary_path(), core.proxy_upstream_url())
     };
     let progress_app = app.clone();
@@ -498,10 +438,7 @@ async fn download_cloudflared(
 #[tauri::command]
 fn start_tunnel(app: AppHandle, state: State<'_, DesktopState>) -> Result<TunnelStatus, String> {
     let (binary, port) = {
-        let core = state
-            .core
-            .lock()
-            .map_err(|_| "无法访问代理核心".to_string())?;
+        let core = lock_core(&state.core);
         (core.cloudflared_binary_path(), core.proxy_port())
     };
     if !binary.exists() {
@@ -656,10 +593,7 @@ fn set_autostart(app: AppHandle, enabled: bool) -> Result<bool, String> {
 
 #[tauri::command]
 fn check_proxy_health(state: State<'_, DesktopState>) -> Result<AppState, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法检查代理健康状态".to_string())?;
+    let mut core = lock_core(&state.core);
     Ok(core.check_proxy_health())
 }
 
@@ -705,10 +639,7 @@ fn query_usage_stats(
     query: UsageQuery,
     state: State<'_, DesktopState>,
 ) -> Result<UsageAggregate, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取用量统计".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.query_usage_stats(&query))
 }
 
@@ -717,10 +648,7 @@ fn query_account_summary(
     query: UsageQuery,
     state: State<'_, DesktopState>,
 ) -> Result<Vec<AccountSummaryRow>, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取账号汇总".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.query_account_summary(&query))
 }
 
@@ -730,10 +658,7 @@ fn query_usage_timeseries(
     bucket: UsageChartBucket,
     state: State<'_, DesktopState>,
 ) -> Result<Vec<UsageTimeSeriesPoint>, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取用量趋势".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.query_usage_timeseries(&query, bucket))
 }
 
@@ -743,19 +668,13 @@ fn query_usage_model_breakdown(
     limit: Option<usize>,
     state: State<'_, DesktopState>,
 ) -> Result<Vec<UsageModelBreakdownRow>, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取模型排行".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.query_usage_model_breakdown(&query, limit.unwrap_or(10)))
 }
 
 #[tauri::command]
 fn list_usage_filter_options(state: State<'_, DesktopState>) -> Result<UsageFilterOptions, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取筛选项".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.usage_filter_options())
 }
 
@@ -763,19 +682,13 @@ fn list_usage_filter_options(state: State<'_, DesktopState>) -> Result<UsageFilt
 fn query_account_auth_health(
     state: State<'_, DesktopState>,
 ) -> Result<Vec<AccountAuthHealth>, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取账号健康".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.account_auth_health())
 }
 
 #[tauri::command]
 fn get_model_prices(state: State<'_, DesktopState>) -> Result<Vec<ModelPrice>, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取模型单价".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.model_prices())
 }
 
@@ -784,10 +697,7 @@ fn set_model_prices(
     prices: Vec<ModelPrice>,
     state: State<'_, DesktopState>,
 ) -> Result<Vec<ModelPrice>, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法保存模型单价".to_string())?;
+    let core = lock_core(&state.core);
     core.set_model_prices(&prices);
     Ok(core.model_prices())
 }
@@ -974,10 +884,7 @@ async fn refresh_quotas(
     // the macOS reference app), so accounts no longer vanish when the endpoints
     // are unreachable directly.
     let proxy_url = {
-        let core = state
-            .core
-            .lock()
-            .map_err(|_| "无法访问代理核心".to_string())?;
+        let core = lock_core(&state.core);
         // Clean up duplicate same-account files before listing (re-import / re-login
         // can leave two files = two cards); keeps the bound / newest one.
         core.dedup_codex_auth();
@@ -1039,10 +946,7 @@ async fn consume_codex_reset_credit(
     state: State<'_, DesktopState>,
 ) -> Result<(), String> {
     let proxy_url = {
-        let core = state
-            .core
-            .lock()
-            .map_err(|_| "无法访问代理核心".to_string())?;
+        let core = lock_core(&state.core);
         core.proxy_upstream_url()
     };
     tauri::async_runtime::spawn_blocking(move || {

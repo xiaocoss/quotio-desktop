@@ -224,6 +224,20 @@ pub fn restore_agent_backup(
     agent_id: &str,
     backup_path: &str,
 ) -> Result<AgentConfigurationResult, ManagementCoreError> {
+    // 防路径穿越:backup_path 来自前端,必须是本 agent 备份目录里真实存在的某个备份,
+    // 不能是任意路径——否则可借「恢复」把任意文件读出并写进 agent 配置/敏感位置。
+    let known = quotio_platform::list_backups(&backup_namespace(agent_id))
+        .map_err(|error| unavailable("无法读取 agent 备份列表", error))?;
+    let requested =
+        std::fs::canonicalize(backup_path).unwrap_or_else(|_| PathBuf::from(backup_path));
+    let is_known = known.iter().any(|backup| {
+        std::fs::canonicalize(&backup.path).unwrap_or_else(|_| backup.path.clone()) == requested
+    });
+    if !is_known {
+        return Err(ManagementCoreError::Unavailable(
+            "备份路径无效:不在该 agent 的备份目录中。".to_string(),
+        ));
+    }
     let target_path = backup_restore_target(agent_id, backup_path)?;
     let restored = quotio_platform::restore_backup(
         &PathBuf::from(backup_path),
