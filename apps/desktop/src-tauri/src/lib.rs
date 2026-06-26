@@ -1125,6 +1125,23 @@ async fn clear_management_logs(state: State<'_, DesktopState>) -> Result<AppStat
     refresh_snapshot_with_client(&state, client, "无法刷新日志清空后的状态").await
 }
 
+/// 清空「请求」日志(usage_store / SQLite)。日志页「请求」tab 删除调用——它和代理
+/// 文本日志(clear_management_logs)是两份不同数据,之前删除按钮只清后者,导致在
+/// 「请求」tab 点删除看着没反应。纯本地 SQLite 操作,放 spawn_blocking 不阻塞 UI。
+#[tauri::command]
+async fn clear_request_logs(app: AppHandle, state: State<'_, DesktopState>) -> Result<AppState, String> {
+    let core = Arc::clone(&state.core);
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let mut core = lock_core(&core);
+        core.clear_request_logs()
+    })
+    .await
+    .map_err(|error| format!("清空请求日志任务异常：{}", error))?;
+    // 仪表盘与请求日志同源,通知它刷新。
+    let _ = app.emit("usage-updated", 0u64);
+    Ok(result)
+}
+
 #[tauri::command]
 async fn add_management_api_key(
     key: String,
@@ -1778,6 +1795,7 @@ pub fn run() {
             set_management_request_log,
             set_management_request_retry,
             clear_management_logs,
+            clear_request_logs,
             add_management_api_key,
             update_management_api_key,
             delete_management_api_key,

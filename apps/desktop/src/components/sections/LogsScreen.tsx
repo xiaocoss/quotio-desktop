@@ -11,12 +11,13 @@ type LogsScreenProps = {
   managementAction: string | null;
   onRefreshManagement: () => void;
   onClearLogs: () => void;
+  onClearRequests: () => void;
   onRunManagementStateAction: (command: string, args?: Record<string, unknown>) => void;
 };
 
 type LogTab = "requests" | "proxy";
 
-export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, onClearLogs }: LogsScreenProps) {
+export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, onClearLogs, onClearRequests }: LogsScreenProps) {
   const t = useT();
   const requests = appState.logs ?? [];
   const proxyLines = appState.management.logs?.lines ?? [];
@@ -100,7 +101,23 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
           >
             <RefreshIcon />
           </button>
-          <button className="icon-button" type="button" onClick={onClearLogs} disabled={isManagementBusy} title="清空日志" aria-label="清空日志">
+          <button
+            className="icon-button"
+            type="button"
+            onClick={() => {
+              if (tab === "requests") {
+                // 「请求」日志=SQLite 历史用量,清空不可恢复且会一并清掉仪表盘历史,先确认。
+                if (window.confirm("确定清空所有请求日志吗?这会一并清除仪表盘的历史用量数据,且不可恢复。")) {
+                  onClearRequests();
+                }
+              } else {
+                onClearLogs();
+              }
+            }}
+            disabled={isManagementBusy}
+            title={tab === "requests" ? "清空请求日志" : "清空代理日志"}
+            aria-label={tab === "requests" ? "清空请求日志" : "清空代理日志"}
+          >
             <TrashIcon />
           </button>
         </div>

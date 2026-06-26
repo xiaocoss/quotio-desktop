@@ -311,6 +311,13 @@ impl AppCore {
         self.app_state()
     }
 
+    /// 清空所有请求记录(usage_store / SQLite)。日志页「请求」tab 的删除按钮调用。
+    /// 注意:与仪表盘历史用量同源,清空会一并抹掉仪表盘的历史数据。
+    pub fn clear_request_logs(&mut self) -> AppState {
+        self.usage_store.clear();
+        self.app_state()
+    }
+
     pub fn management_client(&mut self) -> Result<ManagementApiClient, ManagementCoreError> {
         self.proxy.refresh(&self.settings);
 

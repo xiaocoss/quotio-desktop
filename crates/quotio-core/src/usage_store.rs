@@ -48,6 +48,21 @@ impl UsageStore {
         }
     }
 
+    /// 清空所有请求记录(usage_events)。日志页「请求」tab 的删除按钮调用。
+    /// 注意:请求记录与仪表盘历史用量同源,清空会一并抹掉仪表盘的历史数据。
+    pub fn clear(&self) {
+        let conn = match self.conn.lock() {
+            Ok(conn) => conn,
+            Err(poisoned) => {
+                eprintln!("[usage_store] clear: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
+        };
+        if let Err(err) = conn.execute("DELETE FROM usage_events", []) {
+            eprintln!("[usage_store] clear: delete failed: {err}");
+        }
+    }
+
     /// Persist a batch of drained events. Returns the number of NEW rows
     /// inserted (duplicates are ignored via the `event_hash` UNIQUE constraint).
     pub fn insert_events(&self, events: &[UsageEvent]) -> usize {

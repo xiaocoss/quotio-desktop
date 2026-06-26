@@ -140,6 +140,8 @@ function managementActionLabel(action: string | null): string | null {
       return "正在设置重试次数…";
     case "clear_management_logs":
       return "正在清除日志…";
+    case "clear_request_logs":
+      return "正在清空请求日志…";
     case "delete_management_auth_file":
       return "正在删除账号…";
     case "set_management_auth_file_disabled":
@@ -498,6 +500,7 @@ function renderSection(section: AppSection, props: AppShellProps, updater: Retur
           managementAction={props.managementAction}
           onRefreshManagement={() => props.onRunManagementStateAction("refresh_management_state")}
           onClearLogs={() => props.onRunManagementStateAction("clear_management_logs")}
+          onClearRequests={() => props.onRunManagementStateAction("clear_request_logs")}
           onRunManagementStateAction={props.onRunManagementStateAction}
         />
       );
