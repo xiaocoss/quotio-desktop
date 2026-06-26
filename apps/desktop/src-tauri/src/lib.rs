@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use quotio_core::{management::ManagementApiClient, AppCore};
 use quotio_types::{
@@ -20,6 +20,19 @@ use tauri_plugin_autostart::ManagerExt;
 struct DesktopState {
     core: Arc<Mutex<AppCore>>,
     tunnel: Mutex<TunnelRuntime>,
+}
+
+/// 取 core 锁,毒化时恢复并清除毒化标记。
+/// std `Mutex` 默认在某个持锁线程 panic 后被「毒化」,之后每次 `lock()` 都返回 Err——
+/// 若命令面直接把它当错误返回,一次 panic 就会让所有 IPC 命令永久失败、整个 UI 砖化。
+/// 这里统一用 `into_inner()` 拿回数据继续用,并 `clear_poison()` 让后续 `lock()`(含后台
+/// collector 的 best-effort `.ok()`)恢复正常,避免毒化长期残留。
+fn lock_core(core: &Mutex<AppCore>) -> MutexGuard<'_, AppCore> {
+    core.lock().unwrap_or_else(|poisoned| {
+        eprintln!("[lib] core mutex poisoned — 已恢复并清除毒化标记");
+        core.clear_poison();
+        poisoned.into_inner()
+    })
 }
 
 #[derive(Default)]
@@ -64,7 +77,7 @@ fn save_settings(
     settings: AppSettings,
     state: State<'_, DesktopState>,
 ) -> Result<AppState, String> {
-    let mut core = state.core.lock().map_err(|_| "无法保存设置".to_string())?;
+    let mut core = lock_core(&state.core);
     let result = core
         .save_settings(settings)
         .map_err(|error| error.to_string())?;
@@ -263,7 +276,7 @@ fn reset_agent_configuration(
 fn discover_available_models(
     state: State<'_, DesktopState>,
 ) -> Result<Vec<AvailableModel>, String> {
-    let mut core = state.core.lock().map_err(|_| "无法发现模型".to_string())?;
+    let mut core = lock_core(&state.core);
     Ok(core
         .discover_available_models()
         .fallback_runtime
@@ -670,20 +683,20 @@ async fn drain_request_logs(state: State<'_, DesktopState>) -> Result<AppState, 
     // collector — both write to the same deduplicated store. No-op when
     // management isn't reachable.
     let Ok(client) = management_client(&state, "") else {
-        let mut core = state.core.lock().map_err(|_| "无法读取状态".to_string())?;
+        let mut core = lock_core(&state.core);
         return Ok(core.app_state());
     };
     let _ = client.set_usage_statistics_enabled(true).await;
     let events = client.fetch_usage_events(2000).await.unwrap_or_default();
     let store = {
-        let core = state.core.lock().map_err(|_| "无法读取状态".to_string())?;
+        let core = lock_core(&state.core);
         core.usage_store()
     };
     if !events.is_empty() {
         store.insert_events(&events);
         quotio_core::append_request_errors(&events);
     }
-    let mut core = state.core.lock().map_err(|_| "无法读取状态".to_string())?;
+    let mut core = lock_core(&state.core);
     Ok(core.app_state())
 }
 
@@ -798,7 +811,7 @@ fn import_auth_file(
     content: String,
     state: State<'_, DesktopState>,
 ) -> Result<AppState, String> {
-    let mut core = state.core.lock().map_err(|_| "无法导入账号".to_string())?;
+    let mut core = lock_core(&state.core);
     core.import_auth_file(&filename, &content)
 }
 
@@ -832,7 +845,7 @@ fn add_custom_provider(
     state: State<'_, DesktopState>,
 ) -> Result<Vec<quotio_core::CustomProvider>, String> {
     let result = quotio_core::add_custom_provider(name, base_url, api_key, kind, prefix, models, proxy_mode)?;
-    let core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
+    let core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(result)
 }
@@ -840,7 +853,7 @@ fn add_custom_provider(
 #[tauri::command]
 fn delete_custom_provider(id: String, state: State<'_, DesktopState>) -> Result<Vec<quotio_core::CustomProvider>, String> {
     let result = quotio_core::delete_custom_provider(&id)?;
-    let core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
+    let core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(result)
 }
@@ -858,7 +871,7 @@ fn update_custom_provider(
     state: State<'_, DesktopState>,
 ) -> Result<Vec<quotio_core::CustomProvider>, String> {
     let result = quotio_core::update_custom_provider(id, name, base_url, api_key, kind, prefix, models, proxy_mode)?;
-    let core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
+    let core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(result)
 }
@@ -871,7 +884,7 @@ fn add_provider_key(
     state: State<'_, DesktopState>,
 ) -> Result<Vec<quotio_core::CustomProvider>, String> {
     let result = quotio_core::add_provider_key(&provider_id, label, api_key)?;
-    let core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
+    let core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(result)
 }
@@ -883,7 +896,7 @@ fn remove_provider_key(
     state: State<'_, DesktopState>,
 ) -> Result<Vec<quotio_core::CustomProvider>, String> {
     let result = quotio_core::remove_provider_key(&provider_id, &key_id)?;
-    let core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
+    let core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(result)
 }
@@ -895,7 +908,7 @@ fn toggle_provider_key(
     state: State<'_, DesktopState>,
 ) -> Result<Vec<quotio_core::CustomProvider>, String> {
     let result = quotio_core::toggle_provider_key(&provider_id, &key_id)?;
-    let core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
+    let core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(result)
 }
@@ -917,7 +930,7 @@ fn set_api_key_binding(
     state: State<'_, DesktopState>,
 ) -> Result<Vec<quotio_types::ApiKeyBinding>, String> {
     let result = quotio_core::set_api_key_binding(api_key, provider_id)?;
-    let core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
+    let core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(result)
 }
@@ -925,7 +938,7 @@ fn set_api_key_binding(
 #[tauri::command]
 fn add_api_key(key: String, state: State<'_, DesktopState>) -> Result<AppState, String> {
     quotio_core::add_api_key(key)?;
-    let mut core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
+    let mut core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(core.app_state())
 }
@@ -933,7 +946,7 @@ fn add_api_key(key: String, state: State<'_, DesktopState>) -> Result<AppState, 
 #[tauri::command]
 fn remove_api_key(key: String, state: State<'_, DesktopState>) -> Result<AppState, String> {
     quotio_core::remove_api_key(&key)?;
-    let mut core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
+    let mut core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(core.app_state())
 }
@@ -945,7 +958,7 @@ fn update_api_key(
     state: State<'_, DesktopState>,
 ) -> Result<AppState, String> {
     quotio_core::update_api_key(&key, replacement)?;
-    let mut core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
+    let mut core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(core.app_state())
 }
@@ -1008,7 +1021,7 @@ async fn refresh_quotas(
         let _ = tray.set_tooltip(Some(tooltip.as_str()));
     }
 
-    let mut core = state.core.lock().map_err(|_| "无法刷新额度".to_string())?;
+    let mut core = lock_core(&state.core);
     core.store_quotas(quotas);
     // 配额刷新后跑一轮智能调度（规则关闭时它负责把 standby 账号放回池子）。
     if core.scheduler_reconcile() {
@@ -1090,7 +1103,7 @@ async fn get_management_proxy_url(state: State<'_, DesktopState>) -> Result<Stri
     if !url.is_empty() {
         return Ok(url);
     }
-    let mut core = state.core.lock().map_err(|_| "无法读取代理 URL".to_string())?;
+    let mut core = lock_core(&state.core);
     let config_url = core
         .app_state()
         .management
@@ -1408,18 +1421,18 @@ async fn set_management_quota_switch_preview_model(
 
 fn management_client(
     state: &State<'_, DesktopState>,
-    lock_error: &str,
+    _lock_error: &str,
 ) -> Result<ManagementApiClient, String> {
-    let mut core = state.core.lock().map_err(|_| lock_error.to_string())?;
+    let mut core = lock_core(&state.core);
     core.management_client().map_err(|error| error.to_string())
 }
 
 fn apply_management_snapshot(
     state: &State<'_, DesktopState>,
     snapshot: ManagementSnapshot,
-    lock_error: &str,
+    _lock_error: &str,
 ) -> Result<AppState, String> {
-    let mut core = state.core.lock().map_err(|_| lock_error.to_string())?;
+    let mut core = lock_core(&state.core);
     Ok(core.apply_management_snapshot(snapshot))
 }
 
@@ -1506,7 +1519,7 @@ fn spawn_usage_collector(app: AppHandle) {
             // for the rest of the process). Catch it and continue next tick.
             if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let prepared = app.try_state::<DesktopState>().and_then(|state| {
-                let mut core = state.core.lock().ok()?;
+                let mut core = lock_core(&state.core);
                 let client = core.management_client().ok()?;
                 Some((client, core.usage_store()))
             });
