@@ -162,6 +162,9 @@ struct PendingOAuth {
     user_code: Option<String>,
     verification_uri: Option<String>,
     interval_seconds: u64,
+    /// 设备码流:下次允许真正轮询服务器的最早 unix 秒(节流 + slow_down 退避用)。
+    /// 0 = 立即可轮询。前端固定 ~2s 调一次,这里据此跳过过早的轮询。
+    next_poll_at: i64,
     // Shared
     expires_at: i64,
     error: Option<String>,
@@ -519,7 +522,28 @@ fn parse_query(query: &str) -> HashMap<String, String> {
 // Token exchange
 // ---------------------------------------------------------------------------
 
-fn exchange_auth_code(pending: &PendingOAuth) -> Result<serde_json::Value, String> {
+/// 共享带超时的 HTTP agent。裸 `ureq::post/get` 用的默认 agent 既无 connect 也无
+/// read 超时,网络半开 / 被中间代理强制断开(wsarecv)时会永久卡住登录线程,连
+/// cancel 都打不断。所有 OAuth 出站请求统一走它,与 management.rs 的做法一致。
+fn http_agent() -> &'static ureq::Agent {
+    static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
+    AGENT.get_or_init(|| {
+        ureq::AgentBuilder::new()
+            .timeout_connect(Duration::from_secs(15))
+            .timeout_read(Duration::from_secs(30))
+            .build()
+    })
+}
+
+/// Token 交换的失败分类:决定前端是「继续轮询重试」还是「停在永久错误」。
+enum TokenExchangeError {
+    /// 瞬时(5xx / 连接断开 / 读超时):授权 code 未被消费,应在有效期内重试。
+    Retryable(String),
+    /// 永久(4xx invalid_grant、响应解析失败等):置错并停止。
+    Permanent(String),
+}
+
+fn exchange_auth_code(pending: &PendingOAuth) -> Result<serde_json::Value, TokenExchangeError> {
     log_oauth_event(
         &pending.provider_id,
         Some(&pending.login_id),
@@ -529,11 +553,11 @@ fn exchange_auth_code(pending: &PendingOAuth) -> Result<serde_json::Value, Strin
     let code = pending
         .code
         .as_deref()
-        .ok_or_else(|| "缺少授权 code".to_string())?;
+        .ok_or_else(|| TokenExchangeError::Permanent("缺少授权 code".to_string()))?;
     let redirect_uri = pending
         .redirect_uri
         .as_deref()
-        .ok_or_else(|| "缺少 redirect_uri".to_string())?;
+        .ok_or_else(|| TokenExchangeError::Permanent("缺少 redirect_uri".to_string()))?;
 
     let mut params: Vec<(&str, &str)> = vec![
         ("grant_type", "authorization_code"),
@@ -564,10 +588,9 @@ fn exchange_auth_code(pending: &PendingOAuth) -> Result<serde_json::Value, Strin
 
     let is_kiro = pending.provider_id == "kiro";
 
-    let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(15)).build();
-
     let response = if is_kiro {
-        agent.post(&pending.token_endpoint)
+        http_agent()
+            .post(&pending.token_endpoint)
             .set("Content-Type", "application/json")
             .send_string(
                 &serde_json::json!({
@@ -578,17 +601,39 @@ fn exchange_auth_code(pending: &PendingOAuth) -> Result<serde_json::Value, Strin
                 .to_string(),
             )
     } else {
-        agent.post(&pending.token_endpoint)
+        http_agent()
+            .post(&pending.token_endpoint)
             .set("Content-Type", "application/x-www-form-urlencoded")
             .send_string(&body)
     };
 
-    let response = response.map_err(|e| format!("Token 交换请求失败: {}", e))?;
+    let response = match response {
+        Ok(resp) => resp,
+        // 5xx:上游瞬时故障,授权 code 未被消费 → 可重试。
+        Err(ureq::Error::Status(status, _)) if status >= 500 => {
+            return Err(TokenExchangeError::Retryable(format!(
+                "Token 交换上游返回 {status},稍后重试"
+            )));
+        }
+        // 4xx(invalid_grant 等):永久失败,读出错误体便于诊断。
+        Err(ureq::Error::Status(status, resp)) => {
+            let detail = resp.into_string().unwrap_or_default();
+            return Err(TokenExchangeError::Permanent(format!(
+                "Token 交换失败({status}): {detail}"
+            )));
+        }
+        // 传输层错误(连接被拒/被强制断开/超时):瞬时 → 可重试。
+        Err(err @ ureq::Error::Transport(_)) => {
+            return Err(TokenExchangeError::Retryable(format!(
+                "Token 交换连接失败: {err}"
+            )));
+        }
+    };
     let text = response
         .into_string()
-        .map_err(|e| format!("读取 Token 响应失败: {}", e))?;
-    let mut token: serde_json::Value =
-        serde_json::from_str(&text).map_err(|e| format!("解析 Token 响应失败: {}", e))?;
+        .map_err(|e| TokenExchangeError::Retryable(format!("读取 Token 响应失败: {}", e)))?;
+    let mut token: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|e| TokenExchangeError::Permanent(format!("解析 Token 响应失败: {}", e)))?;
     log_oauth_event(
         &pending.provider_id,
         Some(&pending.login_id),
@@ -669,7 +714,7 @@ struct DeviceTokenResponse {
 }
 
 fn request_device_code(config: &DeviceCodeConfig) -> Result<DeviceCodeResponse, String> {
-    let mut req = ureq::post(config.device_code_endpoint);
+    let mut req = http_agent().post(config.device_code_endpoint);
     if config.accept_json {
         req = req.set("Accept", "application/json");
     }
@@ -696,13 +741,21 @@ fn request_device_code(config: &DeviceCodeConfig) -> Result<DeviceCodeResponse, 
     serde_json::from_str(&text).map_err(|e| format!("解析 device code 响应失败: {}", e))
 }
 
-fn poll_device_token(pending: &PendingOAuth) -> Result<Option<serde_json::Value>, String> {
+/// 设备码轮询结果:拿到 token / 仍在等待授权 / 服务器要求放慢(slow_down)。
+enum DevicePoll {
+    Token(serde_json::Value),
+    Pending,
+    SlowDown,
+}
+
+fn poll_device_token(pending: &PendingOAuth) -> Result<DevicePoll, String> {
     let device_code = pending
         .device_code
         .as_deref()
         .ok_or_else(|| "缺少 device_code".to_string())?;
 
-    let req = ureq::post(&pending.token_endpoint)
+    let req = http_agent()
+        .post(&pending.token_endpoint)
         .set("Accept", "application/json")
         .set("Content-Type", "application/x-www-form-urlencoded");
 
@@ -729,7 +782,8 @@ fn poll_device_token(pending: &PendingOAuth) -> Result<Option<serde_json::Value>
 
     if let Some(error) = &parsed.error {
         match error.as_str() {
-            "authorization_pending" | "slow_down" => return Ok(None),
+            "authorization_pending" => return Ok(DevicePoll::Pending),
+            "slow_down" => return Ok(DevicePoll::SlowDown),
             "expired_token" | "access_denied" => {
                 let desc = parsed.error_description.as_deref().unwrap_or(error);
                 return Err(format!("授权失败: {}", desc));
@@ -759,7 +813,7 @@ fn poll_device_token(pending: &PendingOAuth) -> Result<Option<serde_json::Value>
         }
     }
 
-    Ok(Some(value))
+    Ok(DevicePoll::Token(value))
 }
 
 // ---------------------------------------------------------------------------
@@ -878,7 +932,8 @@ fn extract_account_id_from_jwt(token: &serde_json::Value) -> Option<String> {
 // ---------------------------------------------------------------------------
 
 fn fetch_github_user_info(access_token: &str) -> Option<(String, Option<String>)> {
-    let resp = ureq::get("https://api.github.com/user")
+    let resp = http_agent()
+        .get("https://api.github.com/user")
         .set("Authorization", &format!("token {}", access_token))
         .set("Accept", "application/json")
         .set("User-Agent", "Quotio-Desktop/0.4")
@@ -896,7 +951,8 @@ fn fetch_github_user_info(access_token: &str) -> Option<(String, Option<String>)
         return Some((email.to_string(), login.map(|s| s.to_string())));
     }
     // email is private — try /user/emails
-    if let Ok(resp2) = ureq::get("https://api.github.com/user/emails")
+    if let Ok(resp2) = http_agent()
+        .get("https://api.github.com/user/emails")
         .set("Authorization", &format!("token {}", access_token))
         .set("Accept", "application/json")
         .set("User-Agent", "Quotio-Desktop/0.4")
@@ -917,7 +973,8 @@ fn fetch_github_user_info(access_token: &str) -> Option<(String, Option<String>)
 }
 
 fn fetch_qwen_user_info(access_token: &str) -> Option<String> {
-    let resp = ureq::get("https://openapi.qoder.sh/api/v1/user/info")
+    let resp = http_agent()
+        .get("https://openapi.qoder.sh/api/v1/user/info")
         .set("Authorization", &format!("Bearer {}", access_token))
         .set("Accept", "application/json")
         .call()
@@ -1051,6 +1108,8 @@ fn write_auth_file(
     let content = serde_json::to_string_pretty(&output)
         .map_err(|e| format!("序列化 token 失败: {}", e))?;
     std::fs::write(&path, &content).map_err(|e| format!("写入 auth 文件失败: {}", e))?;
+    // 含 access/refresh/id_token 的长期凭据:Unix 上收紧到 0600(Windows no-op)。
+    let _ = quotio_platform::set_sensitive_permissions(&path);
     log_oauth_event(
         provider_id,
         None,
@@ -1149,6 +1208,7 @@ fn start_auth_code_flow(
         user_code: None,
         verification_uri: None,
         interval_seconds: 1,
+        next_poll_at: 0,
         expires_at: now_ts() + OAUTH_TIMEOUT_SECONDS,
         error: None,
         completed: false,
@@ -1212,6 +1272,7 @@ fn start_device_code_flow(
         user_code: Some(user_code.clone()),
         verification_uri: Some(verification_uri.clone()),
         interval_seconds: dc.interval.unwrap_or(5).max(1) as u64,
+        next_poll_at: 0,
         expires_at: now_ts() + dc.expires_in() as i64,
         error: None,
         completed: false,
@@ -1295,7 +1356,23 @@ fn complete_auth_code(snapshot: &PendingOAuth) -> Result<OAuthCompleteResponse, 
 
     let token = match exchange_auth_code(snapshot) {
         Ok(token) => token,
-        Err(error) => {
+        // 瞬时故障(5xx / 连接断开 / 读超时):不置永久 error,返回 pending 让前端在
+        // 有效期内继续轮询重试(code 未被消费)。超时由 complete_oauth 的 expires_at 兜底。
+        Err(TokenExchangeError::Retryable(message)) => {
+            log_oauth_event(
+                &snapshot.provider_id,
+                Some(&snapshot.login_id),
+                "token_exchange_retry",
+                &message,
+            );
+            return Ok(OAuthCompleteResponse {
+                status: "pending".to_string(),
+                error: None,
+                provider_id: snapshot.provider_id.clone(),
+                account_email: None,
+            });
+        }
+        Err(TokenExchangeError::Permanent(error)) => {
             return Ok(complete_error_response(
                 &snapshot.login_id,
                 &snapshot.provider_id,
@@ -1339,8 +1416,26 @@ fn complete_auth_code(snapshot: &PendingOAuth) -> Result<OAuthCompleteResponse, 
 }
 
 fn complete_device_code(snapshot: &PendingOAuth) -> Result<OAuthCompleteResponse, String> {
-    let polled_token = match poll_device_token(snapshot) {
-        Ok(result) => result,
+    let pending_response = || OAuthCompleteResponse {
+        status: "pending".to_string(),
+        error: None,
+        provider_id: snapshot.provider_id.clone(),
+        account_email: None,
+    };
+
+    // 节流:遵守服务器要求的轮询间隔(及 slow_down 退避)。前端固定 ~2s 调一次,
+    // 未到 next_poll_at 就直接返回 pending、不打服务器,避免被判 slow_down/拒绝。
+    let now = now_ts();
+    if let Ok(guard) = get_state().lock() {
+        if let Some(live) = guard.as_ref() {
+            if live.login_id == snapshot.login_id && now < live.next_poll_at {
+                return Ok(pending_response());
+            }
+        }
+    }
+
+    let outcome = match poll_device_token(snapshot) {
+        Ok(outcome) => outcome,
         Err(error) => {
             return Ok(complete_error_response(
                 &snapshot.login_id,
@@ -1351,48 +1446,56 @@ fn complete_device_code(snapshot: &PendingOAuth) -> Result<OAuthCompleteResponse
         }
     };
 
-    match polled_token {
-        None => Ok(OAuthCompleteResponse {
-            status: "pending".to_string(),
-            error: None,
-            provider_id: snapshot.provider_id.clone(),
-            account_email: None,
-        }),
-        Some(token) => {
-            let (_path, email) = match write_auth_file(&snapshot.provider_id, &token) {
-                Ok(result) => result,
-                Err(error) => {
-                    return Ok(complete_error_response(
-                        &snapshot.login_id,
-                        &snapshot.provider_id,
-                        "auth_file_write_failed",
-                        error,
-                    ));
-                }
-            };
-
+    let token = match outcome {
+        DevicePoll::Token(token) => token,
+        other => {
+            // 仍在等待授权:更新下次可轮询时间;slow_down 时按 RFC 8628 把间隔 +5s。
             if let Ok(mut guard) = get_state().lock() {
-                if let Some(s) = guard.as_mut() {
-                    if s.login_id == snapshot.login_id {
-                        s.completed = true;
+                if let Some(live) = guard.as_mut() {
+                    if live.login_id == snapshot.login_id {
+                        if matches!(other, DevicePoll::SlowDown) {
+                            live.interval_seconds = live.interval_seconds.saturating_add(5);
+                        }
+                        live.next_poll_at = now + live.interval_seconds as i64;
                     }
                 }
             }
-            log_oauth_event(
-                &snapshot.provider_id,
-                Some(&snapshot.login_id),
-                "complete_success",
-                &format!("account_email={}", email.as_deref().unwrap_or("unknown")),
-            );
+            return Ok(pending_response());
+        }
+    };
 
-            Ok(OAuthCompleteResponse {
-                status: "success".to_string(),
-                error: None,
-                provider_id: snapshot.provider_id.clone(),
-                account_email: email,
-            })
+    let (_path, email) = match write_auth_file(&snapshot.provider_id, &token) {
+        Ok(result) => result,
+        Err(error) => {
+            return Ok(complete_error_response(
+                &snapshot.login_id,
+                &snapshot.provider_id,
+                "auth_file_write_failed",
+                error,
+            ));
+        }
+    };
+
+    if let Ok(mut guard) = get_state().lock() {
+        if let Some(s) = guard.as_mut() {
+            if s.login_id == snapshot.login_id {
+                s.completed = true;
+            }
         }
     }
+    log_oauth_event(
+        &snapshot.provider_id,
+        Some(&snapshot.login_id),
+        "complete_success",
+        &format!("account_email={}", email.as_deref().unwrap_or("unknown")),
+    );
+
+    Ok(OAuthCompleteResponse {
+        status: "success".to_string(),
+        error: None,
+        provider_id: snapshot.provider_id.clone(),
+        account_email: email,
+    })
 }
 
 pub fn cancel_oauth(login_id: Option<&str>) -> Result<(), String> {
@@ -1487,6 +1590,7 @@ mod tests {
             user_code: None,
             verification_uri: None,
             interval_seconds: 2,
+            next_poll_at: 0,
             expires_at: now_ts() + 60,
             error: None,
             completed: false,
@@ -1498,18 +1602,20 @@ mod tests {
     }
 
     #[test]
-    fn complete_auth_code_returns_error_status_when_token_exchange_fails() {
+    fn complete_auth_code_returns_pending_on_transient_transport_failure() {
+        // 连接被拒/断开属瞬时故障:授权 code 未被消费,应返回 pending 让前端在有效期内
+        // 继续轮询重试,而不是把会话钉死为永久 error(对齐 5xx/wsarecv 容错)。
         let pending = auth_code_pending_with_token_endpoint("http://127.0.0.1:9/oauth/token");
 
         let response = complete_auth_code(&pending)
-            .expect("OAuth completion should return an error status for UI diagnostics");
+            .expect("transient failure should not hard-error");
 
-        assert_eq!(response.status, "error");
+        assert_eq!(response.status, "pending");
         assert_eq!(response.provider_id, "codex");
-        let error = response.error.expect("error details should be visible to the UI");
         assert!(
-            error.contains("Token 交换请求失败"),
-            "unexpected error details: {error}"
+            response.error.is_none(),
+            "transient transport failure must not set a permanent error: {:?}",
+            response.error
         );
     }
 }

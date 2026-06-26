@@ -227,10 +227,9 @@ impl AppCore {
             self.settings.remote_management_key = None;
         }
         self.proxy.sync_settings(&self.settings);
-        // Keep config.yaml in sync with settings immediately (not only on proxy
-        // start) so changes persist into CLIProxyAPI's config + a running proxy
-        // can pick them up on its next reload.
-        let _ = self.proxy.write_config(&self.settings);
+        if let Err(err) = self.proxy.write_config(&self.settings) {
+            eprintln!("[save_settings] write_config failed: {err}");
+        }
         Ok(self.app_state())
     }
 
@@ -248,18 +247,25 @@ impl AppCore {
     /// bridge, and terminate an adopted/external proxy by its port, so closing
     /// the app doesn't leave the proxy API running in the background.
     pub fn shutdown(&mut self) {
-        // 关闭软件时默认还原 Codex 注入：杀掉启动的进程 + 从固定备份文件还原。
+        // 退出前先解除当前方案的绑定占用（依赖 codex_active_profile_id，须在清理前读取）：
+        // 否则 login-only 的 disabled=true 会持久化到磁盘、跨重启残留，账号下次开机仍被
+        // 排除出代理池，而此时并没有运行中的会话需要它被禁用。与 codex_stop 行为一致。
+        self.release_active_profile_binding();
         if let Some(session) = self.codex_session.take() {
             if let Some(pid) = session.pid {
                 codex_launch::kill_process(pid);
             }
             codex_launch::close_codex_app();
-            let _ = codex_launch::restore_codex_state_from_launch_backup();
+            if let Err(err) = codex_launch::restore_codex_state_from_launch_backup() {
+                eprintln!("[shutdown] restore codex state failed: {err}");
+            }
         } else if codex_launch::launch_backup_exists() {
             codex_launch::close_codex_app();
-            let _ = codex_launch::restore_codex_state_from_launch_backup();
+            if let Err(err) = codex_launch::restore_codex_state_from_launch_backup() {
+                eprintln!("[shutdown] restore codex state failed: {err}");
+            }
         }
-        // 退出时恢复被调度临时禁用的账号，别让池子带着 standby 状态过夜。
+        self.codex_active_profile_id = None;
         let _ = scheduler::release_all_in(&quotio_platform::proxy_auth_dir());
         self.proxy.shutdown(&self.settings);
     }
@@ -272,7 +278,9 @@ impl AppCore {
     }
 
     pub fn rewrite_proxy_config(&self) {
-        let _ = self.proxy.write_config(&self.settings);
+        if let Err(err) = self.proxy.write_config(&self.settings) {
+            eprintln!("[rewrite_proxy_config] write_config failed: {err}");
+        }
     }
 
     pub fn proxy_managed_binary_path(&self) -> PathBuf {
@@ -839,6 +847,11 @@ impl AppCore {
         // 绑定占用可能正好拿走了调度器当前选中的账号：立刻重选，
         // 避免「目标被绑定 + 其余都在待命」导致代理池空窗。
         let _ = self.scheduler_reconcile();
+
+        // 从 mark 之后到会话建立之间任何一步 `?` 失败,都必须回滚 login-only 占用,
+        // 否则绑定账号会卡在 disabled、被踢出代理池,而用户只看到「启动失败」。
+        // 用闭包收口所有早退,在下方 Err 分支统一回滚(放回账号 + 还原可能写出的备份)。
+        let launch_outcome = (|| -> Result<String, ManagementCoreError> {
         if !matches!(
             self.app_state().proxy.status,
             ProxyStatusKind::Running | ProxyStatusKind::Starting
@@ -931,6 +944,24 @@ impl AppCore {
                 None => "已启动 Codex 应用".to_string(),
             }
         })
+        })();
+
+        if launch_outcome.is_err() {
+            // 启动失败:把绑定账号放回代理池(直接按 account_key 解绑,此刻 codex_active_profile_id
+            // 还没设、release_active_profile_binding 会 no-op)+ 还原可能已写出的启动备份,
+            // 避免泄漏 login-only 占用让账号永久卡在禁用态。
+            if let Err(err) = codex_launch::release_bound_account_login_only(&account_key) {
+                eprintln!("[codex_start] 回滚释放绑定失败: {err}");
+            }
+            if codex_launch::launch_backup_exists() {
+                if let Err(err) = codex_launch::restore_codex_state_from_launch_backup() {
+                    eprintln!("[codex_start] 回滚还原备份失败: {err}");
+                }
+            }
+            // 账号已放回,重选调度目标别让池子空窗。
+            let _ = self.scheduler_reconcile();
+        }
+        launch_outcome
     }
 
     /// 停止 Codex：杀掉启动的进程 + 还原 auth.json/config.toml 到启动前。
@@ -948,11 +979,13 @@ impl AppCore {
         }
         codex_launch::close_codex_app();
         thread::sleep(Duration::from_millis(400));
-        codex_launch::restore_codex_state_from_launch_backup()
-            .map_err(ManagementCoreError::Unavailable)?;
-        // 停了就把绑定账号放回代理池（解除 login-only 占用）。
+        // 先解除绑定占用，再还原配置：release 依赖 codex_active_profile_id，必须在清空它之前；
+        // 且即使还原失败(Windows 上 Codex 残留进程仍持文件句柄等)也已把账号放回代理池，
+        // 不让它卡在 login-only 禁用态被踢出池子。次序对齐 codex_monitor_apply。
         self.release_active_profile_binding();
+        let restore = codex_launch::restore_codex_state_from_launch_backup();
         self.codex_active_profile_id = None;
+        restore.map_err(ManagementCoreError::Unavailable)?;
         Ok("已停止 Codex 并还原配置".to_string())
     }
 
@@ -1048,7 +1081,9 @@ impl AppCore {
         }
         self.codex_session = None;
         self.release_active_profile_binding();
-        let _ = codex_launch::restore_codex_state_from_launch_backup();
+        if let Err(err) = codex_launch::restore_codex_state_from_launch_backup() {
+            eprintln!("[codex_monitor] restore codex state failed: {err}");
+        }
         self.codex_active_profile_id = None;
         true
     }
@@ -1246,7 +1281,10 @@ fn save_api_keys(keys: &[String]) -> Result<(), String> {
         std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
     let body = serde_json::to_string_pretty(keys).map_err(|error| error.to_string())?;
-    std::fs::write(&path, body).map_err(|error| error.to_string())
+    std::fs::write(&path, body).map_err(|error| error.to_string())?;
+    // 明文客户端鉴权密钥的 source of truth:Unix 上收紧到 0600。
+    let _ = quotio_platform::set_sensitive_permissions(&path);
+    Ok(())
 }
 
 pub fn add_api_key(key: String) -> Result<Vec<String>, String> {
@@ -1308,7 +1346,9 @@ fn save_api_key_bindings(bindings: &[ApiKeyBinding]) -> Result<(), String> {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     let body = serde_json::to_string_pretty(bindings).map_err(|e| e.to_string())?;
-    std::fs::write(&path, body).map_err(|e| e.to_string())
+    std::fs::write(&path, body).map_err(|e| e.to_string())?;
+    let _ = quotio_platform::set_sensitive_permissions(&path);
+    Ok(())
 }
 
 pub fn set_api_key_binding(api_key: String, provider_id: String) -> Result<Vec<ApiKeyBinding>, String> {
@@ -3363,7 +3403,12 @@ impl ProxyLifecycle {
         // Per-key→pool gating: when api-keys are bound to pools, load the
         // quotio-key-router scheduler plugin so each key can only reach its pool.
         config.push_str(&key_router_plugins_yaml(&self.paths.proxy_dir));
-        fs::write(&self.paths.config_path, config)
+        fs::write(&self.paths.config_path, config)?;
+        // config.yaml 含管理密钥 + 全部客户端 api-key:Unix 上收紧到 0600,避免同机其它
+        // 用户读到。Windows 为 no-op(配置目录 ACL 默认仅本用户)。保持 fs::write 写语义
+        // 不变(代理在监听该文件,不用 remove+rename 的原子写以免在 Windows 撞读句柄)。
+        let _ = quotio_platform::set_sensitive_permissions(&self.paths.config_path);
+        Ok(())
     }
 }
 

@@ -801,7 +801,7 @@ fn truncate_text(value: &str, limit: usize) -> String {
     truncated
 }
 
-fn set_sensitive_permissions(path: &Path) -> io::Result<()> {
+pub fn set_sensitive_permissions(path: &Path) -> io::Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;

@@ -20,12 +20,9 @@ function App() {
     }
   };
 
-  // Keep the boot screen up for a brief minimum so the app-open animation is
-  // actually seen, even when state loads instantly. The window is revealed only
-  // once this screen has painted (see main.tsx), so there's still no white flash.
   const [bootDone, setBootDone] = useState(false);
   useEffect(() => {
-    const timer = window.setTimeout(() => setBootDone(true), 5000);
+    const timer = window.setTimeout(() => setBootDone(true), 1500);
     return () => window.clearTimeout(timer);
   }, []);
 

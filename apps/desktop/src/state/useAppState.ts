@@ -82,9 +82,12 @@ export function useAppState() {
   const [isQuotaBusy, setIsQuotaBusy] = useState(false);
   // Non-blocking floating toast during a user-triggered quota refresh: counts
   // accounts as they stream in. Null = hidden (incl. the silent background poll).
-  const [quotaToast, setQuotaToast] = useState<{ loaded: number } | null>(null);
+  const [quotaToast, setQuotaToast] = useState<{ loaded: number; current?: string } | null>(null);
   const lowQuotaNotified = useRef<Set<string>>(new Set());
   const proxyDraftSeeded = useRef(false);
+  // 防重入:手动刷新 + 5 分钟后台轮询可能并发,导致重复注册 quota-account 监听器、
+  // 每个事件被多次处理、toast 计数翻倍。同一时刻只允许一次配额刷新在跑。
+  const quotaRefreshInFlight = useRef(false);
   const isMenuBarView =
     window.location.hash.replace(/^#/, "") === "menubar" ||
     new URLSearchParams(window.location.search).get("view") === "menubar";
@@ -137,7 +140,7 @@ export function useAppState() {
     const interval = window.setInterval(() => {
       invoke<AppState>("refresh_management_state")
         .then(setAppState)
-        .catch(() => {});
+        .catch((err) => console.warn("[useAppState] refresh_management_state failed:", err));
     }, 5 * 60 * 1000);
     return () => window.clearInterval(interval);
   }, []);
@@ -173,6 +176,9 @@ export function useAppState() {
   }
 
   async function refreshQuotas(manual = false) {
+    // 已有刷新在跑就跳过本次,避免并发注册重复监听器/重复处理事件。
+    if (quotaRefreshInFlight.current) return;
+    quotaRefreshInFlight.current = true;
     setIsQuotaBusy(true);
     // Floating toast only for user-triggered refreshes; the background poll
     // passes no `manual`, so it stays silent.
@@ -198,7 +204,7 @@ export function useAppState() {
           for (const account of batch) quotas = upsertQuota(quotas, account);
           return { ...prev, quotas };
         });
-        setQuotaToast((toast) => (toast ? { loaded: toast.loaded + batch.length } : toast));
+        setQuotaToast((toast) => (toast ? { loaded: toast.loaded + batch.length, current: batch[batch.length - 1].account_label } : toast));
       };
       const tauriUnlisten = await listen<AccountQuota>("quota-account", (event) => {
         pending.push(event.payload);
@@ -221,6 +227,7 @@ export function useAppState() {
       unlisten?.();
       if (manual) setQuotaToast(null);
       setIsQuotaBusy(false);
+      quotaRefreshInFlight.current = false;
     }
   }
 

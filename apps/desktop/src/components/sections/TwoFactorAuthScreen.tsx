@@ -86,12 +86,24 @@ export function TwoFactorAuthScreen() {
   const [recognizingImage, setRecognizingImage] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(() => getMfaTimeRemaining());
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  // 跳过首挂载的回写:records/historyRecords 初值来自 load*(已去重/规范化),首挂载
+  // 就写回会用规范化结果静默覆盖磁盘上的原始数据;只在用户真正改动后才持久化。
+  const savedHydrated = useRef(false);
+  const historyHydrated = useRef(false);
 
   useEffect(() => {
+    if (!savedHydrated.current) {
+      savedHydrated.current = true;
+      return;
+    }
     localStorage.setItem(MFA_STORAGE_KEY_SAVED, JSON.stringify(records));
   }, [records]);
 
   useEffect(() => {
+    if (!historyHydrated.current) {
+      historyHydrated.current = true;
+      return;
+    }
     localStorage.setItem(MFA_STORAGE_KEY_HISTORY, JSON.stringify(historyRecords));
   }, [historyRecords]);
 

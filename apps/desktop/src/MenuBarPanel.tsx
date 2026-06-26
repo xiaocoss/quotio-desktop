@@ -3,9 +3,26 @@ import "./App.css";
 import { invoke } from "./lib/tauri";
 import { I18nProvider, resolveLocale, useT } from "./i18n";
 import { useAppState } from "./state/useAppState";
-import { quotaTone, parsePlan, planTier, matchAuthFile } from "./lib/format";
+import { quotaTone, parsePlan, planTier, matchAuthFile, parseResetCredits } from "./lib/format";
 import { HealthDots } from "./components/HealthDots";
 import type { AccountQuota, AuthFile } from "./types";
+
+function accountOverallRemaining(account: AccountQuota): number | null {
+  if (account.models.length === 0) return null;
+  return Math.round(
+    account.models.reduce((sum, m) => sum + m.remaining_percent, 0) / account.models.length,
+  );
+}
+
+function formatResetCountdown(resetAtUnix: number): string | null {
+  const secs = resetAtUnix - Math.floor(Date.now() / 1000);
+  if (secs <= 0) return null;
+  const hours = Math.floor(secs / 3600);
+  const mins = Math.floor((secs % 3600) / 60);
+  if (hours >= 24) return `${Math.floor(hours / 24)}天后重置`;
+  if (hours > 0) return `${hours}小时${mins > 0 ? mins + "分" : ""}后重置`;
+  return `${mins}分钟后重置`;
+}
 
 const PROVIDER_LABELS: Record<string, string> = {
   codex: "Codex",
@@ -133,7 +150,7 @@ function MenuBarBody({ app }: { app: ReturnType<typeof useAppState> }) {
     const listHeight =
       accounts.length === 0
         ? 56
-        : visibleAccounts.reduce((sum, acc) => sum + 22 + acc.models.length * 28, 0) +
+        : visibleAccounts.reduce((sum, acc) => sum + 22 + 18 + acc.models.length * 28, 0) +
           Math.max(0, visibleAccounts.length - 1) * 10;
     const moreHeight = hiddenCount > 0 ? 38 : 0;
     const desired = Math.max(200, 38 + tabsHeight + 16 + listHeight + moreHeight + 116);
@@ -226,22 +243,61 @@ function MenuBarBody({ app }: { app: ReturnType<typeof useAppState> }) {
 }
 
 function MenuBarAccount({ account, authFiles }: { account: AccountQuota; authFiles: AuthFile[] }) {
-  const plan = parsePlan(account.status_message);
+  const statusMessage = account.status_message ?? "";
+  const plan = parsePlan(statusMessage);
   const tier = plan ? planTier(plan) : null;
-  const recent = matchAuthFile(account, authFiles)?.recent_requests ?? [];
+  const expiry = statusMessage.match(/until:\s*([^|]+)/i)?.[1]?.trim();
+  const isCodex = account.provider_id === "codex";
+  const resetCredits = isCodex ? parseResetCredits(statusMessage) : null;
+  const authFailed = statusMessage === "auth_failed";
+  const weeklyUsedUp =
+    !account.is_forbidden && account.models.some((m) => /weekly/i.test(m.model) && m.remaining_percent <= 0);
+  const file = matchAuthFile(account, authFiles);
+  const recent = file?.recent_requests ?? [];
+  const successCount = file?.success ?? 0;
+  const failedCount = file?.failed ?? 0;
+  const overall = accountOverallRemaining(account);
+  const nearestReset = account.models
+    .filter((m) => m.reset_at_unix)
+    .sort((a, b) => (a.reset_at_unix ?? 0) - (b.reset_at_unix ?? 0))[0];
+  const countdown = nearestReset?.reset_at_unix ? formatResetCountdown(nearestReset.reset_at_unix) : null;
+
   return (
     <div className="menubar-account">
       <div className="menubar-account-head">
         <span className="menubar-account-name">{account.account_label}</span>
+        {overall != null ? (
+          <span className={`menubar-overall menubar-overall--${quotaTone(overall)}`}>{overall}%</span>
+        ) : null}
         {plan ? <span className={`menubar-plan-pill menubar-plan-pill--${tier}`}>{plan.toUpperCase()}</span> : null}
-        {account.is_forbidden ? <span className="menubar-pill menubar-pill--warn">!</span> : null}
       </div>
+
+      <div className="menubar-account-meta">
+        {account.is_forbidden ? <span className="menubar-tag menubar-tag--bad">已禁用</span> : null}
+        {authFailed ? <span className="menubar-tag menubar-tag--bad">需重新授权</span> : null}
+        {weeklyUsedUp ? <span className="menubar-tag menubar-tag--warn">本周已用尽</span> : null}
+        {account.warming_up ? <span className="menubar-tag menubar-tag--warn">预热中</span> : null}
+        {account.in_use ? <span className="menubar-tag menubar-tag--blue">使用中</span> : null}
+        {file?.quotio_scheduler_standby && file?.disabled ? (
+          <span className="menubar-tag menubar-tag--blue">调度待命</span>
+        ) : null}
+        {resetCredits != null ? <span className="menubar-tag">重置×{resetCredits}</span> : null}
+        {expiry ? <span className="menubar-meta-text">到期 {expiry}</span> : null}
+        {countdown ? <span className="menubar-meta-text">{countdown}</span> : null}
+        {(successCount > 0 || failedCount > 0) ? (
+          <span className="menubar-meta-text">
+            ✓{successCount}{failedCount > 0 ? <span className="menubar-fail"> ✗{failedCount}</span> : null}
+          </span>
+        ) : null}
+      </div>
+
       {account.models.map((model) => {
         const remaining = Math.max(0, Math.min(100, model.remaining_percent));
         return (
           <div className="menubar-model" key={model.model}>
             <div className="menubar-model-top">
               <span className="menubar-model-name">{model.model}</span>
+              {model.reset_at ? <span className="menubar-model-reset">{model.reset_at}</span> : null}
               <span className="menubar-model-pct">{Math.round(remaining)}%</span>
             </div>
             <div className="menubar-bar">

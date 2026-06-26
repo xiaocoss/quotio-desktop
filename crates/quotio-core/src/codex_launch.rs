@@ -308,7 +308,9 @@ pub(crate) fn read_proxy_account_from(path: &Path) -> Result<Value, String> {
 pub(crate) fn write_proxy_account_to(path: &Path, value: &Value) -> Result<(), String> {
     let text =
         serde_json::to_string_pretty(value).map_err(|e| format!("序列化账号文件失败: {e}"))?;
-    std::fs::write(path, text).map_err(|e| format!("写入账号文件失败 {}: {e}", path.display()))
+    std::fs::write(path, text).map_err(|e| format!("写入账号文件失败 {}: {e}", path.display()))?;
+    let _ = quotio_platform::set_sensitive_permissions(path);
+    Ok(())
 }
 
 /// 切换 Codex 绑定账号：释放旧绑定账号，锁定新绑定账号。
@@ -419,6 +421,8 @@ pub fn inject_bound_account(key: &str) -> Result<(), String> {
     let text =
         serde_json::to_string_pretty(&auth).map_err(|e| format!("序列化 auth.json 失败: {e}"))?;
     std::fs::write(&auth_path, text).map_err(|e| format!("写入 auth.json 失败: {e}"))?;
+    // ~/.codex/auth.json 含注入账号的 token:Unix 上收紧到 0600(Windows no-op)。
+    let _ = quotio_platform::set_sensitive_permissions(&auth_path);
     Ok(())
 }
 

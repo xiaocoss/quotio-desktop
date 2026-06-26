@@ -59,6 +59,12 @@ export function DashboardScreen({ appState }: DashboardScreenProps) {
           onReset={dash.resetFilters}
         />
 
+        {dash.error ? (
+          <div className="apikey-router-warning" role="alert">
+            ⚠ {t("dash.loadFailed", "加载用量数据失败")}:{dash.error}
+          </div>
+        ) : null}
+
         <UsageKpiGrid stats={dash.stats} />
 
         <UsageChartsPanel

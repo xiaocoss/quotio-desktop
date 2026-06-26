@@ -38,7 +38,7 @@ export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSett
   const authFiles = appState.management.auth_files ?? appState.auth_files ?? [];
   const [customProviders, setCustomProviders] = useState<CustomProviderBrief[]>([]);
   useEffect(() => {
-    void invoke<CustomProviderBrief[]>("list_custom_providers").then(setCustomProviders).catch(() => {});
+    void invoke<CustomProviderBrief[]>("list_custom_providers").then(setCustomProviders).catch((err) => console.warn("[QuotaScreen] list_custom_providers failed:", err));
   }, []);
 
   const [activeId, setActiveId] = useState<string | null>(null);

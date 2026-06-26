@@ -157,12 +157,11 @@ export function AgentsScreen({
   const [pendingStart, setPendingStart] = useState<{ profile: CodexLaunchProfile; warnings: string[] } | null>(null);
 
   useEffect(() => {
-    invoke<CodexAccountRef[]>("list_codex_launch_accounts").then(setCodexAccounts).catch(() => {});
+    invoke<CodexAccountRef[]>("list_codex_launch_accounts").then(setCodexAccounts).catch((err) => console.warn("[AgentsScreen] list_codex_launch_accounts:", err));
     invoke<string | null>("codex_active_profile")
       .then((id) => setActiveProfileId(id ?? null))
-      .catch(() => {});
-    // 从运行中的代理拉真实的 codex 模型（拉不到就用内置回退列表）。
-    invoke<string[]>("fetch_codex_models").then(setProxyModels).catch(() => {});
+      .catch((err) => console.warn("[AgentsScreen] codex_active_profile:", err));
+    invoke<string[]>("fetch_codex_models").then(setProxyModels).catch((err) => console.warn("[AgentsScreen] fetch_codex_models:", err));
     // 后台监控发现用户自己退出了 Codex（没点「停止」）：状态回落，配置已自动还原。
     if (!("__TAURI_INTERNALS__" in window)) return;
     let unlisten: (() => void) | undefined;
@@ -194,14 +193,13 @@ export function AgentsScreen({
     if (!trimmed) return "";
     return trimmed.length <= 4 ? "••••" : `••••${trimmed.slice(-4)}`;
   };
-  // 启动前的密钥检查:Codex 请求要走 Codex 账号池,所填密钥必须绑定到 codex 服务商。
-  // 绑到「全部服务商」(未绑定)或别的服务商,启动后很可能被路由到非 Codex 账号而报错。
-  // 留空(=自动取代理首个 key)前端判断不了,跳过。
+  const BUILTIN_PROVIDERS = new Set(["codex", "claude", "copilot", "antigravity", "kiro", "glm", "trae"]);
   const codexKeyIssue = (profile: CodexLaunchProfile): string | null => {
     const key = profile.api_key.trim();
     if (!key) return null;
     const bound = (appState.api_key_bindings ?? []).find((binding) => binding.api_key === key)?.provider_id ?? "";
     if (bound === "codex") return null;
+    if (bound && !BUILTIN_PROVIDERS.has(bound)) return null;
     const current = bound ? `其它服务商(${bound})` : "全部服务商";
     return `这个方案的 API 密钥没绑定到 Codex(当前:${current})——Codex 请求可能被路由到别的服务商而报错。建议先去「API 密钥」页把它绑到「Codex (OpenAI)」。`;
   };

@@ -8,13 +8,14 @@ type UpdateDialogProps = {
   percent: number;
   error: string | null;
   onInstall: () => void;
+  onRetry: () => void;
   onDismiss: () => void;
 };
 
 // Modal shown by the auto-updater. Reuses the close-dialog styling for a
 // consistent centered card. Nothing renders for idle/checking (the startup
 // check is silent until it finds something).
-export function UpdateDialog({ status, version, notes, percent, error, onInstall, onDismiss }: UpdateDialogProps) {
+export function UpdateDialog({ status, version, notes, percent, error, onInstall, onRetry, onDismiss }: UpdateDialogProps) {
   const t = useT();
   if (status === "idle" || status === "checking") return null;
 
@@ -68,11 +69,16 @@ export function UpdateDialog({ status, version, notes, percent, error, onInstall
 
         {status === "error" ? (
           <>
-            <strong className="close-dialog-title">{t("update.failed", "检查更新失败")}</strong>
+            <strong className="close-dialog-title">
+              {version ? t("update.installFailed", "更新安装失败") : t("update.failed", "检查更新失败")}
+            </strong>
             <p className="close-dialog-desc">{error}</p>
             <div className="close-dialog-actions">
               <button type="button" className="ghost-action" onClick={onDismiss}>
                 {t("common.close", "关闭")}
+              </button>
+              <button type="button" className="secondary-action" onClick={onRetry}>
+                {t("common.retry", "重试")}
               </button>
             </div>
           </>

@@ -230,7 +230,7 @@ export function ProvidersScreen({
   const [localAccounts, setLocalAccounts] = useState<AuthFile[]>([]);
   useEffect(() => {
     if (!("__TAURI_INTERNALS__" in window)) return;
-    void invoke<AuthFile[]>("list_local_accounts").then(setLocalAccounts).catch(() => {});
+    void invoke<AuthFile[]>("list_local_accounts").then(setLocalAccounts).catch((err) => console.warn("[ProvidersScreen] list_local_accounts:", err));
   }, [appState.management.auth_files]);
   const authFiles = useMemo(() => {
     if (proxyAuthFiles.length === 0) return localAccounts;
@@ -271,7 +271,7 @@ export function ProvidersScreen({
         for (const item of list) map.set(item.account.trim().toLowerCase(), item);
         setAuthHealth(map);
       })
-      .catch(() => {});
+      .catch((err) => console.warn("[ProvidersScreen] query_account_auth_health:", err));
   }, [appState.management.auth_files, appState.quotas]);
   const oauthProviders = appState.providers.filter((provider) => provider.native_oauth || provider.oauth_endpoint || provider.supports_manual_auth);
 
@@ -284,7 +284,7 @@ export function ProvidersScreen({
   const [customFormError, setCustomFormError] = useState<string | null>(null);
   const [customProviders, setCustomProviders] = useState<CustomProvider[]>([]);
   useEffect(() => {
-    void invoke<CustomProvider[]>("list_custom_providers").then(setCustomProviders).catch(() => {});
+    void invoke<CustomProvider[]>("list_custom_providers").then(setCustomProviders).catch((err) => console.warn("[ProvidersScreen] list_custom_providers:", err));
   }, []);
 
   function reauthAccount(account: AuthFile) {

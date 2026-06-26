@@ -29,15 +29,13 @@ export function ApiKeysScreen({ appState, isManagementBusy, onRunManagementState
   useEffect(() => {
     void invoke<{ id: string; name: string }[]>("list_custom_providers")
       .then((list) => setCustomProviders(list.map((p) => ({ id: p.id, name: p.name }))))
-      .catch(() => {});
+      .catch((err) => console.warn("[ApiKeysScreen] list_custom_providers:", err));
   }, []);
   const allProviders: CustomProviderOption[] = [...builtinProviders, ...customProviders];
 
-  // key-router 插件是否就位:没有它,下面给密钥「绑定服务商」不会生成路由配置、不生效——
-  // 代理仍全局轮询命中所有可用池(请求可能落到你没想绑的服务商)。据此做防呆警告。
   const [keyRouterAvailable, setKeyRouterAvailable] = useState<boolean | null>(null);
   useEffect(() => {
-    void invoke<boolean>("key_router_available").then(setKeyRouterAvailable).catch(() => {});
+    void invoke<boolean>("key_router_available").then(setKeyRouterAvailable).catch((err) => console.warn("[ApiKeysScreen] key_router_available:", err));
   }, []);
   const hasBoundKeys = bindings.some((b) => Boolean(b.provider_id));
 

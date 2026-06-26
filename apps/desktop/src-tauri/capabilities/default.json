@@ -22,6 +22,6 @@
     "fs:default",
     "notification:default",
     "updater:default",
-    "process:default"
+    "process:allow-restart"
   ]
 }

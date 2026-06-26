@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use quotio_core::{management::ManagementApiClient, AppCore};
 use quotio_types::{
@@ -11,13 +11,28 @@ use quotio_types::{
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, State,
+    utils::config::WindowEffectsConfig,
+    window::Effect,
+    AppHandle, Emitter, Manager, State, WindowEvent,
 };
 use tauri_plugin_autostart::ManagerExt;
 
 struct DesktopState {
     core: Arc<Mutex<AppCore>>,
     tunnel: Mutex<TunnelRuntime>,
+}
+
+/// 取 core 锁,毒化时恢复并清除毒化标记。
+/// std `Mutex` 默认在某个持锁线程 panic 后被「毒化」,之后每次 `lock()` 都返回 Err——
+/// 若命令面直接把它当错误返回,一次 panic 就会让所有 IPC 命令永久失败、整个 UI 砖化。
+/// 这里统一用 `into_inner()` 拿回数据继续用,并 `clear_poison()` 让后续 `lock()`(含后台
+/// collector 的 best-effort `.ok()`)恢复正常,避免毒化长期残留。
+fn lock_core(core: &Mutex<AppCore>) -> MutexGuard<'_, AppCore> {
+    core.lock().unwrap_or_else(|poisoned| {
+        eprintln!("[lib] core mutex poisoned — 已恢复并清除毒化标记");
+        core.clear_poison();
+        poisoned.into_inner()
+    })
 }
 
 #[derive(Default)]
@@ -49,10 +64,7 @@ async fn get_app_state(state: State<'_, DesktopState>) -> Result<AppState, Strin
 
 #[tauri::command]
 fn get_platform_info(state: State<'_, DesktopState>) -> Result<PlatformInfo, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取平台信息".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.platform_info())
 }
 
@@ -62,7 +74,7 @@ fn save_settings(
     settings: AppSettings,
     state: State<'_, DesktopState>,
 ) -> Result<AppState, String> {
-    let mut core = state.core.lock().map_err(|_| "无法保存设置".to_string())?;
+    let mut core = lock_core(&state.core);
     let result = core
         .save_settings(settings)
         .map_err(|error| error.to_string())?;
@@ -79,20 +91,14 @@ fn update_fallback_configuration(
     action: FallbackConfigAction,
     state: State<'_, DesktopState>,
 ) -> Result<AppState, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法更新 fallback 配置".to_string())?;
+    let mut core = lock_core(&state.core);
     core.update_fallback_configuration(action)
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 fn detect_agents(state: State<'_, DesktopState>) -> Result<AppState, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法检测 CLI agents".to_string())?;
+    let mut core = lock_core(&state.core);
     Ok(core.detect_agents())
 }
 
@@ -101,10 +107,7 @@ fn read_agent_configuration(
     agent_id: String,
     state: State<'_, DesktopState>,
 ) -> Result<SavedAgentConfiguration, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取 agent 配置".to_string())?;
+    let core = lock_core(&state.core);
     core.read_agent_configuration(&agent_id)
         .map_err(|error| error.to_string())
 }
@@ -114,10 +117,7 @@ fn configure_agent(
     request: AgentConfigurationRequest,
     state: State<'_, DesktopState>,
 ) -> Result<AgentConfigurationResult, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法配置 agent".to_string())?;
+    let mut core = lock_core(&state.core);
     core.configure_agent_with_result(request)
         .map_err(|error| error.to_string())
 }
@@ -163,20 +163,14 @@ async fn codex_stop(state: State<'_, DesktopState>) -> Result<String, String> {
 /// 当前 Codex 一键启动会话是否在运行。
 #[tauri::command]
 fn codex_launch_active(state: State<'_, DesktopState>) -> Result<bool, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取 Codex 状态".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.codex_active())
 }
 
 /// 当前在跑的启动方案 id（前端据此高亮「运行中」那套；无则 null）。
 #[tauri::command]
 fn codex_active_profile(state: State<'_, DesktopState>) -> Result<Option<String>, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取 Codex 状态".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.active_codex_profile_id())
 }
 
@@ -206,10 +200,7 @@ async fn codex_repair_session_visibility() -> Result<String, String> {
 #[tauri::command]
 fn fetch_codex_models(state: State<'_, DesktopState>) -> Result<Vec<String>, String> {
     let (endpoint, api_key) = {
-        let core = state
-            .core
-            .lock()
-            .map_err(|_| "无法读取 Codex 模型".to_string())?;
+        let core = lock_core(&state.core);
         core.codex_model_fetch_params()
     };
     Ok(quotio_core::codex_launch::fetch_proxy_codex_models(
@@ -222,10 +213,7 @@ fn list_agent_backups(
     agent_id: String,
     state: State<'_, DesktopState>,
 ) -> Result<Vec<AgentBackupFile>, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取 agent 备份".to_string())?;
+    let core = lock_core(&state.core);
     core.list_agent_backups(&agent_id)
         .map_err(|error| error.to_string())
 }
@@ -236,10 +224,7 @@ fn restore_agent_backup(
     backup_path: String,
     state: State<'_, DesktopState>,
 ) -> Result<AgentConfigurationResult, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法恢复 agent 备份".to_string())?;
+    let mut core = lock_core(&state.core);
     core.restore_agent_backup(&agent_id, &backup_path)
         .map_err(|error| error.to_string())
 }
@@ -249,10 +234,7 @@ fn reset_agent_configuration(
     agent_id: String,
     state: State<'_, DesktopState>,
 ) -> Result<AgentConfigurationResult, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法重置 agent 配置".to_string())?;
+    let mut core = lock_core(&state.core);
     core.reset_agent_configuration(&agent_id)
         .map_err(|error| error.to_string())
 }
@@ -261,7 +243,7 @@ fn reset_agent_configuration(
 fn discover_available_models(
     state: State<'_, DesktopState>,
 ) -> Result<Vec<AvailableModel>, String> {
-    let mut core = state.core.lock().map_err(|_| "无法发现模型".to_string())?;
+    let mut core = lock_core(&state.core);
     Ok(core
         .discover_available_models()
         .fallback_runtime
@@ -270,38 +252,26 @@ fn discover_available_models(
 
 #[tauri::command]
 fn refresh_fallback_route_state(state: State<'_, DesktopState>) -> Result<AppState, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法刷新 fallback route state".to_string())?;
+    let mut core = lock_core(&state.core);
     Ok(core.refresh_fallback_route_state())
 }
 
 #[tauri::command]
 fn credential_status(state: State<'_, DesktopState>) -> Result<CredentialStatus, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取凭据状态".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.credential_status())
 }
 
 #[tauri::command]
 fn clear_remote_management_key(state: State<'_, DesktopState>) -> Result<AppState, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法清理远程管理密钥".to_string())?;
+    let mut core = lock_core(&state.core);
     core.clear_remote_management_key()
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 fn open_config_root(state: State<'_, DesktopState>) -> Result<(), String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法打开配置目录".to_string())?;
+    let core = lock_core(&state.core);
     core.open_config_root().map_err(|error| error.to_string())
 }
 
@@ -311,7 +281,7 @@ fn open_logs_dir() -> Result<(), String> {
 }
 
 #[tauri::command]
-fn set_launch_at_login(
+async fn set_launch_at_login(
     enabled: bool,
     app: AppHandle,
     state: State<'_, DesktopState>,
@@ -325,15 +295,19 @@ fn set_launch_at_login(
             .disable()
             .map_err(|error| error.to_string())?;
     }
+    let resolved = app.autolaunch().is_enabled().unwrap_or(enabled);
 
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法保存开机自启状态".to_string())?;
-    let mut settings = core.app_state().settings;
-    settings.launch_at_login = app.autolaunch().is_enabled().unwrap_or(enabled);
-    core.save_settings(settings)
-        .map_err(|error| error.to_string())
+    // app_state()/save_settings 内含同步健康探测(对不可达端点最坏阻塞数秒)。放到
+    // spawn_blocking,别在 Tauri 主线程上跑、冻住 UI(与 start/stop_proxy 一致)。
+    let core = Arc::clone(&state.core);
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut core = lock_core(&core);
+        let mut settings = core.app_state().settings;
+        settings.launch_at_login = resolved;
+        core.save_settings(settings).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| format!("保存自启状态任务异常：{}", error))?
 }
 
 #[tauri::command]
@@ -377,10 +351,7 @@ async fn stop_proxy(app: AppHandle, state: State<'_, DesktopState>) -> Result<Ap
 
 #[tauri::command]
 fn restart_proxy(state: State<'_, DesktopState>) -> Result<AppState, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法重启代理核心".to_string())?;
+    let mut core = lock_core(&state.core);
     core.restart_proxy().map_err(|error| error.to_string())
 }
 
@@ -393,10 +364,7 @@ async fn download_proxy_binary(
     // the (slow, blocking) network download never holds the core mutex or the
     // main thread — keeping the UI fully responsive.
     let (dest, proxy_url) = {
-        let core = state
-            .core
-            .lock()
-            .map_err(|_| "无法访问代理核心".to_string())?;
+        let core = lock_core(&state.core);
         (core.proxy_managed_binary_path(), core.proxy_upstream_url())
     };
 
@@ -418,10 +386,7 @@ async fn download_proxy_binary(
     .map_err(|error| format!("下载任务异常：{}", error))??;
 
     let _ = app.emit("proxy-download-progress", 100u8);
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法访问代理核心".to_string())?;
+    let mut core = lock_core(&state.core);
     Ok(core.finalize_proxy_download(tag))
 }
 
@@ -454,10 +419,7 @@ async fn download_cloudflared(
     state: State<'_, DesktopState>,
 ) -> Result<TunnelStatus, String> {
     let (dest, proxy_url) = {
-        let core = state
-            .core
-            .lock()
-            .map_err(|_| "无法访问代理核心".to_string())?;
+        let core = lock_core(&state.core);
         (core.cloudflared_binary_path(), core.proxy_upstream_url())
     };
     let progress_app = app.clone();
@@ -483,10 +445,7 @@ async fn download_cloudflared(
 #[tauri::command]
 fn start_tunnel(app: AppHandle, state: State<'_, DesktopState>) -> Result<TunnelStatus, String> {
     let (binary, port) = {
-        let core = state
-            .core
-            .lock()
-            .map_err(|_| "无法访问代理核心".to_string())?;
+        let core = lock_core(&state.core);
         (core.cloudflared_binary_path(), core.proxy_port())
     };
     if !binary.exists() {
@@ -617,7 +576,7 @@ fn quit_app(app: AppHandle) {
 #[tauri::command]
 fn show_menubar(app: AppHandle) {
     if let Some(panel) = app.get_webview_window("menubar") {
-        position_menubar(&panel);
+        position_menubar(&panel, None);
     }
 }
 
@@ -640,12 +599,15 @@ fn set_autostart(app: AppHandle, enabled: bool) -> Result<bool, String> {
 }
 
 #[tauri::command]
-fn check_proxy_health(state: State<'_, DesktopState>) -> Result<AppState, String> {
-    let mut core = state
-        .core
-        .lock()
-        .map_err(|_| "无法检查代理健康状态".to_string())?;
-    Ok(core.check_proxy_health())
+async fn check_proxy_health(state: State<'_, DesktopState>) -> Result<AppState, String> {
+    // 健康检查本就做同步网络探测(最坏阻塞数秒):放到 spawn_blocking,别冻 UI。
+    let core = Arc::clone(&state.core);
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut core = lock_core(&core);
+        core.check_proxy_health()
+    })
+    .await
+    .map_err(|error| format!("健康检查任务异常：{}", error))
 }
 
 #[tauri::command]
@@ -668,20 +630,20 @@ async fn drain_request_logs(state: State<'_, DesktopState>) -> Result<AppState, 
     // collector — both write to the same deduplicated store. No-op when
     // management isn't reachable.
     let Ok(client) = management_client(&state, "") else {
-        let mut core = state.core.lock().map_err(|_| "无法读取状态".to_string())?;
+        let mut core = lock_core(&state.core);
         return Ok(core.app_state());
     };
     let _ = client.set_usage_statistics_enabled(true).await;
     let events = client.fetch_usage_events(2000).await.unwrap_or_default();
     let store = {
-        let core = state.core.lock().map_err(|_| "无法读取状态".to_string())?;
+        let core = lock_core(&state.core);
         core.usage_store()
     };
     if !events.is_empty() {
         store.insert_events(&events);
         quotio_core::append_request_errors(&events);
     }
-    let mut core = state.core.lock().map_err(|_| "无法读取状态".to_string())?;
+    let mut core = lock_core(&state.core);
     Ok(core.app_state())
 }
 
@@ -690,10 +652,7 @@ fn query_usage_stats(
     query: UsageQuery,
     state: State<'_, DesktopState>,
 ) -> Result<UsageAggregate, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取用量统计".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.query_usage_stats(&query))
 }
 
@@ -702,10 +661,7 @@ fn query_account_summary(
     query: UsageQuery,
     state: State<'_, DesktopState>,
 ) -> Result<Vec<AccountSummaryRow>, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取账号汇总".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.query_account_summary(&query))
 }
 
@@ -715,10 +671,7 @@ fn query_usage_timeseries(
     bucket: UsageChartBucket,
     state: State<'_, DesktopState>,
 ) -> Result<Vec<UsageTimeSeriesPoint>, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取用量趋势".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.query_usage_timeseries(&query, bucket))
 }
 
@@ -728,19 +681,13 @@ fn query_usage_model_breakdown(
     limit: Option<usize>,
     state: State<'_, DesktopState>,
 ) -> Result<Vec<UsageModelBreakdownRow>, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取模型排行".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.query_usage_model_breakdown(&query, limit.unwrap_or(10)))
 }
 
 #[tauri::command]
 fn list_usage_filter_options(state: State<'_, DesktopState>) -> Result<UsageFilterOptions, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取筛选项".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.usage_filter_options())
 }
 
@@ -748,19 +695,13 @@ fn list_usage_filter_options(state: State<'_, DesktopState>) -> Result<UsageFilt
 fn query_account_auth_health(
     state: State<'_, DesktopState>,
 ) -> Result<Vec<AccountAuthHealth>, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取账号健康".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.account_auth_health())
 }
 
 #[tauri::command]
 fn get_model_prices(state: State<'_, DesktopState>) -> Result<Vec<ModelPrice>, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法读取模型单价".to_string())?;
+    let core = lock_core(&state.core);
     Ok(core.model_prices())
 }
 
@@ -769,10 +710,7 @@ fn set_model_prices(
     prices: Vec<ModelPrice>,
     state: State<'_, DesktopState>,
 ) -> Result<Vec<ModelPrice>, String> {
-    let core = state
-        .core
-        .lock()
-        .map_err(|_| "无法保存模型单价".to_string())?;
+    let core = lock_core(&state.core);
     core.set_model_prices(&prices);
     Ok(core.model_prices())
 }
@@ -796,7 +734,7 @@ fn import_auth_file(
     content: String,
     state: State<'_, DesktopState>,
 ) -> Result<AppState, String> {
-    let mut core = state.core.lock().map_err(|_| "无法导入账号".to_string())?;
+    let mut core = lock_core(&state.core);
     core.import_auth_file(&filename, &content)
 }
 
@@ -830,7 +768,7 @@ fn add_custom_provider(
     state: State<'_, DesktopState>,
 ) -> Result<Vec<quotio_core::CustomProvider>, String> {
     let result = quotio_core::add_custom_provider(name, base_url, api_key, kind, prefix, models, proxy_mode)?;
-    let core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
+    let core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(result)
 }
@@ -838,7 +776,7 @@ fn add_custom_provider(
 #[tauri::command]
 fn delete_custom_provider(id: String, state: State<'_, DesktopState>) -> Result<Vec<quotio_core::CustomProvider>, String> {
     let result = quotio_core::delete_custom_provider(&id)?;
-    let core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
+    let core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(result)
 }
@@ -856,7 +794,7 @@ fn update_custom_provider(
     state: State<'_, DesktopState>,
 ) -> Result<Vec<quotio_core::CustomProvider>, String> {
     let result = quotio_core::update_custom_provider(id, name, base_url, api_key, kind, prefix, models, proxy_mode)?;
-    let core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
+    let core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(result)
 }
@@ -869,7 +807,7 @@ fn add_provider_key(
     state: State<'_, DesktopState>,
 ) -> Result<Vec<quotio_core::CustomProvider>, String> {
     let result = quotio_core::add_provider_key(&provider_id, label, api_key)?;
-    let core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
+    let core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(result)
 }
@@ -881,7 +819,7 @@ fn remove_provider_key(
     state: State<'_, DesktopState>,
 ) -> Result<Vec<quotio_core::CustomProvider>, String> {
     let result = quotio_core::remove_provider_key(&provider_id, &key_id)?;
-    let core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
+    let core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(result)
 }
@@ -893,7 +831,7 @@ fn toggle_provider_key(
     state: State<'_, DesktopState>,
 ) -> Result<Vec<quotio_core::CustomProvider>, String> {
     let result = quotio_core::toggle_provider_key(&provider_id, &key_id)?;
-    let core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
+    let core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(result)
 }
@@ -915,37 +853,52 @@ fn set_api_key_binding(
     state: State<'_, DesktopState>,
 ) -> Result<Vec<quotio_types::ApiKeyBinding>, String> {
     let result = quotio_core::set_api_key_binding(api_key, provider_id)?;
-    let core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
+    let core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(result)
 }
 
 #[tauri::command]
-fn add_api_key(key: String, state: State<'_, DesktopState>) -> Result<AppState, String> {
+async fn add_api_key(key: String, state: State<'_, DesktopState>) -> Result<AppState, String> {
     quotio_core::add_api_key(key)?;
-    let mut core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
-    core.rewrite_proxy_config();
-    Ok(core.app_state())
+    let core = Arc::clone(&state.core);
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut core = lock_core(&core);
+        core.rewrite_proxy_config();
+        core.app_state()
+    })
+    .await
+    .map_err(|error| format!("新增密钥任务异常：{}", error))
 }
 
 #[tauri::command]
-fn remove_api_key(key: String, state: State<'_, DesktopState>) -> Result<AppState, String> {
+async fn remove_api_key(key: String, state: State<'_, DesktopState>) -> Result<AppState, String> {
     quotio_core::remove_api_key(&key)?;
-    let mut core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
-    core.rewrite_proxy_config();
-    Ok(core.app_state())
+    let core = Arc::clone(&state.core);
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut core = lock_core(&core);
+        core.rewrite_proxy_config();
+        core.app_state()
+    })
+    .await
+    .map_err(|error| format!("删除密钥任务异常：{}", error))
 }
 
 #[tauri::command]
-fn update_api_key(
+async fn update_api_key(
     key: String,
     replacement: String,
     state: State<'_, DesktopState>,
 ) -> Result<AppState, String> {
     quotio_core::update_api_key(&key, replacement)?;
-    let mut core = state.core.lock().map_err(|_| "无法访问核心".to_string())?;
-    core.rewrite_proxy_config();
-    Ok(core.app_state())
+    let core = Arc::clone(&state.core);
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut core = lock_core(&core);
+        core.rewrite_proxy_config();
+        core.app_state()
+    })
+    .await
+    .map_err(|error| format!("替换密钥任务异常：{}", error))
 }
 
 #[tauri::command]
@@ -959,10 +912,7 @@ async fn refresh_quotas(
     // the macOS reference app), so accounts no longer vanish when the endpoints
     // are unreachable directly.
     let proxy_url = {
-        let core = state
-            .core
-            .lock()
-            .map_err(|_| "无法访问代理核心".to_string())?;
+        let core = lock_core(&state.core);
         // Clean up duplicate same-account files before listing (re-import / re-login
         // can leave two files = two cards); keeps the bound / newest one.
         core.dedup_codex_auth();
@@ -1006,7 +956,7 @@ async fn refresh_quotas(
         let _ = tray.set_tooltip(Some(tooltip.as_str()));
     }
 
-    let mut core = state.core.lock().map_err(|_| "无法刷新额度".to_string())?;
+    let mut core = lock_core(&state.core);
     core.store_quotas(quotas);
     // 配额刷新后跑一轮智能调度（规则关闭时它负责把 standby 账号放回池子）。
     if core.scheduler_reconcile() {
@@ -1024,10 +974,7 @@ async fn consume_codex_reset_credit(
     state: State<'_, DesktopState>,
 ) -> Result<(), String> {
     let proxy_url = {
-        let core = state
-            .core
-            .lock()
-            .map_err(|_| "无法访问代理核心".to_string())?;
+        let core = lock_core(&state.core);
         core.proxy_upstream_url()
     };
     tauri::async_runtime::spawn_blocking(move || {
@@ -1081,10 +1028,22 @@ async fn set_management_routing_strategy(
 #[tauri::command]
 async fn get_management_proxy_url(state: State<'_, DesktopState>) -> Result<String, String> {
     let client = management_client(&state, "无法读取代理 URL")?;
-    client
+    let url = client
         .get_proxy_url()
         .await
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    if !url.is_empty() {
+        return Ok(url);
+    }
+    let mut core = lock_core(&state.core);
+    let config_url = core
+        .app_state()
+        .management
+        .config
+        .as_ref()
+        .and_then(|c| c.proxy_url.clone())
+        .unwrap_or_default();
+    Ok(config_url)
 }
 
 #[tauri::command]
@@ -1394,18 +1353,18 @@ async fn set_management_quota_switch_preview_model(
 
 fn management_client(
     state: &State<'_, DesktopState>,
-    lock_error: &str,
+    _lock_error: &str,
 ) -> Result<ManagementApiClient, String> {
-    let mut core = state.core.lock().map_err(|_| lock_error.to_string())?;
+    let mut core = lock_core(&state.core);
     core.management_client().map_err(|error| error.to_string())
 }
 
 fn apply_management_snapshot(
     state: &State<'_, DesktopState>,
     snapshot: ManagementSnapshot,
-    lock_error: &str,
+    _lock_error: &str,
 ) -> Result<AppState, String> {
-    let mut core = state.core.lock().map_err(|_| lock_error.to_string())?;
+    let mut core = lock_core(&state.core);
     Ok(core.apply_management_snapshot(snapshot))
 }
 
@@ -1422,28 +1381,54 @@ async fn refresh_snapshot_with_client(
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-/// Position the menu-bar panel at the top-right of the primary monitor, then
-/// show + focus it.
-fn position_menubar(panel: &tauri::WebviewWindow) {
-    if let Ok(Some(monitor)) = panel.primary_monitor() {
+/// Position the menu-bar panel near the tray icon (like macOS NSMenu), then
+/// show + focus it.  Falls back to top-right if no tray rect is available.
+fn position_menubar(panel: &tauri::WebviewWindow, tray_rect: Option<tauri::Rect>) {
+    let panel_w = 280.0_f64;
+    if let Some(rect) = tray_rect {
+        if let Ok(Some(monitor)) = panel.primary_monitor() {
+            let scale = monitor.scale_factor();
+            let screen_h = monitor.size().height as f64 / scale;
+            let screen_w = monitor.size().width as f64 / scale;
+            let panel_h = panel
+                .outer_size()
+                .map(|s| s.height as f64 / scale)
+                .unwrap_or(500.0);
+            let icon_pos = rect.position.to_logical::<f64>(scale);
+            let icon_size = rect.size.to_logical::<f64>(scale);
+            let icon_cx = icon_pos.x + icon_size.width / 2.0;
+            let icon_y = icon_pos.y;
+            // Center horizontally on icon, clamp to screen
+            let x = (icon_cx - panel_w / 2.0).clamp(8.0, screen_w - panel_w - 8.0);
+            // Taskbar at bottom → place panel above; taskbar at top → place below
+            let y = if icon_y > screen_h / 2.0 {
+                (icon_y - panel_h - 8.0).max(8.0)
+            } else {
+                icon_y + icon_size.height + 8.0
+            };
+            let _ = panel.set_position(tauri::LogicalPosition::new(x, y));
+        }
+    } else if let Ok(Some(monitor)) = panel.primary_monitor() {
         let scale = monitor.scale_factor();
         let screen_w = monitor.size().width as f64 / scale;
-        let x = (screen_w - 280.0 - 12.0).max(0.0);
+        let x = (screen_w - panel_w - 12.0).max(0.0);
         let _ = panel.set_position(tauri::LogicalPosition::new(x, 20.0));
     }
     let _ = panel.show();
     let _ = panel.set_focus();
 }
 
-/// Show/hide the tray "menu bar" quota panel, anchored to the top-right corner.
-fn toggle_menubar(app: &AppHandle) {
+/// Show/hide the tray "menu bar" quota panel, anchored near the tray icon.
+fn toggle_menubar(app: &AppHandle, tray_rect: Option<tauri::Rect>) {
     let Some(panel) = app.get_webview_window("menubar") else {
         return;
     };
     if panel.is_visible().unwrap_or(false) {
         let _ = panel.hide();
     } else {
-        position_menubar(&panel);
+        // The blur auto-hide may have just fired; re-show is fine — position_menubar
+        // calls show() + set_focus() which will bring the panel back.
+        position_menubar(&panel, tray_rect);
     }
 }
 
@@ -1464,9 +1449,9 @@ fn spawn_usage_collector(app: AppHandle) {
             // Isolate each iteration: a panic anywhere in the body must NOT kill
             // the only queue consumer (that would silently stop usage collection
             // for the rest of the process). Catch it and continue next tick.
-            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let prepared = app.try_state::<DesktopState>().and_then(|state| {
-                let mut core = state.core.lock().ok()?;
+                let mut core = lock_core(&state.core);
                 let client = core.management_client().ok()?;
                 Some((client, core.usage_store()))
             });
@@ -1548,7 +1533,12 @@ fn spawn_usage_collector(app: AppHandle) {
                     }
                 }
             }
-            }));
+            })) {
+                let msg = panic.downcast_ref::<&str>().copied()
+                    .or_else(|| panic.downcast_ref::<String>().map(|s| s.as_str()))
+                    .unwrap_or("unknown");
+                eprintln!("[usage-collector] panic caught (tick {tick}): {msg}");
+            }
             tick = tick.wrapping_add(1);
             std::thread::sleep(std::time::Duration::from_millis(USAGE_COLLECTOR_POLL_MS));
         }
@@ -1644,10 +1634,11 @@ pub fn run() {
                     if let TrayIconEvent::Click {
                         button: MouseButton::Left,
                         button_state: MouseButtonState::Up,
+                        rect,
                         ..
                     } = event
                     {
-                        toggle_menubar(tray.app_handle());
+                        toggle_menubar(tray.app_handle(), Some(rect));
                     }
                 });
             // Tauri's tray shows nothing without an explicit icon. Reuse the
@@ -1656,6 +1647,24 @@ pub fn run() {
                 tray_builder = tray_builder.icon(icon);
             }
             tray_builder.build(app)?;
+
+            // Menu-bar panel: apply Mica blur + auto-hide on focus loss
+            if let Some(panel) = app.get_webview_window("menubar") {
+                let _ = panel.set_effects(WindowEffectsConfig {
+                    effects: vec![Effect::Mica],
+                    ..Default::default()
+                });
+                let panel_clone = panel.clone();
+                panel.on_window_event(move |event| {
+                    if let WindowEvent::Focused(false) = event {
+                        let w = panel_clone.clone();
+                        std::thread::spawn(move || {
+                            std::thread::sleep(std::time::Duration::from_millis(150));
+                            let _ = w.hide();
+                        });
+                    }
+                });
+            }
 
             spawn_usage_collector(app.handle().clone());
 

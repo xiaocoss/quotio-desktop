@@ -56,6 +56,12 @@ export function useUpdater() {
     }
   }, []);
 
+  // 失败后的重试入口:安装失败时 updateRef 仍在 → 重试安装;否则(检查失败)重新检查。
+  const retry = useCallback(() => {
+    if (updateRef.current) void install();
+    else void check(true);
+  }, [install, check]);
+
   const dismiss = useCallback(() => setStatus("idle"), []);
 
   // One silent check shortly after startup.
@@ -63,5 +69,5 @@ export function useUpdater() {
     void check(false);
   }, [check]);
 
-  return { status, version, notes, percent, error, check, install, dismiss };
+  return { status, version, notes, percent, error, check, install, retry, dismiss };
 }

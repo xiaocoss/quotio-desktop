@@ -56,12 +56,18 @@ impl UsageStore {
         }
         let mut conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return 0,
+            Err(poisoned) => {
+                eprintln!("[usage_store] insert_events: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let now = now_ms();
         let tx = match conn.transaction() {
             Ok(tx) => tx,
-            Err(_) => return 0,
+            Err(err) => {
+                eprintln!("[usage_store] insert_events: begin transaction failed: {err}");
+                return 0;
+            }
         };
         let mut inserted = 0usize;
         {
@@ -124,7 +130,10 @@ impl UsageStore {
     pub fn recent_events(&self, limit: usize) -> Vec<RequestLogEntry> {
         let conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return Vec::new(),
+            Err(poisoned) => {
+                eprintln!("[usage_store] recent_events: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let mut stmt = match conn.prepare(
             "SELECT request_id, timestamp, method, endpoint, provider, model, resolved_model, \
@@ -175,7 +184,10 @@ impl UsageStore {
     pub fn query_stats(&self, query: &UsageQuery) -> UsageAggregate {
         let conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return UsageAggregate::default(),
+            Err(poisoned) => {
+                eprintln!("[usage_store] query_stats: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let (where_sql, query_params) = build_where(query);
         let sql = format!(
@@ -245,10 +257,16 @@ impl UsageStore {
     pub fn account_summary(&self, query: &UsageQuery) -> Vec<AccountSummaryRow> {
         let conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return Vec::new(),
+            Err(poisoned) => {
+                eprintln!("[usage_store] account_summary: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let (where_sql, query_params) = build_where(query);
         let prices_configured = has_prices(&conn);
+        // last_request 用裸列 e.timestamp(不再 MAX(e.timestamp)):SQLite 在一个查询里
+        // 只有一个聚合 MAX/MIN 时,裸列取自该 MAX 命中的同一行,保证显示时间串与
+        // last_request_ms 来自同一条记录(否则字符串 MAX 与数值 MAX 可能取自不同行)。
         let sql = format!(
             "SELECT e.source, e.provider, COUNT(*), \
                 COALESCE(SUM(CASE WHEN e.failed=0 THEN 1 ELSE 0 END),0), \
@@ -259,7 +277,7 @@ impl UsageStore {
                 COALESCE(SUM(MAX(e.input_tokens - e.cached_tokens, 0)*COALESCE(p.prompt_per_1m,0)/1000000.0 \
                     + e.output_tokens*COALESCE(p.completion_per_1m,0)/1000000.0 \
                     + e.cached_tokens*COALESCE(p.cache_per_1m,0)/1000000.0),0), \
-                MAX(e.timestamp_ms), MAX(e.timestamp) \
+                MAX(e.timestamp_ms), e.timestamp \
              FROM usage_events e LEFT JOIN model_prices p ON p.model = e.model{where_sql} \
              GROUP BY e.source, e.provider ORDER BY COUNT(*) DESC"
         );
@@ -303,7 +321,10 @@ impl UsageStore {
     ) -> Vec<UsageTimeSeriesPoint> {
         let conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return Vec::new(),
+            Err(poisoned) => {
+                eprintln!("[usage_store] usage_timeseries: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let (where_sql, query_params) = build_where(query);
         let prices_configured = has_prices(&conn);
@@ -353,7 +374,10 @@ impl UsageStore {
     pub fn model_breakdown(&self, query: &UsageQuery, limit: usize) -> Vec<UsageModelBreakdownRow> {
         let conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return Vec::new(),
+            Err(poisoned) => {
+                eprintln!("[usage_store] model_breakdown: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let (where_sql, query_params) = build_where(query);
         let prices_configured = has_prices(&conn);
@@ -405,7 +429,10 @@ impl UsageStore {
     pub fn filter_options(&self) -> UsageFilterOptions {
         let conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return UsageFilterOptions::default(),
+            Err(poisoned) => {
+                eprintln!("[usage_store] filter_options: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         UsageFilterOptions {
             accounts: distinct(&conn, "source"),
@@ -427,7 +454,10 @@ impl UsageStore {
     pub fn account_auth_health(&self, window: u32) -> Vec<AccountAuthHealth> {
         let conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return Vec::new(),
+            Err(poisoned) => {
+                eprintln!("[usage_store] account_auth_health: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let sql = "WITH ranked AS (\
                 SELECT source, failed, status_code, \
@@ -476,7 +506,10 @@ impl UsageStore {
     pub fn model_prices(&self) -> Vec<ModelPrice> {
         let conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return Vec::new(),
+            Err(poisoned) => {
+                eprintln!("[usage_store] model_prices: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let mut stmt = match conn.prepare(
             "SELECT model, prompt_per_1m, completion_per_1m, cache_per_1m, source \
@@ -504,7 +537,10 @@ impl UsageStore {
     pub fn set_model_prices(&self, prices: &[ModelPrice]) {
         let mut conn = match self.conn.lock() {
             Ok(conn) => conn,
-            Err(_) => return,
+            Err(poisoned) => {
+                eprintln!("[usage_store] set_model_prices: mutex poisoned, recovering");
+                poisoned.into_inner()
+            }
         };
         let now = now_ms();
         let tx = match conn.transaction() {
@@ -622,7 +658,25 @@ fn configure(conn: &Connection) -> rusqlite::Result<()> {
             source TEXT,
             updated_at_ms INTEGER NOT NULL
          );",
-    )
+    )?;
+    migrate(conn)
+}
+
+/// 当前 schema 版本。将来给 usage_events 加列时:把本常量 +1,并在 migrate() 里按
+/// `current < N` 追加对应的 `ALTER TABLE ... ADD COLUMN ...`。没有迁移框架时,直接改
+/// CREATE TABLE 只对新库生效,老库不会加列、随后带新列的 INSERT 会全部失败。
+const SCHEMA_VERSION: i64 = 1;
+
+fn migrate(conn: &Connection) -> rusqlite::Result<()> {
+    let current: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+    // 示例(将来用):
+    //   if current < 2 {
+    //       conn.execute_batch("ALTER TABLE usage_events ADD COLUMN xxx INTEGER NOT NULL DEFAULT 0;")?;
+    //   }
+    if current < SCHEMA_VERSION {
+        conn.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION};"))?;
+    }
+    Ok(())
 }
 
 /// Build the `WHERE` clause + positional params for a usage query. All columns
