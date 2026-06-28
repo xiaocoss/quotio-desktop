@@ -1139,10 +1139,8 @@ fn fetch_claude_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Option<
         }
     }
 
-    if models.is_empty() {
-        return None;
-    }
-
+    // 探测成功但没有任何用量窗口 = 账号健康、只是没有额度条数据。返回 Some(空 models)
+    // 而非 None,这样被健康隔离的号在鉴权恢复后即便没拉到窗口,也能被对账确证健康、解除隔离。
     Some(AccountQuota {
         provider_id: "claude".to_string(),
         account_label: label,
@@ -1350,10 +1348,8 @@ fn fetch_copilot_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Option
             }
         }
     }
-    if models.is_empty() {
-        return None;
-    }
-
+    // 探测成功但无额度条 = 健康、只是没有用量数据;返回 Some(空) 而非 None,
+    // 让健康隔离的号在恢复后即便没拉到额度也能被对账确证健康、解除隔离。
     Some(AccountQuota {
         provider_id: "copilot".to_string(),
         account_label: label,
@@ -1998,7 +1994,9 @@ fn fetch_glm_one(agent: &ureq::Agent, api_key: &str, index: usize) -> Option<Acc
     };
 
     let mut models = Vec::new();
-    for limit in parsed.data?.limits {
+    // data 缺失(200 但无内容)也按「健康、无额度数据」处理 → 落到下面的 Some(空),
+    // 让恢复的号能被对账解除隔离,而不是 `?` 直接 None 掉出 quotas。
+    for limit in parsed.data.map(|data| data.limits).unwrap_or_default() {
         let name = match limit.kind.as_deref() {
             Some("TOKENS_LIMIT") => "Tokens",
             Some("TIME_LIMIT") => "MCP Usage",
@@ -2009,10 +2007,8 @@ fn fetch_glm_one(agent: &ureq::Agent, api_key: &str, index: usize) -> Option<Acc
         models.push(model_usage(name, remaining, reset));
     }
 
-    if models.is_empty() {
-        return None;
-    }
-
+    // 探测成功但无额度条 = 健康、只是没有用量数据;返回 Some(空) 而非 None,
+    // 让健康隔离的号在恢复后即便没拉到额度也能被对账确证健康、解除隔离。
     Some(AccountQuota {
         provider_id: "glm".to_string(),
         account_label: format!("GLM #{}", index + 1),
@@ -2082,54 +2078,54 @@ fn fetch_trae_one(agent: &ureq::Agent) -> Option<AccountQuota> {
         Err(_) => return None,
     };
 
-    let packs = parsed.user_entitlement_pack_list?;
-    let entitlement = packs
-        .iter()
-        .find(|pack| pack.status == Some(1))
-        .or_else(|| packs.first())?;
-    let quota = entitlement
-        .entitlement_base_info
-        .as_ref()
-        .and_then(|info| info.quota.as_ref());
-    let usage = entitlement.usage.as_ref();
-    let reset = entitlement
-        .entitlement_base_info
-        .as_ref()
-        .and_then(|info| info.end_time)
-        .and_then(|seconds| format_reset_epoch(seconds as f64));
-
+    // 无 entitlement pack(200 但无订阅/内容)也按「健康、无额度数据」处理 → 落到下面
+    // 的 Some(空),让恢复的号能被对账解除隔离,而不是 `?` 直接 None 掉出 quotas。
+    let entitlement = parsed.user_entitlement_pack_list.as_ref().and_then(|packs| {
+        packs
+            .iter()
+            .find(|pack| pack.status == Some(1))
+            .or_else(|| packs.first())
+    });
     let mut models = Vec::new();
-    push_trae_model(
-        &mut models,
-        "Premium Fast",
-        quota.and_then(|q| q.premium_model_fast_request_limit),
-        usage.and_then(|u| u.premium_model_fast_amount),
-        &reset,
-    );
-    push_trae_model(
-        &mut models,
-        "Premium Slow",
-        quota.and_then(|q| q.premium_model_slow_request_limit),
-        usage.and_then(|u| u.premium_model_slow_amount),
-        &reset,
-    );
-    push_trae_model(
-        &mut models,
-        "Advanced Model",
-        quota.and_then(|q| q.advanced_model_request_limit),
-        usage.and_then(|u| u.advanced_model_amount),
-        &reset,
-    );
-    push_trae_model(
-        &mut models,
-        "Auto Completion",
-        quota.and_then(|q| q.auto_completion_limit),
-        usage.and_then(|u| u.auto_completion_amount),
-        &reset,
-    );
-
-    if models.is_empty() {
-        return None;
+    if let Some(entitlement) = entitlement {
+        let quota = entitlement
+            .entitlement_base_info
+            .as_ref()
+            .and_then(|info| info.quota.as_ref());
+        let usage = entitlement.usage.as_ref();
+        let reset = entitlement
+            .entitlement_base_info
+            .as_ref()
+            .and_then(|info| info.end_time)
+            .and_then(|seconds| format_reset_epoch(seconds as f64));
+        push_trae_model(
+            &mut models,
+            "Premium Fast",
+            quota.and_then(|q| q.premium_model_fast_request_limit),
+            usage.and_then(|u| u.premium_model_fast_amount),
+            &reset,
+        );
+        push_trae_model(
+            &mut models,
+            "Premium Slow",
+            quota.and_then(|q| q.premium_model_slow_request_limit),
+            usage.and_then(|u| u.premium_model_slow_amount),
+            &reset,
+        );
+        push_trae_model(
+            &mut models,
+            "Advanced Model",
+            quota.and_then(|q| q.advanced_model_request_limit),
+            usage.and_then(|u| u.advanced_model_amount),
+            &reset,
+        );
+        push_trae_model(
+            &mut models,
+            "Auto Completion",
+            quota.and_then(|q| q.auto_completion_limit),
+            usage.and_then(|u| u.auto_completion_amount),
+            &reset,
+        );
     }
 
     let label = auth
@@ -2137,6 +2133,8 @@ fn fetch_trae_one(agent: &ureq::Agent) -> Option<AccountQuota> {
         .clone()
         .or_else(|| auth.username.clone())
         .unwrap_or_else(|| "Trae".to_string());
+    // 探测成功但无额度条 = 健康、只是没有用量数据;返回 Some(空) 而非 None,
+    // 让健康隔离的号在恢复后即便没拉到额度也能被对账确证健康、解除隔离。
     Some(AccountQuota {
         provider_id: "trae".to_string(),
         account_label: label,

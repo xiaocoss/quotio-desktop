@@ -368,6 +368,14 @@ pub fn release_all_in(dir: &Path) -> bool {
     changed
 }
 
+/// 只有 codex 会在探测软失败时仍把账号以「空 models」占位列进 quotas(避免账号在 UI 里
+/// 凭空消失);其余 provider 探测失败一律返回 `None`。因此对非-codex 而言,账号能以
+/// `is_forbidden=false` 出现在 quotas 本身就证明探测成功、账号健康——空 models 也足以确证、
+/// 解除隔离;对 codex 则必须有 model 数据才算确证(空 models 可能只是软失败占位)。
+fn provider_lists_blank_on_probe_failure(provider_id: &str) -> bool {
+    provider_id == "codex"
+}
+
 /// 根据最新配额健康状态隔离/恢复账号。
 ///
 /// 这层不依赖智能调度：即使调度规则关闭，明确 403/鉴权失败的账号也会临时
@@ -391,7 +399,12 @@ pub fn reconcile_health_isolation_in(dir: &Path, quotas: &[AccountQuota]) -> boo
                 continue;
             };
             let should_isolate = quota.is_forbidden || quota.is_auth_failure();
-            let health_known = should_isolate || !quota.models.is_empty();
+            // 「健康已知」才允许解除隔离,避免一次失败探测就误把坏号放回。codex 的空 models
+            // 可能只是软失败占位,不算确证;非-codex 能出现在 quotas 即代表探测成功(失败会返
+            // None 缺席),所以它们空 models 也算确证健康——否则恢复后无用量窗口的号会永远卡死。
+            let health_known = should_isolate
+                || !quota.models.is_empty()
+                || !provider_lists_blank_on_probe_failure(&provider_id);
             if !health_known {
                 continue;
             }
@@ -1076,5 +1089,56 @@ mod tests {
         assert!(!q(None, true).is_auth_failure());
         assert!(!q(Some("plan: pro | resets: 3"), true).is_auth_failure());
         assert!(!q(None, false).is_auth_failure());
+    }
+
+    #[test]
+    fn non_codex_recovers_on_blank_healthy_probe_but_codex_does_not() {
+        let dir = std::env::temp_dir().join(format!(
+            "ql_scheduler_blank_recover_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        // 两个号当前都被健康隔离。
+        std::fs::write(
+            dir.join("claude-acc.json"),
+            r#"{"type":"claude","access_token":"a","disabled":true,"quotio_health_isolated":true,"quotio_health_isolated_reason":"auth"}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("codex-acc.json"),
+            r#"{"type":"codex","access_token":"a","id_token":"i","refresh_token":"r","disabled":true,"quotio_health_isolated":true,"quotio_health_isolated_reason":"quota"}"#,
+        )
+        .unwrap();
+
+        // 两者都返回「健康但空 models」的探测结果(is_forbidden=false、非鉴权、无额度条)。
+        let blank = |provider: &str, key: &str| AccountQuota {
+            provider_id: provider.into(),
+            account_label: format!("{key}@x.com"),
+            account_key: key.into(),
+            is_forbidden: false,
+            status_message: None,
+            models: Vec::new(),
+        };
+        let changed =
+            reconcile_health_isolation_in(&dir, &[blank("claude", "acc"), blank("codex", "acc")]);
+        assert!(changed, "claude 应被解除隔离 → changed");
+
+        // claude:非-codex,出现在 quotas 即证明探测成功 → 空白也算健康 → 解除隔离。
+        let claude = read_pool_for_provider(&dir, "claude");
+        let c = claude.iter().find(|f| f.file_name == "claude-acc.json").unwrap();
+        assert!(!c.disabled, "claude 恢复后(空白健康)必须解除隔离,不再卡死");
+        assert!(!c.health_isolated);
+
+        // codex:空 models 可能只是软失败占位,不据此解除隔离 → 保持隔离。
+        let codex = read_pool(&dir);
+        let x = codex.iter().find(|f| f.file_name == "codex-acc.json").unwrap();
+        assert!(x.disabled, "codex 空白探测不解除隔离(可能只是软失败)");
+        assert!(x.health_isolated);
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

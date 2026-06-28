@@ -47,11 +47,18 @@ export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSett
   // Heuristic proxy-unreachable hint: a refresh finished but every account came
   // back blank (no quota, not exhausted, not auth-failed) — almost always the
   // upstream proxy being wrong/down rather than a real per-account state.
+  // Only codex lists a probe-failed account as a present blank (other providers
+  // return None → absent), so a non-codex blank now means "healthy, no usage
+  // data", NOT a dead proxy — it must not trip this hint.
   const proxyUnreachable =
     !isQuotaBusy &&
     appState.quotas.length > 0 &&
     appState.quotas.every(
-      (account) => account.models.length === 0 && !account.is_forbidden && account.status_message !== "auth_failed",
+      (account) =>
+        account.provider_id === "codex" &&
+        account.models.length === 0 &&
+        !account.is_forbidden &&
+        account.status_message !== "auth_failed",
     );
 
   return (
@@ -388,9 +395,11 @@ function AccountQuotaCard({
         </>
       ) : (
         <p className="quota-empty-note">
-          {authFailed
+          {authFailed || account.is_forbidden
             ? t("quota.needsReauthNote", "需重新授权,请到服务商页重新登录")
-            : t("quota.fetchFailed", "额度获取失败,仅显示健康状态")}
+            : account.provider_id === "codex"
+              ? t("quota.fetchFailed", "额度获取失败,仅显示健康状态")
+              : t("quota.noUsageData", "暂无额度数据,账号健康")}
         </p>
       )}
     </article>
