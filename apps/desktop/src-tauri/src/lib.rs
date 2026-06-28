@@ -1216,9 +1216,15 @@ async fn set_management_auth_file_disabled(
 ) -> Result<AppState, String> {
     let client = management_client(&state, "无法更新账号状态")?;
     client
-        .set_auth_file_disabled(name, disabled)
+        .set_auth_file_disabled(name.clone(), disabled)
         .await
         .map_err(|error| error.to_string())?;
+    if !disabled {
+        quotio_core::scheduler::clear_health_isolation_for_file_in(
+            &quotio_platform::proxy_auth_dir(),
+            &name,
+        );
+    }
     refresh_snapshot_with_client(&state, client, "无法刷新账号状态更新后的状态").await
 }
 

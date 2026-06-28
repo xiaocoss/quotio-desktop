@@ -687,6 +687,8 @@ function accountState(
   // triggers re-auth, since 500/429 failures are rate-limit/transient, not auth.
   if (authFailed) return { tone: "bad", key: "providers.stateNeedsReauth", fallback: "需重新授权", needsReauth: true };
   if (health?.recommend_reauth) return { tone: "bad", key: "providers.stateNeedsReauth", fallback: "需重新授权", needsReauth: true };
+  if (account.disabled && account.quotio_health_isolated)
+    return { tone: "bad", key: "providers.stateHealthIsolated", fallback: "健康隔离", needsReauth: true };
   if (account.disabled && account.quotio_scheduler_standby)
     return { tone: "muted", key: "providers.stateStandby", fallback: "待命(调度)", needsReauth: false };
   if (account.disabled && account.quotio_bound_login_only)
@@ -910,6 +912,9 @@ function areAccountRowPropsEqual(a: AccountRowProps, b: AccountRowProps): boolea
     x.account === y.account &&
     x.label === y.label &&
     x.disabled === y.disabled &&
+    x.quotio_health_isolated === y.quotio_health_isolated &&
+    x.quotio_scheduler_standby === y.quotio_scheduler_standby &&
+    x.quotio_bound_login_only === y.quotio_bound_login_only &&
     x.unavailable === y.unavailable &&
     x.status === y.status &&
     recentRequestsSignature(x.recent_requests) === recentRequestsSignature(y.recent_requests)
@@ -987,4 +992,3 @@ function groupAccounts(authFiles: AuthFile[], providers: ProviderSummary[]): Acc
 
   return groups;
 }
-

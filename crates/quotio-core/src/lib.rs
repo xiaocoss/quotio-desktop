@@ -513,17 +513,19 @@ impl AppCore {
     /// standby 账号放回池子（fail-open 同理）。返回是否改动了池子状态。
     pub fn scheduler_reconcile(&mut self) -> bool {
         let dir = quotio_platform::proxy_auth_dir();
+        let health_changed = scheduler::reconcile_health_isolation_in(&dir, &self.quotas);
         if self.settings.scheduler_rule != "reset_soonest" {
+            let legacy_changed = scheduler::recover_legacy_plain_disabled_in(&dir, &self.quotas);
             let changed = scheduler::release_all_in(&dir);
             self.schedulers.clear();
-            return changed;
+            return health_changed || legacy_changed || changed;
         }
 
         let providers = scheduler::discover_schedulable_providers(&dir);
         let now_unix = now_unix_seconds() as i64;
         let min_hold = Duration::from_secs(self.settings.scheduler_min_hold_minutes as u64 * 60);
         let margin = self.settings.scheduler_switch_margin_minutes as i64 * 60;
-        let mut any_changed = false;
+        let mut any_changed = health_changed;
 
         // 清理已不存在的服务商。
         self.schedulers.retain(|pid, _| providers.contains(pid));
@@ -2128,6 +2130,10 @@ pub fn list_local_accounts() -> Vec<AuthFile> {
             .as_ref()
             .and_then(|value| value.get("quotio_scheduler_standby"))
             .and_then(|value| value.as_bool());
+        let quotio_health_isolated = parsed
+            .as_ref()
+            .and_then(|value| value.get("quotio_health_isolated"))
+            .and_then(|value| value.as_bool());
         files.push(AuthFile {
             id: name.to_string(),
             name: name.to_string(),
@@ -2149,6 +2155,7 @@ pub fn list_local_accounts() -> Vec<AuthFile> {
             last_refresh: None,
             quotio_bound_login_only,
             quotio_scheduler_standby,
+            quotio_health_isolated,
             success: None,
             failed: None,
             recent_requests: None,
@@ -2232,7 +2239,13 @@ fn enrich_auth_files_with_local_markers(files: &mut [AuthFile], local_accounts: 
         if file.quotio_scheduler_standby.is_none() {
             file.quotio_scheduler_standby = local.quotio_scheduler_standby;
         }
+        if file.quotio_health_isolated.is_none() {
+            file.quotio_health_isolated = local.quotio_health_isolated;
+        }
         if local.quotio_bound_login_only == Some(true) {
+            file.disabled = true;
+        }
+        if local.quotio_health_isolated == Some(true) {
             file.disabled = true;
         }
     }

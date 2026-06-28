@@ -407,6 +407,9 @@ pub struct AuthFile {
     /// 智能调度临时禁用（待命）标记——本地文件富化得到，管理 API 不返回。
     #[serde(default)]
     pub quotio_scheduler_standby: Option<bool>,
+    /// 健康隔离临时禁用标记——403/auth_failed 时由 Quotio 自动写入本地文件。
+    #[serde(default)]
+    pub quotio_health_isolated: Option<bool>,
     #[serde(default)]
     pub success: Option<u64>,
     #[serde(default)]

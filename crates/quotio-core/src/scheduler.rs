@@ -24,6 +24,8 @@ use crate::codex_launch;
 
 /// 调度器临时禁用（待命）标记，写在账号 auth JSON 里，可还原。
 pub(crate) const STANDBY_FIELD: &str = "quotio_scheduler_standby";
+/// 账号健康隔离标记：401/403/auth_failed 时即使未启用智能调度也临时禁用。
+pub(crate) const HEALTH_ISOLATED_FIELD: &str = "quotio_health_isolated";
 /// Codex 一键启动绑定标记（codex_launch 写入），带它的账号调度器不碰。
 const BOUND_FIELD: &str = "quotio_bound_login_only";
 
@@ -37,6 +39,8 @@ pub struct PoolFile {
     pub disabled: bool,
     /// 是否调度器自己标记的临时禁用。
     pub standby: bool,
+    /// 是否因账号健康失败被临时隔离。
+    pub health_isolated: bool,
     /// 是否被 Codex 一键启动绑定占用。
     pub bound: bool,
 }
@@ -44,7 +48,7 @@ pub struct PoolFile {
 impl PoolFile {
     /// 用户手动禁用（不是调度器禁的）——调度器永远不碰。
     fn user_disabled(&self) -> bool {
-        self.disabled && !self.standby
+        self.disabled && !self.standby && !self.health_isolated
     }
 }
 
@@ -107,6 +111,7 @@ pub fn read_pool_for_provider(dir: &Path, provider_id: &str) -> Vec<PoolFile> {
             file_name,
             disabled: flag("disabled"),
             standby: flag(STANDBY_FIELD),
+            health_isolated: flag(HEALTH_ISOLATED_FIELD),
             bound: flag(BOUND_FIELD),
         });
     }
@@ -355,6 +360,104 @@ pub fn release_all_in(dir: &Path) -> bool {
     changed
 }
 
+/// 根据最新配额健康状态隔离/恢复账号。
+///
+/// 这层不依赖智能调度：即使调度规则关闭，明确 403/鉴权失败的账号也会临时
+/// `disabled=true`，避免代理默认选择器继续打到坏号；健康恢复后再自动放回。
+pub fn reconcile_health_isolation_in(dir: &Path, quotas: &[AccountQuota]) -> bool {
+    let mut providers: Vec<String> = quotas.iter().map(|quota| quota.provider_id.clone()).collect();
+    providers.sort();
+    providers.dedup();
+
+    let mut changed = false;
+    for provider_id in providers {
+        let pool = read_pool_for_provider(dir, &provider_id);
+        for file in pool {
+            if file.bound || file.user_disabled() {
+                continue;
+            }
+            let Some(quota) = quotas
+                .iter()
+                .find(|quota| quota.provider_id == provider_id && quota.account_key == file.key)
+            else {
+                continue;
+            };
+            let should_isolate = quota.is_forbidden
+                || quota.status_message.as_deref() == Some("auth_failed");
+            let health_known = should_isolate || !quota.models.is_empty();
+            if !health_known {
+                continue;
+            }
+            let path = dir.join(&file.file_name);
+            if should_isolate && (!file.health_isolated || !file.disabled) {
+                changed |= set_health_isolated(&path, true).is_ok();
+            } else if !should_isolate && file.health_isolated {
+                changed |= set_health_isolated(&path, false).is_ok();
+            }
+        }
+    }
+    changed
+}
+
+/// 恢复旧版前端 auto-gating 留下的普通 `disabled=true` 账号。
+///
+/// 旧逻辑没有写 `quotio_health_isolated` / `quotio_scheduler_standby` 标记，
+/// 如果浏览器 localStorage 记录丢了，账号会像用户手动禁用一样永久卡住。
+/// 这里只在配额明确健康时修复这类历史遗留状态，空探测/403/鉴权失败都不动。
+pub fn recover_legacy_plain_disabled_in(dir: &Path, quotas: &[AccountQuota]) -> bool {
+    let mut providers: Vec<String> = quotas.iter().map(|quota| quota.provider_id.clone()).collect();
+    providers.sort();
+    providers.dedup();
+
+    let mut changed = false;
+    for provider_id in providers {
+        let pool = read_pool_for_provider(dir, &provider_id);
+        for file in pool {
+            if !file.disabled || file.standby || file.health_isolated || file.bound {
+                continue;
+            }
+            let Some(quota) = quotas
+                .iter()
+                .find(|quota| quota.provider_id == provider_id && quota.account_key == file.key)
+            else {
+                continue;
+            };
+            let healthy_known = !quota.is_forbidden
+                && quota.status_message.as_deref() != Some("auth_failed")
+                && !quota.models.is_empty();
+            if healthy_known {
+                changed |= set_disabled(&dir.join(&file.file_name), false).is_ok();
+            }
+        }
+    }
+    changed
+}
+
+/// 手动启用账号时清理健康隔离标记，避免管理 API 只改 `disabled=false` 但本地
+/// `quotio_health_isolated=true` 残留，导致 UI/下轮调度又把它视为隔离账号。
+pub fn clear_health_isolation_for_file_in(dir: &Path, name: &str) -> bool {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return false;
+    };
+    for entry in entries.flatten() {
+        let file_name = entry.file_name().to_string_lossy().to_string();
+        if !file_name.eq_ignore_ascii_case(name) {
+            continue;
+        }
+        return set_health_isolated(&entry.path(), false).is_ok();
+    }
+    false
+}
+
+fn set_disabled(path: &Path, disabled: bool) -> Result<(), String> {
+    let mut value = codex_launch::read_proxy_account_from(path)?;
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| format!("账号文件不是 JSON 对象: {}", path.display()))?;
+    object.insert("disabled".to_string(), Value::Bool(disabled));
+    codex_launch::write_proxy_account_to(path, &value)
+}
+
 /// 写 standby 状态：true → `disabled=true` + 标记；false → `disabled=false` + 去标记。
 /// 只在调度器确认该文件可动（非 bound、非用户禁用）后调用。
 fn set_standby(path: &Path, standby: bool) -> Result<(), String> {
@@ -366,8 +469,32 @@ fn set_standby(path: &Path, standby: bool) -> Result<(), String> {
         object.insert("disabled".to_string(), Value::Bool(true));
         object.insert(STANDBY_FIELD.to_string(), Value::Bool(true));
     } else {
-        object.insert("disabled".to_string(), Value::Bool(false));
+        let health_isolated = object
+            .get(HEALTH_ISOLATED_FIELD)
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        object.insert("disabled".to_string(), Value::Bool(health_isolated));
         object.remove(STANDBY_FIELD);
+    }
+    codex_launch::write_proxy_account_to(path, &value)
+}
+
+/// 写账号健康隔离状态：true → `disabled=true` + 标记；false → 去标记并按 standby 保持禁用。
+fn set_health_isolated(path: &Path, isolated: bool) -> Result<(), String> {
+    let mut value = codex_launch::read_proxy_account_from(path)?;
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| format!("账号文件不是 JSON 对象: {}", path.display()))?;
+    if isolated {
+        object.insert("disabled".to_string(), Value::Bool(true));
+        object.insert(HEALTH_ISOLATED_FIELD.to_string(), Value::Bool(true));
+    } else {
+        let standby = object
+            .get(STANDBY_FIELD)
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        object.insert("disabled".to_string(), Value::Bool(standby));
+        object.remove(HEALTH_ISOLATED_FIELD);
     }
     codex_launch::write_proxy_account_to(path, &value)
 }
@@ -545,6 +672,7 @@ mod tests {
                 key: "a".into(),
                 disabled: false,
                 standby: false,
+                health_isolated: false,
                 bound: false,
             },
             PoolFile {
@@ -552,6 +680,7 @@ mod tests {
                 key: "b".into(),
                 disabled: true, // 用户手动禁用
                 standby: false,
+                health_isolated: false,
                 bound: false,
             },
         ];
@@ -628,6 +757,241 @@ mod tests {
         assert!(!by_name("codex-other.json").standby);
         assert!(by_name("codex-user-off.json").disabled);
         assert!(by_name("codex-bound.json").disabled);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn health_isolation_parks_forbidden_accounts_and_restores_recovered() {
+        let dir = std::env::temp_dir().join(format!(
+            "ql_scheduler_health_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let base = r#""type":"codex","access_token":"a","id_token":"i","refresh_token":"r""#;
+        std::fs::write(dir.join("codex-bad.json"), format!("{{{base}}}")).unwrap();
+        std::fs::write(dir.join("codex-good.json"), format!("{{{base}}}")).unwrap();
+        std::fs::write(
+            dir.join("codex-user-off.json"),
+            format!("{{{base},\"disabled\":true}}"),
+        )
+        .unwrap();
+
+        let quota = |key: &str, forbidden: bool, status_message: Option<&str>| AccountQuota {
+            provider_id: "codex".into(),
+            account_label: format!("{key}@x.com"),
+            account_key: key.into(),
+            is_forbidden: forbidden,
+            status_message: status_message.map(str::to_string),
+            models: vec![QuotaModelUsage {
+                model: "Session".into(),
+                used_percent: 10.0,
+                remaining_percent: 90.0,
+                reset_at: None,
+                reset_at_unix: Some(9_000),
+            }],
+        };
+
+        let changed = reconcile_health_isolation_in(
+            &dir,
+            &[
+                quota("bad", true, None),
+                quota("good", false, None),
+                quota("user-off", true, None),
+            ],
+        );
+        assert!(changed, "forbidden account should be isolated");
+
+        let pool = read_pool(&dir);
+        let by_name = |name: &str| pool.iter().find(|f| f.file_name == name).unwrap();
+        assert!(by_name("codex-bad.json").disabled);
+        assert!(by_name("codex-bad.json").health_isolated);
+        assert!(!by_name("codex-good.json").disabled);
+        assert!(!by_name("codex-good.json").health_isolated);
+        assert!(by_name("codex-user-off.json").disabled);
+        assert!(!by_name("codex-user-off.json").health_isolated);
+
+        let changed = reconcile_health_isolation_in(
+            &dir,
+            &[
+                quota("bad", false, None),
+                quota("good", false, None),
+                quota("user-off", true, None),
+            ],
+        );
+        assert!(changed, "recovered account should be restored");
+        let pool = read_pool(&dir);
+        let by_name = |name: &str| pool.iter().find(|f| f.file_name == name).unwrap();
+        assert!(!by_name("codex-bad.json").disabled);
+        assert!(!by_name("codex-bad.json").health_isolated);
+        assert!(by_name("codex-user-off.json").disabled);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn health_isolation_keeps_isolated_account_on_blank_probe() {
+        let dir = std::env::temp_dir().join(format!(
+            "ql_scheduler_health_blank_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let base = r#""type":"codex","access_token":"a","id_token":"i","refresh_token":"r""#;
+        std::fs::write(
+            dir.join("codex-bad.json"),
+            format!("{{{base},\"disabled\":true,\"quotio_health_isolated\":true}}"),
+        )
+        .unwrap();
+
+        let changed = reconcile_health_isolation_in(
+            &dir,
+            &[AccountQuota {
+                provider_id: "codex".into(),
+                account_label: "bad@x.com".into(),
+                account_key: "bad".into(),
+                is_forbidden: false,
+                status_message: None,
+                models: Vec::new(),
+            }],
+        );
+        assert!(!changed, "blank probe should not clear a health isolation marker");
+
+        let pool = read_pool(&dir);
+        let bad = pool.iter().find(|f| f.file_name == "codex-bad.json").unwrap();
+        assert!(bad.disabled);
+        assert!(bad.health_isolated);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn recovers_legacy_plain_disabled_account_when_health_is_known_good() {
+        let dir = std::env::temp_dir().join(format!(
+            "ql_scheduler_legacy_disabled_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let base = r#""type":"codex","access_token":"a","id_token":"i","refresh_token":"r""#;
+        std::fs::write(
+            dir.join("codex-legacy.json"),
+            format!("{{{base},\"disabled\":true}}"),
+        )
+        .unwrap();
+
+        let changed = recover_legacy_plain_disabled_in(
+            &dir,
+            &[AccountQuota {
+                provider_id: "codex".into(),
+                account_label: "legacy@x.com".into(),
+                account_key: "legacy".into(),
+                is_forbidden: false,
+                status_message: None,
+                models: vec![QuotaModelUsage {
+                    model: "Session".into(),
+                    used_percent: 10.0,
+                    remaining_percent: 90.0,
+                    reset_at: None,
+                    reset_at_unix: Some(9_000),
+                }],
+            }],
+        );
+
+        assert!(changed, "healthy legacy auto-disabled account should be restored");
+        let pool = read_pool(&dir);
+        let account = pool
+            .iter()
+            .find(|file| file.file_name == "codex-legacy.json")
+            .unwrap();
+        assert!(!account.disabled);
+        assert!(!account.health_isolated);
+        assert!(!account.standby);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn clears_health_isolation_marker_for_manual_enable_case_insensitively() {
+        let dir = std::env::temp_dir().join(format!(
+            "ql_scheduler_manual_enable_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let base = r#""type":"codex","access_token":"a","id_token":"i","refresh_token":"r""#;
+        std::fs::write(
+            dir.join("codex-MixedCase.json"),
+            format!("{{{base},\"disabled\":true,\"quotio_health_isolated\":true}}"),
+        )
+        .unwrap();
+
+        assert!(clear_health_isolation_for_file_in(&dir, "codex-mixedcase.json"));
+        let pool = read_pool(&dir);
+        let account = pool
+            .iter()
+            .find(|file| file.file_name == "codex-MixedCase.json")
+            .unwrap();
+        assert!(!account.disabled);
+        assert!(!account.health_isolated);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn health_isolation_repairs_marker_with_disabled_cleared() {
+        let dir = std::env::temp_dir().join(format!(
+            "ql_scheduler_health_repair_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let base = r#""type":"codex","access_token":"a","id_token":"i","refresh_token":"r""#;
+        std::fs::write(
+            dir.join("codex-bad.json"),
+            format!("{{{base},\"disabled\":false,\"quotio_health_isolated\":true}}"),
+        )
+        .unwrap();
+
+        let changed = reconcile_health_isolation_in(
+            &dir,
+            &[AccountQuota {
+                provider_id: "codex".into(),
+                account_label: "bad@x.com".into(),
+                account_key: "bad".into(),
+                is_forbidden: true,
+                status_message: None,
+                models: vec![QuotaModelUsage {
+                    model: "Session".into(),
+                    used_percent: 100.0,
+                    remaining_percent: 0.0,
+                    reset_at: None,
+                    reset_at_unix: Some(9_000),
+                }],
+            }],
+        );
+        assert!(changed, "health marker with disabled=false should be repaired");
+
+        let pool = read_pool(&dir);
+        let bad = pool.iter().find(|f| f.file_name == "codex-bad.json").unwrap();
+        assert!(bad.disabled);
+        assert!(bad.health_isolated);
 
         let _ = std::fs::remove_dir_all(&dir);
     }

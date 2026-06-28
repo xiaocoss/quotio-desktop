@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "../lib/tauri";
-import { matchAuthFile } from "../lib/format";
 import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
 import { listen } from "@tauri-apps/api/event";
 import type {
@@ -18,30 +17,6 @@ import type {
   ProxyCommand,
   SavedAgentConfiguration,
 } from "../types";
-
-// Auto-gating: accounts Quotio auto-disabled in the proxy when their quota ran
-// out, keyed by auth-file name → disable timestamp (ms). Persisted so re-enable
-// only targets accounts WE disabled, and survives restarts.
-const AUTO_GATE_KEY = "quotio.autoDisabled";
-// Blindly re-enable an auto-disabled account this long after disabling, so a
-// recovered account that's no longer quota-visible gets re-probed.
-const REENABLE_AFTER_MS = 20 * 60 * 1000;
-
-function loadAutoDisabled(): Record<string, number> {
-  try {
-    return JSON.parse(localStorage.getItem(AUTO_GATE_KEY) || "{}") || {};
-  } catch {
-    return {};
-  }
-}
-
-function saveAutoDisabled(map: Record<string, number>): void {
-  try {
-    localStorage.setItem(AUTO_GATE_KEY, JSON.stringify(map));
-  } catch {
-    /* storage unavailable */
-  }
-}
 
 // Replace the matching account (by provider + key) or append it, so streamed
 // "quota-account" events update the quota list in place as they arrive.
@@ -230,7 +205,6 @@ export function useAppState() {
       const state = await invoke<AppState>("refresh_quotas");
       setAppState(state);
       void notifyLowQuotas(state);
-      await reconcileAccountGating();
       setError(null);
     } catch (cause) {
       setError(errorMessage(cause));
@@ -239,103 +213,6 @@ export function useAppState() {
       if (manual) setQuotaToast(null);
       setIsQuotaBusy(false);
       quotaRefreshInFlight.current = false;
-    }
-  }
-
-  // Auto-disable exhausted accounts in the proxy and re-enable recovered ones,
-  // driven by each quota refresh (manual button + the 5-min background poll).
-  // Only the main window manages gating, to avoid double-firing from the menu bar.
-  async function reconcileAccountGating() {
-    if (!("__TAURI_INTERNALS__" in window)) return;
-    if (isMenuBarView) return;
-    // Pull the proxy's real auth-file state (accurate `disabled` flag + email);
-    // refresh_quotas alone doesn't refresh the management snapshot.
-    let state: AppState;
-    try {
-      state = await invoke<AppState>("refresh_management_state");
-      setAppState(state);
-    } catch {
-      return; // management/proxy unreachable — can't gate safely
-    }
-    // 智能调度开启时由调度器接管池子(排序天然排除打满账号),
-    // 原闸门停用,避免两套逻辑互相翻转 disabled。
-    // 交接:把闸门自己禁用过的账号重新启用并清账——否则它们没有调度器的
-    // standby 标记,会被当成「用户手动禁用」而永远卡在禁用态。
-    if (state.settings.scheduler_rule && state.settings.scheduler_rule !== "off") {
-      const auto = loadAutoDisabled();
-      const names = Object.keys(auto);
-      if (names.length > 0) {
-        const authFiles = state.management.auth_files ?? [];
-        for (const name of names) {
-          // Case-insensitive: auto-disabled keys may be mixed-case while the proxy
-          // lowercases /auth-files names; call the API with the proxy's own name.
-          const file = authFiles.find((entry) => entry.name.toLowerCase() === name.toLowerCase());
-          if (file?.disabled) {
-            try {
-              await invoke("set_management_auth_file_disabled", { name: file.name, disabled: false });
-            } catch {
-              continue; // 代理不可达——留在账上,下轮交接重试
-            }
-          }
-          delete auto[name];
-        }
-        saveAutoDisabled(auto);
-      }
-      return;
-    }
-    const authFiles = state.management.auth_files ?? [];
-    if (authFiles.length === 0) return; // need the proxy's auth-files to act
-    const auto = loadAutoDisabled();
-    const now = Date.now();
-    let changed = false;
-
-    // Disable freshly-exhausted accounts; re-enable ones whose quota recovered
-    // (and that we disabled) while they are still quota-visible.
-    for (const quota of state.quotas) {
-      const file = matchAuthFile(quota, authFiles);
-      if (!file) continue;
-      if (quota.is_forbidden && !file.disabled) {
-        try {
-          await invoke("set_management_auth_file_disabled", { name: file.name, disabled: true });
-          auto[file.name] = now;
-          changed = true;
-        } catch {
-          /* proxy unreachable — retry next refresh */
-        }
-      } else if (!quota.is_forbidden && file.disabled && auto[file.name] != null) {
-        try {
-          await invoke("set_management_auth_file_disabled", { name: file.name, disabled: false });
-          delete auto[file.name];
-          changed = true;
-        } catch {
-          /* skip */
-        }
-      }
-    }
-
-    // Fallback: re-enable accounts auto-disabled >20 min ago, so a recovered one
-    // that is no longer quota-visible gets re-probed (and re-disabled if still out).
-    for (const [name, disabledAt] of Object.entries(auto)) {
-      if (now - disabledAt < REENABLE_AFTER_MS) continue;
-      const file = authFiles.find((entry) => entry.name.toLowerCase() === name.toLowerCase());
-      if (file?.disabled) {
-        try {
-          await invoke("set_management_auth_file_disabled", { name: file.name, disabled: false });
-          changed = true;
-        } catch {
-          /* skip */
-        }
-      }
-      delete auto[name];
-    }
-
-    saveAutoDisabled(auto);
-    if (changed) {
-      try {
-        setAppState(await invoke<AppState>("refresh_management_state"));
-      } catch {
-        /* ignore */
-      }
     }
   }
 
