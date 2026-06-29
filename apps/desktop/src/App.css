@@ -3672,23 +3672,54 @@ h3 {
 }
 
 .account-row-drag {
+  display: flex;
+  align-items: center;
   transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
 
-.account-row-drag--draggable {
+.account-row-drag > .account-row {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 拖拽手柄(⠿):悬停账号行时淡出现,抓住它才能拖。 */
+.account-drag-handle {
+  flex: 0 0 auto;
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--quotio-muted);
   cursor: grab;
-  user-select: none;
+  opacity: 0;
+  transition: opacity 0.15s;
   touch-action: none;
+}
+
+.account-row-drag:hover .account-drag-handle {
+  opacity: 0.5;
+}
+
+.account-drag-handle:hover {
+  opacity: 1;
 }
 
 /* 拖拽中的行:浮起(实心底 + 阴影 + 抬到上层),跟着指针走。 */
 .account-row-drag--dragging {
-  cursor: grabbing;
   background: var(--quotio-card-solid);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
   border-radius: 8px;
   position: relative;
   z-index: 5;
+}
+
+.account-row-drag--dragging .account-drag-handle {
+  cursor: grabbing;
+  opacity: 1;
 }
 
 .account-row-info {

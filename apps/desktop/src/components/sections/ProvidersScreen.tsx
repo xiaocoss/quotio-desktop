@@ -857,41 +857,51 @@ function ProviderCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [draggingFile, setDraggingFile] = useState<string | null>(null);
   const [dragOverFile, setDragOverFile] = useState<string | null>(null);
-  // 用 pointer 事件自己实现拖拽,而不是 HTML5 draggable —— 后者在 Tauri 无边框窗口里
-  // 会触发 WebView2 的原生拖拽、和窗体拖拽打架。pointer + setPointerCapture 不碰原生 drag。
-  const dragRef = useRef<{ file: string; startY: number; dragging: boolean; over: string | null } | null>(null);
+  // 拖拽用 pointer 事件 + 专用手柄(⠿)实现:只有抓住手柄才拖,行的其它地方不参与,
+  // 既消除与 WebView2 窗体拖拽的冲突,也不会误拖。dragRef 记住被拖的行元素。
+  const dragRef = useRef<{
+    file: string;
+    startY: number;
+    dragging: boolean;
+    over: string | null;
+    rowEl: HTMLElement | null;
+  } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // 在手柄上按下:记录被拖的行(手柄最近的 [data-drag-file] 祖先),后续 pointer 事件
+  // 捕获到手柄;preventDefault 压掉 compatibility mousedown,彻底不触发窗体拖拽。
   const beginRowDrag = (e: React.PointerEvent, file: string) => {
     if (isBusy || !order.get(file)) return;
-    if ((e.target as HTMLElement).closest("button")) return; // 让行内按钮正常点击,不抢
-    // 关键:压掉 pointerdown 之后的 compatibility mousedown —— 否则 WebView2 无边框窗口
-    // 会把它当作窗体拖拽,和账号行拖拽打架。按钮区已在上面提前 return,不受影响。
     e.preventDefault();
-    dragRef.current = { file, startY: e.clientY, dragging: false, over: null };
+    e.stopPropagation();
+    dragRef.current = {
+      file,
+      startY: e.clientY,
+      dragging: false,
+      over: null,
+      rowEl: (e.currentTarget as HTMLElement).closest<HTMLElement>("[data-drag-file]"),
+    };
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* 某些环境无 pointer capture,忽略即可 */
+    }
   };
   const moveRowDrag = (e: React.PointerEvent) => {
     const d = dragRef.current;
-    if (!d) return;
-    const el = e.currentTarget as HTMLElement;
+    if (!d || !d.rowEl) return;
     if (!d.dragging) {
-      if (Math.abs(e.clientY - d.startY) < 5) return; // 越过阈值才算拖,普通点击不触发
+      if (Math.abs(e.clientY - d.startY) < 4) return; // 越过阈值才算拖
       d.dragging = true;
       setDraggingFile(d.file);
-      el.style.transition = "none"; // 拖拽中 1:1 跟手,不要过渡延迟
-      try {
-        el.setPointerCapture(e.pointerId);
-      } catch {
-        /* 某些环境无 pointer capture,忽略即可 */
-      }
+      d.rowEl.style.transition = "none"; // 拖拽中 1:1 跟手
     }
-    // 被拖的行跟着指针上下走(命令式改 transform,避免每次 move 触发 React 重渲染)。
-    el.style.transform = `translateY(${e.clientY - d.startY}px)`;
-    // 落点:按各行**静态矩形**比对指针 Y(被拖行已 transform,排除它自己)。比
-    // elementFromPoint + pointer-events 穿透在 WebView2 里更稳。指针在所有行之上/之下
-    // 时钳到首/尾行,方便拖到两端。
+    // 被拖的整行跟着指针上下走(命令式改 transform,避免每次 move 触发 React 重渲染)。
+    d.rowEl.style.transform = `translateY(${e.clientY - d.startY}px)`;
+    // 落点:按各行静态矩形比对指针 Y(排除已 transform 的被拖行);在所有行之上/之下时
+    // 钳到首/尾行,方便拖到两端。
     let over: string | null = null;
-    const container = el.parentElement;
+    const container = d.rowEl.parentElement;
     if (container) {
       const rows = Array.from(container.querySelectorAll<HTMLElement>("[data-drag-file]")).filter(
         (c) => c.dataset.dragFile && c.dataset.dragFile !== d.file,
@@ -912,12 +922,13 @@ function ProviderCard({
     d.over = over;
     setDragOverFile(over);
   };
-  const endRowDrag = (e: React.PointerEvent) => {
+  const endRowDrag = () => {
     const d = dragRef.current;
     dragRef.current = null;
-    const el = e.currentTarget as HTMLElement;
-    el.style.transition = ""; // 恢复 CSS 过渡 → 松手平滑归位
-    el.style.transform = "";
+    if (d?.rowEl) {
+      d.rowEl.style.transition = ""; // 恢复 CSS 过渡 → 松手平滑归位
+      d.rowEl.style.transform = "";
+    }
     if (d?.dragging && d.over) onReorderMove(d.file, d.over);
     setDraggingFile(null);
     setDragOverFile(null);
@@ -1026,13 +1037,27 @@ function ProviderCard({
             <div
               key={account.id}
               data-drag-file={account.name}
-              onPointerDown={canDrag ? (e) => beginRowDrag(e, account.name) : undefined}
-              onPointerMove={canDrag ? moveRowDrag : undefined}
-              onPointerUp={canDrag ? endRowDrag : undefined}
-              onPointerCancel={canDrag ? endRowDrag : undefined}
-              className={`account-row-drag${canDrag ? " account-row-drag--draggable" : ""}${draggingFile === account.name ? " account-row-drag--dragging" : ""}`}
+              className={`account-row-drag${draggingFile === account.name ? " account-row-drag--dragging" : ""}`}
               style={isOver ? { boxShadow: `inset 0 2.5px 0 0 #${group.colorHex}`, background: `#${group.colorHex}14`, borderRadius: "8px" } : undefined}
             >
+              {canDrag ? (
+                <button
+                  type="button"
+                  className="account-drag-handle"
+                  aria-label="拖动排序"
+                  title="拖动排序"
+                  onPointerDown={(e) => beginRowDrag(e, account.name)}
+                  onPointerMove={moveRowDrag}
+                  onPointerUp={endRowDrag}
+                  onPointerCancel={endRowDrag}
+                >
+                  <svg viewBox="0 0 12 16" width="10" height="14" fill="currentColor" aria-hidden="true">
+                    <circle cx="4" cy="4" r="1" /><circle cx="8" cy="4" r="1" />
+                    <circle cx="4" cy="8" r="1" /><circle cx="8" cy="8" r="1" />
+                    <circle cx="4" cy="12" r="1" /><circle cx="8" cy="12" r="1" />
+                  </svg>
+                </button>
+              ) : null}
               <AccountRow
                 account={account}
                 colorHex={group.colorHex}
