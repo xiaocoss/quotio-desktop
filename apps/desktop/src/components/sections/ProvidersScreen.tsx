@@ -884,13 +884,30 @@ function ProviderCard({
     }
     // 被拖的行跟着指针上下走(命令式改 transform,避免每次 move 触发 React 重渲染)。
     el.style.transform = `translateY(${e.clientY - d.startY}px)`;
-    // 命中检测时让被拖的行临时"穿透",否则 elementFromPoint 总命中它自己、找不到落点行。
-    el.style.pointerEvents = "none";
-    const under = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
-    el.style.pointerEvents = "";
-    const target = under?.closest<HTMLElement>("[data-drag-file]")?.dataset.dragFile ?? null;
-    d.over = target && target !== d.file ? target : null;
-    setDragOverFile(d.over);
+    // 落点:按各行**静态矩形**比对指针 Y(被拖行已 transform,排除它自己)。比
+    // elementFromPoint + pointer-events 穿透在 WebView2 里更稳。指针在所有行之上/之下
+    // 时钳到首/尾行,方便拖到两端。
+    let over: string | null = null;
+    const container = el.parentElement;
+    if (container) {
+      const rows = Array.from(container.querySelectorAll<HTMLElement>("[data-drag-file]")).filter(
+        (c) => c.dataset.dragFile && c.dataset.dragFile !== d.file,
+      );
+      for (const child of rows) {
+        const r = child.getBoundingClientRect();
+        if (e.clientY >= r.top && e.clientY <= r.bottom) {
+          over = child.dataset.dragFile ?? null;
+          break;
+        }
+      }
+      if (!over && rows.length > 0) {
+        if (e.clientY < rows[0].getBoundingClientRect().top) over = rows[0].dataset.dragFile ?? null;
+        else if (e.clientY > rows[rows.length - 1].getBoundingClientRect().bottom)
+          over = rows[rows.length - 1].dataset.dragFile ?? null;
+      }
+    }
+    d.over = over;
+    setDragOverFile(over);
   };
   const endRowDrag = (e: React.PointerEvent) => {
     const d = dragRef.current;
