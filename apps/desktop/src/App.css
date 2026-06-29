@@ -3671,8 +3671,10 @@ h3 {
   color: var(--quotio-text);
 }
 
-.account-row-drag[draggable="true"] {
+.account-row-drag--draggable {
   cursor: grab;
+  user-select: none;
+  touch-action: none;
 }
 
 .account-row-drag--dragging {

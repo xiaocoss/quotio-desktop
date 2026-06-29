@@ -857,7 +857,41 @@ function ProviderCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [draggingFile, setDraggingFile] = useState<string | null>(null);
   const [dragOverFile, setDragOverFile] = useState<string | null>(null);
+  // 用 pointer 事件自己实现拖拽,而不是 HTML5 draggable —— 后者在 Tauri 无边框窗口里
+  // 会触发 WebView2 的原生拖拽、和窗体拖拽打架。pointer + setPointerCapture 不碰原生 drag。
+  const dragRef = useRef<{ file: string; startY: number; dragging: boolean; over: string | null } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const beginRowDrag = (e: React.PointerEvent, file: string) => {
+    if (isBusy || !order.get(file)) return;
+    if ((e.target as HTMLElement).closest("button")) return; // 让行内按钮正常点击,不抢
+    dragRef.current = { file, startY: e.clientY, dragging: false, over: null };
+  };
+  const moveRowDrag = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    if (!d.dragging) {
+      if (Math.abs(e.clientY - d.startY) < 5) return; // 越过阈值才算拖,普通点击不触发
+      d.dragging = true;
+      setDraggingFile(d.file);
+      try {
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      } catch {
+        /* 某些环境无 pointer capture,忽略即可 */
+      }
+    }
+    const under = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+    const target = under?.closest<HTMLElement>("[data-drag-file]")?.dataset.dragFile ?? null;
+    d.over = target && target !== d.file ? target : null;
+    setDragOverFile(d.over);
+  };
+  const endRowDrag = () => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    if (d?.dragging && d.over) onReorderMove(d.file, d.over);
+    setDraggingFile(null);
+    setDragOverFile(null);
+  };
   const initial = group.label.trim().charAt(0).toUpperCase() || "?";
   const accounts =
     order.size > 0
@@ -961,41 +995,12 @@ function ProviderCard({
           return (
             <div
               key={account.id}
-              draggable={canDrag}
-              onDragStart={
-                canDrag
-                  ? (e) => {
-                      setDraggingFile(account.name);
-                      e.dataTransfer.effectAllowed = "move";
-                    }
-                  : undefined
-              }
-              onDragOver={
-                canDrag
-                  ? (e) => {
-                      e.preventDefault();
-                      if (draggingFile && draggingFile !== account.name) setDragOverFile(account.name);
-                    }
-                  : undefined
-              }
-              onDragLeave={() => {
-                if (dragOverFile === account.name) setDragOverFile(null);
-              }}
-              onDrop={
-                canDrag
-                  ? (e) => {
-                      e.preventDefault();
-                      if (draggingFile) onReorderMove(draggingFile, account.name);
-                      setDraggingFile(null);
-                      setDragOverFile(null);
-                    }
-                  : undefined
-              }
-              onDragEnd={() => {
-                setDraggingFile(null);
-                setDragOverFile(null);
-              }}
-              className={`account-row-drag${draggingFile === account.name ? " account-row-drag--dragging" : ""}`}
+              data-drag-file={account.name}
+              onPointerDown={canDrag ? (e) => beginRowDrag(e, account.name) : undefined}
+              onPointerMove={canDrag ? moveRowDrag : undefined}
+              onPointerUp={canDrag ? endRowDrag : undefined}
+              onPointerCancel={canDrag ? endRowDrag : undefined}
+              className={`account-row-drag${canDrag ? " account-row-drag--draggable" : ""}${draggingFile === account.name ? " account-row-drag--dragging" : ""}`}
               style={isOver ? { boxShadow: `inset 0 2px 0 0 #${group.colorHex}`, borderRadius: "8px" } : undefined}
             >
               <AccountRow
