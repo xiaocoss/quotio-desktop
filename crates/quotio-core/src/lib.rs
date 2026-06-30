@@ -223,6 +223,13 @@ impl AppCore {
             ManagementCoreError::Unavailable(format!("无法保存应用设置：{}", error))
         })?;
 
+        // 「顺序故障转移」要靠 config.yaml 的 fill-first 路由 + 关闭冷却才生效,这两者都没有
+        // 热更新接口(管理 API 只有路由,且我们统一走重启)。所以**只在进/出失败转移这条边界**
+        // 上重启代理来一次性应用。手动开关 disable_cooling 不在此触发(沿用旧行为:写配置、下次
+        // 启动生效,不打断在跑的请求);前端 selectMode 也按同一条边界跳过热推路由,二者必须一致,
+        // 否则会出现「前端以为后端会重启而跳过推路由、后端却不重启 → 路由永不生效」。
+        let failover_changed = (self.settings.scheduler_rule == "priority_failover")
+            != (settings.scheduler_rule == "priority_failover");
         self.settings = settings;
         if self.settings.remote_management_key.is_none() {
             self.settings.remote_management_key = None;
@@ -230,6 +237,16 @@ impl AppCore {
         self.proxy.sync_settings(&self.settings);
         if let Err(err) = self.proxy.write_config(&self.settings) {
             eprintln!("[save_settings] write_config failed: {err}");
+        }
+        if failover_changed {
+            // 重启前先刷新一次运行状态:刚启动 / 上一会话收养的代理,缓存的 status 可能还是旧值,
+            // 不刷新会漏判而跳过重启 → 失败转移仍带着旧路由 / 冷却跑。
+            self.proxy.refresh(&self.settings);
+            if matches!(self.proxy.state.status, ProxyStatusKind::Running) {
+                if let Err(err) = self.restart_proxy() {
+                    eprintln!("[save_settings] restart for failover toggle failed: {err}");
+                }
+            }
         }
         Ok(self.app_state())
     }
@@ -3838,7 +3855,7 @@ fn render_proxy_config(
         settings.debug,
         settings.logging_to_file,
         settings.logs_max_total_size_mb,
-        settings.disable_cooling,
+        cooling_disabled(settings),
         settings.disable_image_generation,
         settings.force_model_prefix,
         settings.passthrough_headers,
@@ -3876,6 +3893,13 @@ fn render_payload_overrides(settings: &AppSettings) -> String {
         "\npayload:\n  override:\n    - models:\n        - name: \"*\"\n      params:\n{}\n",
         params.join("\n")
     )
+}
+
+/// 「生效冷却(是否关闭)」:用户在设置里手动关了冷却,**或**处于「顺序故障转移」模式
+///(该模式要求关掉冷却,否则坏号一次失败就被惩罚性冷却、最长锁死 30 分钟,违背严格按优先
+/// 级用号)。不直接改 `disable_cooling` 设置本身,避免覆盖用户的手动选择。
+fn cooling_disabled(settings: &AppSettings) -> bool {
+    settings.disable_cooling || settings.scheduler_rule == "priority_failover"
 }
 
 fn routing_strategy_value(strategy: &RoutingStrategy) -> &'static str {
@@ -4221,6 +4245,24 @@ fn now_unix_seconds() -> u64 {
 mod tests {
     use super::*;
     use quotio_types::{ConnectionMode, MigrationPhase};
+
+    #[test]
+    fn cooling_disabled_is_manual_or_failover_without_clobbering() {
+        let mut s = AppSettings::default();
+        // 默认:开冷却。
+        assert!(!cooling_disabled(&s));
+        // 顺序故障转移 → 关冷却(即使用户没手动关)。
+        s.scheduler_rule = "priority_failover".to_string();
+        assert!(cooling_disabled(&s));
+        // 智能调度不关冷却。
+        s.scheduler_rule = "reset_soonest".to_string();
+        assert!(!cooling_disabled(&s));
+        // 用户手动关冷却:任何模式下都关 —— 派生不覆盖、只叠加用户的手动选择。
+        s.disable_cooling = true;
+        assert!(cooling_disabled(&s));
+        s.scheduler_rule = "off".to_string();
+        assert!(cooling_disabled(&s));
+    }
 
     #[test]
     fn auth_file_ident_keeps_emailless_accounts_distinct() {

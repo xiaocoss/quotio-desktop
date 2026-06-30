@@ -162,6 +162,22 @@ export function matchAuthFile(quota: AccountQuota, authFiles: AuthFile[]): AuthF
   return null;
 }
 
+// 当前真正在「服务」的号 ≈ 代理 fill-first 实际会先用的号:优先级最高、且当前健康可用的那个。
+// `orderFileNames` 必须已按优先级排序(后端 order 即是),这里按序找**第一个「启用 + 近期成功 >
+// 失败」**的号。比「累计成功最多」更跟手——刚恢复 / 刚切号时不会被旧号的历史成功数带偏(否则旧号
+// 累计 √ 仍高、会把「主用」误标到它身上);也跳过待命 / 隔离 / 用户禁用的号(不在代理池里)。全都
+// 不健康 / 无流量时返回 null,让调用方回退到后端给的 active。
+export function servingFile(orderFileNames: string[], authFiles: AuthFile[]): string | null {
+  for (const name of orderFileNames) {
+    const file = authFiles.find((f) => f.name === name);
+    if (!file || file.disabled) continue;
+    const success = file.success ?? 0;
+    const failed = file.failed ?? 0;
+    if (success > 0 && success > failed) return name;
+  }
+  return null;
+}
+
 // Tone for one recent-request health bucket: green (all ok), amber (mixed),
 // red (all failed), gray (idle / no traffic).
 export function healthTone(bucket: { success: number; failed: number }): "good" | "warn" | "bad" | "idle" {

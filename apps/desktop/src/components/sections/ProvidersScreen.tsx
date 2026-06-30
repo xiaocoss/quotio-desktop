@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback, memo, type ChangeEvent } from "react";
 import type { AccountAuthHealth, AppState, AuthFile, OAuthStatusResponse, OAuthUrlResponse, ProviderSummary, SchedulerOrderItem } from "../../types";
-import { maskEmail, matchAuthFile } from "../../lib/format";
+import { maskEmail, matchAuthFile, servingFile } from "../../lib/format";
 import { EyeIcon, EyeOffIcon, PlusIcon, RefreshIcon, TrashIcon } from "../icons";
 import { useT } from "../../i18n";
 import { invoke } from "../../lib/tauri";
@@ -257,13 +257,17 @@ export function ProvidersScreen({
     const sched = appState.scheduler;
     if (sched && schedulerOrdersAccounts(sched.rule)) {
       for (const entry of sched.providers ?? []) {
-        for (const item of entry.order ?? []) {
-          map.set(item.file_name, item);
+        const order = entry.order ?? [];
+        // 「主用」高亮(active)跟着真正在服务的号走——后端 active 是优先级最高的启用号,
+        // 但它可能正被上游抖动临时绕过;无近期流量时保留后端 active。序号位置不变。
+        const serving = servingFile(order.map((i) => i.file_name), authFiles);
+        for (const item of order) {
+          map.set(item.file_name, serving ? { ...item, active: item.file_name === serving } : item);
         }
       }
     }
     return map;
-  }, [appState.scheduler]);
+  }, [appState.scheduler, authFiles]);
 
   // 调整某账号在请求顺序里的位置(上移/下移/置顶/重置为自动)。基于当前调度顺序算出
   // 新的完整文件名顺序,交给后端写 quotio_priority=1..N(reset = 空列表清掉优先级)。

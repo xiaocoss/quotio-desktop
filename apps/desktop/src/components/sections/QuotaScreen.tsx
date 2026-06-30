@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AccountQuota, AppSettings, AppState, AuthFile, ProviderSummary, QuotaModelUsage, SchedulerOrderItem } from "../../types";
-import { maskEmail, quotaTone, parsePlan, parseResetCredits, planTier, matchAuthFile } from "../../lib/format";
+import { maskEmail, quotaTone, parsePlan, parseResetCredits, planTier, matchAuthFile, servingFile } from "../../lib/format";
 import { RefreshIcon } from "../icons";
 import { HealthDots } from "../HealthDots";
 import { useT } from "../../i18n";
@@ -51,11 +51,16 @@ export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSett
     const sched = appState.scheduler;
     if (sched && (sched.rule === "reset_soonest" || sched.rule === "priority_failover")) {
       for (const entry of sched.providers ?? []) {
-        for (const item of entry.order ?? []) map.set(item.file_name, item);
+        const order = entry.order ?? [];
+        // 「主用」高亮跟着真正在服务(近期成功最多)的号走;无近期流量时保留后端 active。
+        const serving = servingFile(order.map((i) => i.file_name), authFiles);
+        for (const item of order) {
+          map.set(item.file_name, serving ? { ...item, active: item.file_name === serving } : item);
+        }
       }
     }
     return map;
-  }, [appState.scheduler]);
+  }, [appState.scheduler, authFiles]);
 
   const orderForAccount = useCallback(
     (account: AccountQuota): SchedulerOrderItem | null => {
@@ -223,20 +228,27 @@ function SchedulerCard({
 
   function selectMode(mode: "off" | "reset_soonest" | "priority_failover") {
     if (mode === rule) return;
+    const isFailover = mode === "priority_failover";
     // 顺序故障转移要让代理按 attributes.priority 顺位用号 → fill-first;其余模式回 round-robin。
-    const nextRouting = mode === "priority_failover" ? "fill-first" : "round-robin";
+    // 同时该模式要关掉冷却(坏号只临时绕过、不被惩罚性冷落,否则一次 5xx 就把高优先级号锁死最长
+    // 30 分钟)——「生效冷却」由后端按 scheduler_rule 派生(failover 即关 = 用户手动 OR failover),
+    // 不在这里写 disable_cooling,免得覆盖用户在「设置」里的手动开关。
+    const nextRouting = isFailover ? "fill-first" : "round-robin";
+    // 进 / 出失败转移这条边界:fill-first 路由 + 关冷却都只能靠 config.yaml + 重启生效,save_settings
+    // 后端正是在这条边界上重启代理、一次性应用两者。所以这种切换把路由交给那次重启(别再单独热推、
+    // 免得和重启抢)。判定必须和后端**完全一致**(同为「是否跨 failover 边界」),否则会出现「前端
+    // 以为后端重启而跳过推路由、后端却不重启 → 路由永不生效」。
+    const failoverChanged = isFailover !== (rule === "priority_failover");
     onSaveSettings({
       ...appState.settings,
       scheduler_rule: mode,
       routing_strategy: nextRouting,
       remote_management_key: null,
     });
-    // onSaveSettings 只写 config.yaml(下次启动生效);路由还要经管理 API 推给运行中的代理,
-    // 否则切到 failover 后活代理仍是旧路由、要重启才认 fill-first。仅在代理可达
-    //(management.config 非空)且活代理当前路由确实不同才推:代理没运行时别空推弹错;
-    // 且按「活代理的真实路由」比对(而非持久化设置,两者可能不一致)以免漏推。
+    // 只有不跨 failover 边界(off ↔ 智能调度,后端不会重启)时,才按需把路由热推给活代理。
+    // 代理没运行时不推、按活代理真实路由比对以免漏推。
     const liveConfig = appState.management.config;
-    if (liveConfig && liveConfig.routing_strategy !== nextRouting) {
+    if (!failoverChanged && liveConfig && liveConfig.routing_strategy !== nextRouting) {
       onRunManagementStateAction("set_management_routing_strategy", { strategy: nextRouting });
     }
   }
@@ -252,7 +264,16 @@ function SchedulerCard({
     }
   }
 
-  const activeLabel = providerEntry?.target_label ?? scheduler?.target_label;
+  // 「主用」跟着真正在服务(近期成功 √ 最多)的号:后端 target_label 是优先级最高的启用号,
+  // 但它可能正被上游抖动临时绕过。无近期流量时回退后端值。
+  const schedAuthFiles = appState.management.auth_files ?? appState.auth_files ?? [];
+  const servingName = providerEntry
+    ? servingFile((providerEntry.order ?? []).map((i) => i.file_name), schedAuthFiles)
+    : null;
+  const servingLabel = servingName
+    ? (providerEntry?.order ?? []).find((i) => i.file_name === servingName)?.label ?? null
+    : null;
+  const activeLabel = servingLabel ?? providerEntry?.target_label ?? scheduler?.target_label;
   const activeStandby = providerEntry?.standby_count ?? scheduler?.standby_count ?? 0;
   const totalScheduled = scheduler?.providers?.length ?? 0;
 
