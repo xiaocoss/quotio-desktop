@@ -3716,11 +3716,16 @@ h3 {
   display: inline-flex;
   align-items: center;
   gap: 1px;
+  max-width: 0;
+  overflow: hidden;
   opacity: 0;
-  transition: opacity 0.15s;
+  /* 不悬停时收起宽度(max-width:0),把空间还给邮箱/状态列——否则即使透明也占着 ~56px、
+     会把状态文字挤成一字一行竖排。悬停才滑出。 */
+  transition: opacity 0.15s, max-width 0.15s;
 }
 
 .account-row:hover .account-reorder {
+  max-width: 64px;
   opacity: 1;
 }
 
@@ -3845,6 +3850,9 @@ h3 {
 .account-row-status {
   color: var(--quotio-muted);
   font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .account-row-status--good {
   color: #16823a;
@@ -3955,7 +3963,7 @@ h3 {
 /* Card grid */
 .pv-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 14px;
 }
 
