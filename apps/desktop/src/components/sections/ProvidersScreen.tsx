@@ -364,6 +364,8 @@ export function ProvidersScreen({
   const oauthProviders = appState.providers.filter((provider) => provider.native_oauth || provider.oauth_endpoint || provider.supports_manual_auth);
 
   const [addAccountProvider, setAddAccountProvider] = useState<ProviderSummary | null>(null);
+  // 正在「重新授权」的账号(为空 = 新增账号);供弹窗显示该账号、给用户复制。
+  const [reauthTarget, setReauthTarget] = useState<AuthFile | null>(null);
   const [projectId] = useState("");
   const [showAddCustom, setShowAddCustom] = useState(false);
   const [editingCustomId, setEditingCustomId] = useState<string | null>(null);
@@ -379,7 +381,10 @@ export function ProvidersScreen({
     const provider = appState.providers.find(
       (item) => item.id === account.provider || item.id.includes(account.provider) || account.provider.includes(item.id),
     );
-    if (provider) setAddAccountProvider(provider);
+    if (provider) {
+      setReauthTarget(account);
+      setAddAccountProvider(provider);
+    }
   }
 
   function resetCustomForm() {
@@ -542,7 +547,12 @@ export function ProvidersScreen({
         <AddAccountModal
           provider={addAccountProvider}
           projectId={projectId}
-          onClose={() => setAddAccountProvider(null)}
+          reauthAccountLabel={
+            reauthTarget
+              ? reauthTarget.email || reauthTarget.account || reauthTarget.label || reauthTarget.name
+              : null
+          }
+          onClose={() => { setAddAccountProvider(null); setReauthTarget(null); }}
           onStartOAuth={onStartOAuth}
           onPollOAuth={onPollOAuth}
           onRefreshQuotas={() => { onRefreshQuotas(); onRefreshManagement(); }}
@@ -560,7 +570,7 @@ export function ProvidersScreen({
               // 只列「还没连接」(没卡片)的服务商——加首个账号的唯一入口;已连接的卡片上有 +。
               (p) => !groups.some((g) => g.id === p.id || p.id.includes(g.id) || g.id.includes(p.id)),
             )}
-            onSelectProvider={setAddAccountProvider}
+            onSelectProvider={(provider) => { setReauthTarget(null); setAddAccountProvider(provider); }}
           />
         </span>
       </div>
@@ -583,7 +593,7 @@ export function ProvidersScreen({
               onReauth={reauthAccount}
               onAddAccount={() => {
                 const provider = appState.providers.find((p) => p.id === group.id || p.id.includes(group.id) || group.id.includes(p.id));
-                if (provider) setAddAccountProvider(provider);
+                if (provider) { setReauthTarget(null); setAddAccountProvider(provider); }
               }}
               onExport={() => void onExportProvider(group)}
               onDeleteAll={() => {

@@ -2569,6 +2569,67 @@ h3 {
   color: var(--quotio-text);
 }
 
+/* 重新授权横幅:显示正在重授的账号(点击展开)+ 复制完整账号 */
+.aam-reauth-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 20px 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: rgba(99, 102, 241, 0.07);
+  color: #4f46e5;
+}
+.aam-reauth-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+.aam-reauth-caption {
+  font-size: 10.5px;
+  color: var(--quotio-muted);
+}
+.aam-reauth-email {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--quotio-text);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aam-reauth-email:hover {
+  color: #4f46e5;
+}
+.aam-reauth-copy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--quotio-border);
+  background: var(--quotio-bg);
+  color: var(--quotio-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.aam-reauth-copy:hover {
+  background: var(--quotio-bg-tertiary, rgba(100,116,139,0.1));
+  color: #4f46e5;
+}
+
 /* Tabs */
 .aam-tabs {
   display: flex;

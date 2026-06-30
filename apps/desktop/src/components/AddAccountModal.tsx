@@ -3,6 +3,7 @@ import { Mfa2faQuickPanel } from "./Mfa2faQuickPanel";
 import type { NativeOAuthCompleteResponse, NativeOAuthStartResponse, OAuthStatusResponse, OAuthUrlResponse, ProviderSummary } from "../types";
 import { CheckIcon, CopyIcon, KeyIcon, PlusIcon, RefreshIcon } from "./icons";
 import { invoke } from "../lib/tauri";
+import { maskEmail } from "../lib/format";
 
 function GlobeIcon() {
   return (
@@ -43,6 +44,8 @@ type Tab = "oauth" | "token" | "import";
 type AddAccountModalProps = {
   provider: ProviderSummary;
   projectId: string;
+  /** 非空 = 这是「重新授权」某个已存在账号:弹窗会显示该账号供用户对照 / 复制。 */
+  reauthAccountLabel?: string | null;
   onClose: () => void;
   onStartOAuth: (endpoint: string, projectId: string | null, isWebui?: boolean) => Promise<OAuthUrlResponse | null>;
   onPollOAuth: (token: string) => Promise<OAuthStatusResponse | null>;
@@ -53,6 +56,7 @@ type AddAccountModalProps = {
 export function AddAccountModal({
   provider,
   projectId,
+  reauthAccountLabel,
   onClose,
   onStartOAuth,
   onPollOAuth,
@@ -84,6 +88,10 @@ export function AddAccountModal({
   // Manual callback state
   const [manualCallback, setManualCallback] = useState("");
   const [callbackBusy, setCallbackBusy] = useState(false);
+
+  // 重新授权横幅:展示 / 复制正在重授的账号
+  const [labelCopied, setLabelCopied] = useState(false);
+  const [revealLabel, setRevealLabel] = useState(false);
 
   // File input ref
   const fileRef = useRef<HTMLInputElement>(null);
@@ -246,6 +254,15 @@ export function AddAccountModal({
     } catch { /* ignore */ }
   }
 
+  async function handleCopyLabel() {
+    if (!reauthAccountLabel) return;
+    try {
+      await navigator.clipboard.writeText(reauthAccountLabel);
+      setLabelCopied(true);
+      setTimeout(() => setLabelCopied(false), 1200);
+    } catch { /* ignore */ }
+  }
+
   async function handleManualCallback() {
     const url = manualCallback.trim();
     if (!url) return;
@@ -297,9 +314,34 @@ export function AddAccountModal({
     <div className="modal-overlay aam-overlay" onClick={onClose}>
       <div className="aam-modal" onClick={(e) => e.stopPropagation()}>
         <div className="aam-header">
-          <h2>添加账号</h2>
+          <h2>{reauthAccountLabel ? "重新授权" : "添加账号"}</h2>
           <button className="aam-close" type="button" onClick={onClose}><XIcon /></button>
         </div>
+
+        {reauthAccountLabel ? (
+          <div className="aam-reauth-banner">
+            <KeyIcon />
+            <div className="aam-reauth-text">
+              <span className="aam-reauth-caption">正在重新授权账号</span>
+              <button
+                type="button"
+                className="aam-reauth-email"
+                title={revealLabel ? reauthAccountLabel : "点击显示完整账号"}
+                onClick={() => setRevealLabel((v) => !v)}
+              >
+                {revealLabel ? reauthAccountLabel : maskEmail(reauthAccountLabel)}
+              </button>
+            </div>
+            <button
+              type="button"
+              className="aam-reauth-copy"
+              onClick={() => void handleCopyLabel()}
+              title="复制完整账号"
+            >
+              {labelCopied ? <CheckIcon /> : <CopyIcon />}
+            </button>
+          </div>
+        ) : null}
 
         <div className="aam-tabs">
           {hasOAuth ? (
