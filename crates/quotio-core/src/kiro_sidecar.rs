@@ -57,56 +57,95 @@ pub fn current_api_key() -> String {
 /// refresh token — kiro-rs needs it to mint access tokens.
 fn map_credential(file: &Value) -> Option<Value> {
     let raw = file.get("kiro_auth_token_raw");
-    let from_raw = |key: &str| -> Option<&str> {
-        raw.and_then(|r| r.get(key))
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
+    // 每个字段:先从顶层取(Kiro 客户端原生 / 用户直接粘的扁平布局,camelCase 或 snake_case),
+    // 取不到再从 kiro_auth_token_raw 包裹层取(cockpit-tools 导出布局)。两种布局都要认——之前
+    // 只认包裹层,扁平粘贴的凭据(顶层 refreshToken)会整个映射失败、kiro-rs 一个号都拿不到 →
+    // 「导入成功却取不到模型」的真根因之一。
+    let pick = |keys: &[&str]| -> Option<String> {
+        keys.iter()
+            .find_map(|k| {
+                file.get(*k)
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+            })
+            .or_else(|| {
+                keys.iter().find_map(|k| {
+                    raw.and_then(|r| r.get(*k))
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.is_empty())
+                })
+            })
+            .map(str::to_string)
     };
 
-    let refresh_token = file
-        .get("refresh_token")
-        .and_then(|v| v.as_str())
-        .filter(|s| !s.is_empty())
-        .or_else(|| from_raw("refreshToken"))?
-        .to_string();
+    let refresh_token = pick(&["refresh_token", "refreshToken"])?;
 
     let mut cred = serde_json::Map::new();
     cred.insert("refreshToken".into(), json!(refresh_token));
-    cred.insert(
-        "authMethod".into(),
-        json!(from_raw("authMethod").unwrap_or("social")),
-    );
+    // authMethod:归一到 kiro-rs 认的写法(它只认 idc / builder-id / iam,**不认 awsidc**;
+    // 之前原样透传 "awsidc" 或默认 "social",组织账号就落到 social 刷新端点、token 刷不出来 →
+    // 取不到模型)。源里没写就不塞,让 kiro-rs 按有无 clientId/clientSecret 自动判断(idc 凭据
+    // 自带这俩);源里有就归一后写入。
+    if let Some(method) = pick(&["authMethod", "auth_method"]) {
+        cred.insert(
+            "authMethod".into(),
+            json!(canonicalize_kiro_auth_method(&method)),
+        );
+    }
 
-    if let Some(expires_at) = from_raw("expiresAt") {
+    if let Some(expires_at) = pick(&["expiresAt", "expires_at"]) {
         cred.insert("expiresAt".into(), json!(expires_at));
     }
-    if let Some(email) = file
-        .get("email")
-        .and_then(|v| v.as_str())
-        .filter(|s| !s.is_empty())
-    {
+    if let Some(email) = pick(&["email"]) {
         cred.insert("email".into(), json!(email));
     }
 
-    // profileArn lives in kiro_auth_token_raw.profileArn or kiro_profile_raw.arn.
-    let profile_arn = from_raw("profileArn").or_else(|| {
+    // profileArn lives in kiro_auth_token_raw.profileArn、顶层, or kiro_profile_raw.arn.
+    let profile_arn = pick(&["profileArn", "profile_arn"]).or_else(|| {
         file.get("kiro_profile_raw")
             .and_then(|p| p.get("arn"))
             .and_then(|v| v.as_str())
             .filter(|s| !s.is_empty())
+            .map(str::to_string)
     });
     if let Some(arn) = profile_arn {
         cred.insert("profileArn".into(), json!(arn));
     }
 
-    // Enterprise (IAM Identity Center) credentials, when present.
-    for key in ["clientId", "clientSecret", "region"] {
-        if let Some(value) = from_raw(key) {
-            cred.insert(key.into(), json!(value));
-        }
+    // 组织(IAM Identity Center)刷新必需:clientId / clientSecret / region。region 源里可能
+    // 叫 region / idc_region / idcRegion / authRegion / auth_region,全部归到 kiro-rs 认的 region。
+    if let Some(v) = pick(&["clientId", "client_id"]) {
+        cred.insert("clientId".into(), json!(v));
+    }
+    if let Some(v) = pick(&["clientSecret", "client_secret"]) {
+        cred.insert("clientSecret".into(), json!(v));
+    }
+    if let Some(v) = pick(&["region", "idc_region", "idcRegion", "authRegion", "auth_region"]) {
+        cred.insert("region".into(), json!(v));
     }
 
     Some(Value::Object(cred))
+}
+
+/// 把各种「组织 / IAM Identity Center」的 authMethod 写法归一到 kiro-rs 认的 `idc`(它的
+/// token_manager 只按 idc / builder-id / iam 走 AWS SSO OIDC 刷新端点,**不认 awsidc**——
+/// Kiro 组织登录给的正是 awsidc)。`api_key` 归一到 `api_key`;其余原样返回。
+fn canonicalize_kiro_auth_method(method: &str) -> &str {
+    let m = method.trim();
+    if m.eq_ignore_ascii_case("awsidc")
+        || m.eq_ignore_ascii_case("aws-idc")
+        || m.eq_ignore_ascii_case("idc")
+        || m.eq_ignore_ascii_case("builder-id")
+        || m.eq_ignore_ascii_case("iam")
+        || m.eq_ignore_ascii_case("iam-identity-center")
+        || m.eq_ignore_ascii_case("sso")
+    {
+        "idc"
+    } else if m.eq_ignore_ascii_case("api_key") || m.eq_ignore_ascii_case("apikey") {
+        "api_key"
+    } else {
+        m
+    }
 }
 
 /// Read every `kiro-*.json` under `auth_dir` and map them to kiro-rs credentials.
@@ -345,13 +384,73 @@ mod tests {
     }
 
     #[test]
-    fn falls_back_to_nested_refresh_token_and_default_auth_method() {
+    fn omits_auth_method_when_absent_so_kiro_rs_auto_detects() {
         let file = json!({
             "kiro_auth_token_raw": { "refreshToken": "rt-nested" }
         });
         let cred = map_credential(&file).expect("should map from nested token");
         assert_eq!(cred["refreshToken"], json!("rt-nested"));
-        assert_eq!(cred["authMethod"], json!("social"));
+        // raw 没写 authMethod → 不塞,交给 kiro-rs 按有无 clientId/clientSecret 自动判断(无 → social)。
+        assert!(cred.as_object().unwrap().get("authMethod").is_none());
+    }
+
+    #[test]
+    fn normalizes_org_awsidc_auth_method_to_idc() {
+        // 组织账号(AWS IAM Identity Center)导入的凭据:authMethod=awsidc + idc 刷新所需字段。
+        let file = json!({
+            "kiro_auth_token_raw": {
+                "refreshToken": "rt",
+                "authMethod": "awsidc",
+                "clientId": "cid",
+                "clientSecret": "csec",
+                "region": "us-east-1"
+            }
+        });
+        let cred = map_credential(&file).expect("should map");
+        // awsidc → idc,否则 kiro-rs 落到 social 刷新端点、组织账号取不到模型。
+        assert_eq!(cred["authMethod"], json!("idc"));
+        assert_eq!(cred["clientId"], json!("cid"));
+        assert_eq!(cred["clientSecret"], json!("csec"));
+        assert_eq!(cred["region"], json!("us-east-1"));
+    }
+
+    #[test]
+    fn maps_flat_top_level_camelcase_layout() {
+        // Kiro 客户端原生 / 用户直接粘的扁平布局:没有 kiro_auth_token_raw 包裹层,
+        // 字段全在顶层 camelCase。之前只认包裹层 → 这种 JSON 整个映射失败 → 取不到模型。
+        let file = json!({
+            "refreshToken": "rt-flat",
+            "authMethod": "idc",
+            "clientId": "cid",
+            "clientSecret": "csec",
+            "region": "eu-west-1",
+            "expiresAt": "2026-07-01T00:00:00.000Z",
+            "email": "flat@example.com",
+            "type": "kiro"
+        });
+        let cred = map_credential(&file).expect("flat layout should map");
+        assert_eq!(cred["refreshToken"], json!("rt-flat"));
+        assert_eq!(cred["authMethod"], json!("idc"));
+        assert_eq!(cred["clientId"], json!("cid"));
+        assert_eq!(cred["clientSecret"], json!("csec"));
+        assert_eq!(cred["region"], json!("eu-west-1"));
+        assert_eq!(cred["email"], json!("flat@example.com"));
+    }
+
+    #[test]
+    fn reads_region_from_idc_region_alias() {
+        // 组织凭据的 region 可能存成 idc_region(cockpit-tools 回调注入的写法);
+        // kiro-rs 只认 region/authRegion,必须归一,否则 IdC 刷新缺 region。
+        let file = json!({
+            "refreshToken": "rt",
+            "authMethod": "awsidc",
+            "clientId": "cid",
+            "clientSecret": "csec",
+            "idc_region": "us-east-1"
+        });
+        let cred = map_credential(&file).expect("should map");
+        assert_eq!(cred["authMethod"], json!("idc"));
+        assert_eq!(cred["region"], json!("us-east-1"));
     }
 
     #[test]

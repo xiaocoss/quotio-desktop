@@ -421,8 +421,12 @@ fn start_callback_server(
                 &format!("path={}", path),
             );
 
-            // Only handle the expected callback path.
-            if path != callback_path && path != "/signin/callback" {
+            // Only handle the expected callback path. Kiro 组织(awsidc)登录会把浏览器
+            // 打到 `<redirect_uri>/signin/callback`(实测路径 `/oauth/callback/signin/callback`),
+            // 直接 404 会让用户只看到空白页;凡是以 /signin/callback 结尾的都收下,好在下面按
+            // login_option 给出可操作提示。
+            if path != callback_path && path != "/signin/callback" && !path.ends_with("/signin/callback")
+            {
                 let _ = request.respond(
                     tiny_http::Response::from_string("Not Found")
                         .with_status_code(tiny_http::StatusCode(404)),
@@ -471,7 +475,25 @@ fn start_callback_server(
             // Extract code.
             let code = params.get("code").cloned().unwrap_or_default();
             if code.is_empty() {
-                let msg = "回调缺少授权 code。";
+                // 组织登录方式(AWS IAM Identity Center / Builder ID / 内部 / 外部 IdP)在 Kiro
+                // 门户里【不会】回传授权 code——它要走 Kiro 客户端原生的 AWS SSO 设备认证流程,
+                // 浏览器授权这条路走不通(参考实现 cockpit-tools 同样在这里放弃)。所以别再抛
+                // 含糊的「回调缺少授权 code」,按 login_option 给出可操作提示:改用「本地导入 JSON」。
+                let login_option = params
+                    .get("login_option")
+                    .or_else(|| params.get("loginOption"))
+                    .map(|s| s.trim().to_ascii_lowercase())
+                    .unwrap_or_default();
+                let msg: &str = match login_option.as_str() {
+                    "awsidc" | "aws-idc" | "idc" | "builderid" | "builder-id" | "internal"
+                    | "enterprise" | "iam" | "iam-identity-center" | "sso" | "external_idp" => {
+                        "组织账号(AWS IAM Identity Center / Builder ID)无法通过浏览器授权登录——\
+Kiro 门户不回传授权 code,需要 Kiro 客户端的原生认证流程。请在弹窗切到「本地导入 JSON」,\
+把 Kiro 客户端登录后生成的组织凭据(含 refreshToken / clientId / clientSecret / region)导入;\
+或改用 Google / GitHub 账号登录。"
+                    }
+                    _ => "回调缺少授权 code。",
+                };
                 if let Ok(mut guard) = get_state().lock() {
                     if let Some(s) = guard.as_mut() {
                         if s.login_id == expected_login_id {
