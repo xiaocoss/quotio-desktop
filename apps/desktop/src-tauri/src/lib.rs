@@ -1364,6 +1364,38 @@ fn import_auth_token(provider_id: String, content: String) -> Result<(), String>
     quotio_core::native_oauth::import_auth_token(&provider_id, &content)
 }
 
+/// 启动 Kiro 组织(awsidc)/ Builder ID 的 AWS SSO 设备流登录。
+#[tauri::command]
+fn kiro_idc_start(
+    login_option: String,
+    start_url: Option<String>,
+    region: Option<String>,
+) -> Result<quotio_core::kiro_idc::KiroIdcStartResponse, String> {
+    quotio_core::kiro_idc::start_login(&login_option, start_url.as_deref(), region.as_deref())
+}
+
+/// 轮询一次 Kiro 设备流授权状态;成功时凭据已落盘,前端刷新账号即可。
+#[tauri::command]
+fn kiro_idc_poll(
+    state: State<'_, DesktopState>,
+) -> Result<quotio_core::kiro_idc::KiroIdcPollResponse, String> {
+    let result = quotio_core::kiro_idc::poll_login()?;
+    if result.status == "success" {
+        // 新增 kiro 号后热同步 sidecar + 代理配置,让新账号立刻可路由(不重启代理核心)。
+        if let Ok(mut core) = state.core.lock() {
+            let _ = core.reconcile_kiro_accounts();
+        }
+    }
+    Ok(result)
+}
+
+/// 取消进行中的 Kiro 设备流登录。
+#[tauri::command]
+fn kiro_idc_cancel() -> Result<(), String> {
+    quotio_core::kiro_idc::cancel_login();
+    Ok(())
+}
+
 #[tauri::command]
 async fn import_management_vertex_service_account(
     json: String,
@@ -1863,6 +1895,9 @@ pub fn run() {
             native_oauth_cancel,
             native_oauth_submit_callback,
             import_auth_token,
+            kiro_idc_start,
+            kiro_idc_poll,
+            kiro_idc_cancel,
             import_management_vertex_service_account,
             set_management_max_retry_interval,
             set_management_logging_to_file,

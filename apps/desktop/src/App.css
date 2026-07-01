@@ -2828,6 +2828,48 @@ h3 {
   cursor: not-allowed;
 }
 
+/* Kiro 组织 / Builder ID 设备流 */
+.aam-text-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--quotio-border);
+  background: var(--quotio-bg);
+  color: var(--quotio-text);
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+}
+.aam-text-input:focus {
+  outline: none;
+  border-color: var(--quotio-accent, #6366f1);
+}
+.aam-idc-mode {
+  display: flex;
+  gap: 8px;
+}
+.aam-idc-opt {
+  flex: 1;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--quotio-border);
+  background: var(--quotio-bg);
+  color: var(--quotio-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.aam-idc-opt:hover {
+  background: var(--quotio-bg-tertiary, rgba(100,116,139,0.1));
+  color: var(--quotio-text);
+}
+.aam-idc-opt--active {
+  border-color: var(--quotio-accent, #6366f1);
+  color: var(--quotio-text);
+  background: var(--quotio-accent-soft, rgba(99,102,241,0.12));
+}
+
 /* Primary button */
 .aam-primary-btn {
   display: inline-flex;

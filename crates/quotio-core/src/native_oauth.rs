@@ -546,7 +546,7 @@ fn parse_query(query: &str) -> HashMap<String, String> {
 /// 共享带超时的 HTTP agent。裸 `ureq::post/get` 用的默认 agent 既无 connect 也无
 /// read 超时,网络半开 / 被中间代理强制断开(wsarecv)时会永久卡住登录线程,连
 /// cancel 都打不断。所有 OAuth 出站请求统一走它,与 management.rs 的做法一致。
-fn http_agent() -> &'static ureq::Agent {
+pub(crate) fn http_agent() -> &'static ureq::Agent {
     static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
     AGENT.get_or_init(|| {
         ureq::AgentBuilder::new()

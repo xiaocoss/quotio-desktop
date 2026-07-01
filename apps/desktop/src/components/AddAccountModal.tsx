@@ -39,7 +39,18 @@ function SpinnerIcon() {
   );
 }
 
-type Tab = "oauth" | "token" | "import";
+type Tab = "oauth" | "token" | "import" | "org";
+
+/** kiro_idc_start 返回(camelCase,见 quotio-core::kiro_idc::KiroIdcStartResponse)。 */
+type KiroIdcStart = {
+  userCode: string;
+  verificationUri: string;
+  expiresIn: number;
+  interval: number;
+  loginOption: string;
+};
+/** kiro_idc_poll 返回。status: "pending" | "success" | "error"。 */
+type KiroIdcPoll = { status: string; error: string | null };
 
 type AddAccountModalProps = {
   provider: ProviderSummary;
@@ -67,10 +78,21 @@ export function AddAccountModal({
   const hasProxyOAuth = Boolean(provider.oauth_endpoint);
   const hasOAuth = hasNativeOAuth || hasProxyOAuth;
   const isVertex = provider.id === "vertex";
+  const isKiro = provider.id === "kiro";
   const [tab, setTab] = useState<Tab>(hasOAuth ? "oauth" : "token");
   const nativeLoginRef = useRef<string | null>(null);
   const [isDeviceFlow, setIsDeviceFlow] = useState(false);
   const [deviceUserCode, setDeviceUserCode] = useState("");
+
+  // Kiro 组织(IAM Identity Center / awsidc)/ 个人(Builder ID)AWS SSO 设备流登录
+  const [idcMode, setIdcMode] = useState<"builderid" | "awsidc">("builderid");
+  const [idcStartUrl, setIdcStartUrl] = useState("");
+  const [idcRegion, setIdcRegion] = useState("us-east-1");
+  const [idcStatus, setIdcStatus] = useState<"idle" | "starting" | "waiting" | "success" | "error">("idle");
+  const [idcUserCode, setIdcUserCode] = useState("");
+  const [idcVerifyUri, setIdcVerifyUri] = useState("");
+  const [idcError, setIdcError] = useState<string | null>(null);
+  const idcActiveRef = useRef(false);
 
   // OAuth state
   const [oauthUrl, setOauthUrl] = useState<string | null>(null);
@@ -110,6 +132,16 @@ export function AddAccountModal({
     const timer = setTimeout(onClose, 1200);
     return () => clearTimeout(timer);
   }, [oauthStatus, onClose]);
+
+  // Kiro 设备流成功后同样自动关闭
+  useEffect(() => {
+    if (idcStatus !== "success") return;
+    const timer = setTimeout(onClose, 1200);
+    return () => clearTimeout(timer);
+  }, [idcStatus, onClose]);
+
+  // 卸载时停掉进行中的设备流轮询
+  useEffect(() => () => { idcActiveRef.current = false; }, []);
 
   async function openAuthUrl(url: string) {
     try {
@@ -303,8 +335,88 @@ export function AddAccountModal({
     setImporting(false);
   }
 
+  // ---- Kiro AWS SSO 设备流 ----
+  async function startIdcLogin() {
+    setIdcStatus("starting");
+    setIdcError(null);
+    setIdcUserCode("");
+    setIdcVerifyUri("");
+    try {
+      const res = await invoke<KiroIdcStart>("kiro_idc_start", {
+        loginOption: idcMode,
+        startUrl: idcMode === "awsidc" ? idcStartUrl.trim() : null,
+        region: idcRegion.trim() || null,
+      });
+      setIdcUserCode(res.userCode);
+      setIdcVerifyUri(res.verificationUri);
+      setIdcStatus("waiting");
+      void openAuthUrl(res.verificationUri);
+      idcActiveRef.current = true;
+      void pollIdcLogin(Math.max(1, res.interval), res.expiresIn);
+    } catch (err) {
+      setIdcStatus("error");
+      setIdcError(String(err));
+    }
+  }
+
+  async function pollIdcLogin(intervalSec: number, expiresIn: number) {
+    const deadline = Date.now() + Math.max(30, expiresIn) * 1000;
+    let transientFailures = 0;
+    while (idcActiveRef.current && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, intervalSec * 1000));
+      if (!idcActiveRef.current) return;
+      let res: KiroIdcPoll;
+      try {
+        res = await invoke<KiroIdcPoll>("kiro_idc_poll");
+      } catch (err) {
+        // 命令层异常(极少):容忍几次再放弃。
+        if (++transientFailures >= 3) {
+          setIdcStatus("error");
+          setIdcError(`轮询失败：${String(err)}`);
+          idcActiveRef.current = false;
+          return;
+        }
+        continue;
+      }
+      if (!idcActiveRef.current) return;
+      transientFailures = 0;
+      if (res.status === "success") {
+        setIdcStatus("success");
+        idcActiveRef.current = false;
+        onRefreshQuotas();
+        return;
+      }
+      if (res.status === "error") {
+        setIdcStatus("error");
+        setIdcError(res.error ?? "授权失败。");
+        idcActiveRef.current = false;
+        return;
+      }
+      // "pending" → 继续轮询
+    }
+    if (idcActiveRef.current) {
+      idcActiveRef.current = false;
+      setIdcStatus("error");
+      setIdcError("授权超时，请重新开始。");
+    }
+  }
+
+  function cancelIdc() {
+    idcActiveRef.current = false;
+    invoke("kiro_idc_cancel").catch(() => {});
+  }
+
+  function retryIdc() {
+    cancelIdc();
+    setIdcStatus("idle");
+    setIdcError(null);
+    setIdcUserCode("");
+    setIdcVerifyUri("");
+  }
+
   function switchTab(t: Tab) {
     pollRef.current = null;
+    if (t !== "org" && idcActiveRef.current) cancelIdc();
     setTab(t);
     setImportStatus("idle");
     setImportMessage("");
@@ -347,6 +459,11 @@ export function AddAccountModal({
           {hasOAuth ? (
             <button className={`aam-tab${tab === "oauth" ? " aam-tab--active" : ""}`} type="button" onClick={() => switchTab("oauth")}>
               <GlobeIcon /> OAuth 授权
+            </button>
+          ) : null}
+          {isKiro ? (
+            <button className={`aam-tab${tab === "org" ? " aam-tab--active" : ""}`} type="button" onClick={() => switchTab("org")}>
+              <KeyIcon /> 组织 / Builder ID
             </button>
           ) : null}
           <button className={`aam-tab${tab === "token" ? " aam-tab--active" : ""}`} type="button" onClick={() => switchTab("token")}>
@@ -434,6 +551,111 @@ export function AddAccountModal({
                 <div className="aam-oauth-loading">
                   <SpinnerIcon />
                   <span>正在准备授权信息…</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === "org" && (
+            <div className="aam-section">
+              <div className="aam-hint-row">
+                <GlobeIcon />
+                <span>组织(AWS IAM Identity Center)或个人 Builder ID 登录 · 浏览器批准后自动完成</span>
+              </div>
+
+              {(idcStatus === "idle" || idcStatus === "starting") && (
+                <>
+                  <div className="aam-idc-mode">
+                    <button
+                      type="button"
+                      className={`aam-idc-opt${idcMode === "builderid" ? " aam-idc-opt--active" : ""}`}
+                      onClick={() => setIdcMode("builderid")}
+                    >
+                      个人 Builder ID
+                    </button>
+                    <button
+                      type="button"
+                      className={`aam-idc-opt${idcMode === "awsidc" ? " aam-idc-opt--active" : ""}`}
+                      onClick={() => setIdcMode("awsidc")}
+                    >
+                      组织 IAM Identity Center
+                    </button>
+                  </div>
+
+                  {idcMode === "awsidc" && (
+                    <div>
+                      <label className="aam-label">Start URL(组织的 IAM Identity Center 登录门户)</label>
+                      <input
+                        className="aam-text-input"
+                        type="text"
+                        placeholder="https://d-xxxxxxxxxx.awsapps.com/start"
+                        value={idcStartUrl}
+                        onChange={(e) => setIdcStartUrl(e.target.value)}
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="aam-label">区域 Region</label>
+                    <input
+                      className="aam-text-input"
+                      type="text"
+                      placeholder="us-east-1"
+                      value={idcRegion}
+                      onChange={(e) => setIdcRegion(e.target.value)}
+                    />
+                  </div>
+
+                  <button
+                    className="aam-primary-btn"
+                    type="button"
+                    onClick={() => void startIdcLogin()}
+                    disabled={idcStatus === "starting" || (idcMode === "awsidc" && !idcStartUrl.trim())}
+                  >
+                    {idcStatus === "starting" ? <SpinnerIcon /> : <GlobeIcon />}
+                    开始登录
+                  </button>
+                  <p className="aam-hint">
+                    将打开浏览器登录；核对验证码一致后批准，本窗口会自动完成并添加账号。
+                  </p>
+                </>
+              )}
+
+              {idcStatus === "waiting" && (
+                <>
+                  <div className="aam-device-code">
+                    <p className="aam-desc">在浏览器中登录，核对下方验证码一致后批准授权：</p>
+                    <code className="aam-user-code">{idcUserCode}</code>
+                  </div>
+                  <div className="aam-url-box">
+                    <input type="text" readOnly value={idcVerifyUri} onFocus={(e) => e.currentTarget.select()} />
+                    <button type="button" onClick={() => void openAuthUrl(idcVerifyUri)} title="重新在浏览器中打开">
+                      <GlobeIcon />
+                    </button>
+                  </div>
+                  <div className="aam-status aam-status--loading">
+                    <SpinnerIcon />
+                    <span>等待在浏览器中批准授权，完成后此窗口将自动更新…</span>
+                  </div>
+                  <button className="aam-retry-btn" type="button" onClick={retryIdc}>
+                    <RefreshIcon /> 取消并重新开始
+                  </button>
+                </>
+              )}
+
+              {idcStatus === "success" && (
+                <div className="aam-status aam-status--success">
+                  <CheckIcon />
+                  <span>登录成功！账号已添加。</span>
+                </div>
+              )}
+
+              {idcStatus === "error" && (
+                <div className="aam-status aam-status--error">
+                  <span>{idcError}</span>
+                  <button className="aam-retry-btn" type="button" onClick={retryIdc}>
+                    <RefreshIcon /> 重新开始
+                  </button>
                 </div>
               )}
             </div>

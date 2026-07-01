@@ -3,6 +3,7 @@ pub mod agents;
 pub mod bridge;
 pub mod codex_launch;
 pub mod codex_session_visibility;
+pub mod kiro_idc;
 pub mod kiro_sidecar;
 pub mod management;
 pub mod native_oauth;
@@ -299,6 +300,16 @@ impl AppCore {
         if let Err(err) = self.proxy.write_config(&self.settings) {
             eprintln!("[rewrite_proxy_config] write_config failed: {err}");
         }
+    }
+
+    /// 新增/删除 Kiro 账号后热同步(不重启代理核心):
+    /// ① 重刷 kiro-rs sidecar 凭据(kiro-rs 自热加载,首个 Kiro 号时顺带拉起 sidecar);
+    /// ② 重写 CLIProxyAPI 配置(fsnotify 热加载,首个 Kiro 号时注册 kiro provider 块)。
+    /// 供 Kiro 设备流登录成功后调用,让新号立刻可路由。
+    pub fn reconcile_kiro_accounts(&mut self) -> AppState {
+        self.proxy.sync_kiro_sidecar();
+        self.rewrite_proxy_config();
+        self.app_state()
     }
 
     pub fn proxy_managed_binary_path(&self) -> PathBuf {
@@ -3035,6 +3046,13 @@ impl ProxyLifecycle {
             port_conflict: false,
             kiro_sidecar: kiro_sidecar::KiroSidecar::default(),
         }
+    }
+
+    /// 重刷 kiro-rs sidecar 凭据(按当前 auth_dir 里的 kiro-*.json),账号增减时随之
+    /// (重)启/停 sidecar。kiro-rs 自身热加载 credentials.json,故**不重启代理核心**;
+    /// 调用方应再 `write_config` 让 CLIProxyAPI(fsnotify 热加载)注册/摘除 kiro provider。
+    pub fn sync_kiro_sidecar(&mut self) {
+        self.kiro_sidecar.sync_and_start(&self.paths.auth_dir);
     }
 
     /// 带 10 秒 TTL 缓存的 [`port_listener`]。
