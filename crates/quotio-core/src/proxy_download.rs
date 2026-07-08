@@ -126,14 +126,44 @@ pub fn download_proxy_binary(
 
 fn extract_binary(archive: &Path, dest: &Path, asset_name: &str) -> Result<(), String> {
     let lower = asset_name.to_lowercase();
-    if lower.ends_with(".zip") {
+    let result = if lower.ends_with(".zip") {
         extract_from_zip(archive, dest)
+    } else if lower.ends_with(".tar.gz") || lower.ends_with(".tgz") {
+        extract_from_tar_gz(archive, dest)
     } else {
-        Err(format!(
-            "暂不支持自动解包该资产格式（{}）。目前支持 Windows 的 .zip。",
+        return Err(format!(
+            "暂不支持自动解包该资产格式（{}）。仅支持 .zip / .tar.gz。",
             asset_name
-        ))
+        ));
+    };
+    // 解包到新文件会丢掉归档里的权限位;Linux/macOS 上给代理二进制补可执行权限,否则起不来。
+    if result.is_ok() {
+        set_executable(dest);
     }
+    result
+}
+
+/// 归档条目的文件名(已小写)看着像不像代理可执行文件。
+fn looks_like_proxy_binary(base_lower: &str) -> bool {
+    base_lower.ends_with(".exe")
+        || base_lower == "cliproxyapi"
+        || base_lower == "cli-proxy-api"
+        || base_lower.starts_with("cliproxyapi")
+}
+
+/// 给解出的二进制补可执行权限(仅 Unix;Windows 的 .exe 无需)。
+fn set_executable(path: &Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(meta) = fs::metadata(path) {
+            let mut perms = meta.permissions();
+            perms.set_mode(perms.mode() | 0o755);
+            let _ = fs::set_permissions(path, perms);
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = path;
 }
 
 fn extract_from_zip(archive: &Path, dest: &Path) -> Result<(), String> {
@@ -151,11 +181,7 @@ fn extract_from_zip(archive: &Path, dest: &Path) -> Result<(), String> {
         }
         let name = entry.name().to_lowercase();
         let base = name.rsplit(['/', '\\']).next().unwrap_or(&name);
-        let looks_like_binary = base.ends_with(".exe")
-            || base == "cliproxyapi"
-            || base == "cli-proxy-api"
-            || base.starts_with("cliproxyapi");
-        if looks_like_binary {
+        if looks_like_proxy_binary(base) {
             target_index = Some(index);
             break;
         }
@@ -168,6 +194,37 @@ fn extract_from_zip(archive: &Path, dest: &Path) -> Result<(), String> {
     let mut out = fs::File::create(dest).map_err(|error| format!("写入二进制失败：{}", error))?;
     copy(&mut entry, &mut out).map_err(|error| format!("解包二进制失败：{}", error))?;
     Ok(())
+}
+
+/// 解 `.tar.gz` / `.tgz`(Linux/macOS 归档):gzip 解压 → 遍历 tar 条目 → 提取代理二进制。
+fn extract_from_tar_gz(archive: &Path, dest: &Path) -> Result<(), String> {
+    let file = fs::File::open(archive).map_err(|error| format!("打开压缩包失败：{}", error))?;
+    let decoder = flate2::read::GzDecoder::new(file);
+    let mut tar = tar::Archive::new(decoder);
+    let entries = tar
+        .entries()
+        .map_err(|error| format!("读取 tar 失败：{}", error))?;
+    for entry in entries {
+        let mut entry = entry.map_err(|error| format!("读取 tar 条目失败：{}", error))?;
+        if entry.header().entry_type() != tar::EntryType::Regular {
+            continue;
+        }
+        let base = match entry.path() {
+            Ok(p) => p
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(str::to_lowercase)
+                .unwrap_or_default(),
+            Err(_) => continue,
+        };
+        if !looks_like_proxy_binary(&base) {
+            continue;
+        }
+        let mut out = fs::File::create(dest).map_err(|error| format!("写入二进制失败：{}", error))?;
+        copy(&mut entry, &mut out).map_err(|error| format!("解包二进制失败：{}", error))?;
+        return Ok(());
+    }
+    Err("压缩包内未找到代理可执行文件。".to_string())
 }
 
 /// 从 release 里找到适用于 `asset_name` 的 SHA256:优先整包 `*checksums*` 文件,
@@ -286,4 +343,50 @@ fn proxy_from_env() -> Option<String> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn append_file<W: std::io::Write>(builder: &mut tar::Builder<W>, name: &str, data: &[u8]) {
+        let mut header = tar::Header::new_gnu();
+        header.set_size(data.len() as u64);
+        header.set_mode(0o644);
+        header.set_entry_type(tar::EntryType::Regular);
+        header.set_cksum();
+        builder.append_data(&mut header, name, data).unwrap();
+    }
+
+    #[test]
+    fn extract_from_tar_gz_finds_and_extracts_the_binary() {
+        let dir = std::env::temp_dir().join(format!(
+            "ql_proxydl_targz_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let archive_path = dir.join("CLIProxyAPI_7.2.48_linux_amd64.tar.gz");
+        {
+            let file = fs::File::create(&archive_path).unwrap();
+            let enc = flate2::write::GzEncoder::new(file, flate2::Compression::fast());
+            let mut builder = tar::Builder::new(enc);
+            append_file(&mut builder, "README.md", b"hello"); // 无关文件,应跳过
+            append_file(&mut builder, "CLIProxyAPI", b"BINARYCONTENT"); // 代理二进制,应提取
+            builder.into_inner().unwrap().finish().unwrap();
+        }
+
+        let dest = dir.join("proxy-binary");
+        extract_from_tar_gz(&archive_path, &dest).unwrap();
+        assert_eq!(fs::read(&dest).unwrap(), b"BINARYCONTENT");
+
+        // extract_binary 按扩展名分发:.tar.gz 走 tar 分支,未知格式仍报错。
+        assert!(extract_binary(&archive_path, &dest, "CLIProxyAPI_7.2.48_linux_amd64.tar.gz").is_ok());
+        assert!(extract_binary(&archive_path, &dest, "core.rar").is_err());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 }
