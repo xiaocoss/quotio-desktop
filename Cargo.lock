@@ -3094,6 +3094,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "flate2",
+ "memchr",
  "quotio-platform",
  "quotio-types",
  "rand 0.8.6",

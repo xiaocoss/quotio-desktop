@@ -1,6 +1,7 @@
 pub mod agent_config;
 pub mod agents;
 pub mod bridge;
+pub mod codex_catalog;
 pub mod codex_launch;
 pub mod codex_session_visibility;
 pub mod kiro_idc;

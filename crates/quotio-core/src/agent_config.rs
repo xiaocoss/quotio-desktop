@@ -577,12 +577,24 @@ fn codex_configs(request: &AgentConfigurationRequest) -> Vec<RawAgentConfigOutpu
     } else {
         format!("{trimmed_url}/v1")
     };
+    // 自定义 model_provider 下 Codex 拿不到服务端下发的模型目录,推理档位会退回通用默认的
+    // 4 档(丢失 max / ultra)。把本机 codex 二进制里内置的目录提取出来指给它,档位就恢复了。
+    // 提取失败(找不到 codex、二进制格式变了)就**不写这个键**,保持从前的行为。见 codex_catalog。
+    let catalog_line = crate::codex_catalog::ensure_catalog()
+        .map(|path| {
+            format!(
+                "model_catalog_json = \"{}\"\n",
+                toml_escape(&crate::codex_catalog::toml_path_value(&path))
+            )
+        })
+        .unwrap_or_default();
     // 对齐 CLIProxyAPI 官方文档：必须有 model_provider + supports_websockets（App 走 websocket）。
     let managed = format!(
-        "# CLIProxyAPI Configuration for Codex\nmodel_provider = \"cliproxyapi\"\nmodel = \"{}\"\nmodel_reasoning_effort = \"{}\"\nplan_mode_reasoning_effort = \"{}\"\nsupports_websockets = true\n\n[model_providers.cliproxyapi]\nname = \"cliproxyapi\"\nbase_url = \"{}\"\nexperimental_bearer_token = \"{}\"\nwire_api = \"responses\"\nrequires_openai_auth = true\n",
+        "# CLIProxyAPI Configuration for Codex\nmodel_provider = \"cliproxyapi\"\nmodel = \"{}\"\nmodel_reasoning_effort = \"{}\"\nplan_mode_reasoning_effort = \"{}\"\nsupports_websockets = true\n{}\n[model_providers.cliproxyapi]\nname = \"cliproxyapi\"\nbase_url = \"{}\"\nexperimental_bearer_token = \"{}\"\nwire_api = \"responses\"\nrequires_openai_auth = true\n",
         toml_escape(&slot_model(request, ModelSlot::Sonnet)),
         toml_escape(reasoning),
         toml_escape(reasoning),
+        catalog_line,
         toml_escape(&base_url),
         toml_escape(&request.api_key),
     );
@@ -1008,6 +1020,9 @@ fn remove_codex_managed_config(existing: &str) -> String {
                 "model_reasoning_effort",
                 "plan_mode_reasoning_effort",
                 "supports_websockets",
+                // 由 codex_catalog 托管。也必须在这里剥离:否则用户/旧版本留在正文里的同名键
+                // 会和托管块里的那行**重复定义**,整个 config.toml 直接解析失败。
+                "model_catalog_json",
             ]
             .iter()
             .any(|key| trimmed.starts_with(&format!("{} =", key)));
