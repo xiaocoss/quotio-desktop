@@ -58,13 +58,15 @@ const KIRO_MODELS = [
   "claude-haiku-4-5-20251001-thinking",
 ];
 
-// Codex 思考程度（model_reasoning_effort）。xhigh=极高，gpt-5.1-codex-max 等支持。
+// Codex 思考程度（model_reasoning_effort）。标签与 Codex 应用内的「推理」菜单保持一致
+// （低 / 中 / 高 / 超高），否则同一档在两个界面里叫两个名字，用户会以为是不同的东西。
+// xhigh 在 Codex 里叫「超高」，gpt-5.1-codex-max 等支持。
 const CODEX_REASONING: { value: string; fallback: string }[] = [
   { value: "minimal", fallback: "最低" },
   { value: "low", fallback: "低" },
   { value: "medium", fallback: "中" },
   { value: "high", fallback: "高" },
-  { value: "xhigh", fallback: "极高" },
+  { value: "xhigh", fallback: "超高" },
 ];
 
 const AGENT_ACCENTS: Record<string, string> = {
@@ -516,7 +518,7 @@ export function AgentsScreen({
                 {t("agents.launch.profileName", "方案名称")}
                 <input
                   value={profileDraft.name}
-                  placeholder={t("agents.launch.profileNamePlaceholder", "如：日常-5.5极高")}
+                  placeholder={t("agents.launch.profileNamePlaceholder", "如：日常-5.5超高")}
                   onChange={(event) => setProfileDraft((draft) => (draft ? { ...draft, name: event.target.value } : draft))}
                 />
               </label>

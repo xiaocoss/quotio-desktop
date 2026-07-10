@@ -299,7 +299,7 @@ export const mockAppState: AppState = {
     codex_profiles: [
       {
         id: "codex-mock-daily",
-        name: "日常-5.5极高",
+        name: "日常-5.5超高",
         launch_mode: "app",
         bound_account: "codex-demo@example.com-plus",
         proxy_url: "http://127.0.0.1:28317",
