@@ -58,16 +58,23 @@ const KIRO_MODELS = [
   "claude-haiku-4-5-20251001-thinking",
 ];
 
-// Codex 思考程度（model_reasoning_effort）。标签与 Codex 应用内的「推理」菜单保持一致
-// （低 / 中 / 高 / 超高），否则同一档在两个界面里叫两个名字，用户会以为是不同的东西。
-// xhigh 在 Codex 里叫「超高」，gpt-5.1-codex-max 等支持。
-const CODEX_REASONING: { value: string; fallback: string }[] = [
-  { value: "minimal", fallback: "最低" },
-  { value: "low", fallback: "低" },
-  { value: "medium", fallback: "中" },
-  { value: "high", fallback: "高" },
-  { value: "xhigh", fallback: "超高" },
-];
+// Codex 思考程度（model_reasoning_effort）的档位**不是固定的**：它按 model slug 从 Codex 的
+// 模型目录里查（实测 gpt-5.6-sol/terra 六档 low…ultra，luna 五档，gpt-5.5 及更早只有四档）。
+// 所以下拉项由后端 fetch_codex_reasoning_levels 按当前模型给出，这里只保留兜底。
+// 兜底用 Codex 对自定义 provider 的通用默认四档；不含 minimal —— 目录里没有任何模型支持它，
+// 选了就是往 config.toml 写一个无效的 model_reasoning_effort。
+const CODEX_REASONING_FALLBACK = ["low", "medium", "high", "xhigh"];
+
+// effort → 共享的 i18n key。和日志页/设置页复用同一批标签，三处永远一致。
+const REASONING_I18N: Record<string, string> = {
+  minimal: "logs.rsMinimal",
+  low: "logs.rsLow",
+  medium: "logs.rsMedium",
+  high: "logs.rsHigh",
+  xhigh: "logs.rsXHigh",
+  max: "logs.rsMax",
+  ultra: "logs.rsUltra",
+};
 
 const AGENT_ACCENTS: Record<string, string> = {
   claude: "D97757",
@@ -215,8 +222,35 @@ export function AgentsScreen({
     const current = bound ? `其它服务商(${bound})` : "全部服务商";
     return `这个方案的 API 密钥没绑定到 Codex(当前:${current})——Codex 请求可能被路由到别的服务商而报错。建议先去「API 密钥」页把它绑到「Codex (OpenAI)」。`;
   };
-  const reasoningLabel = (value: string) =>
-    t(`agents.reasoning.${value}`, CODEX_REASONING.find((item) => item.value === value)?.fallback || value);
+  // 未知档位（Codex 以后新增的）直接显示原始 effort，总好过显示空白。
+  const reasoningLabel = (effort: string) =>
+    REASONING_I18N[effort] ? t(REASONING_I18N[effort]) : effort;
+
+  // 当前方案所选模型支持的档位。空 = 拿不到 Codex 的模型目录（没装 Codex / 提取失败），
+  // 回退到保守四档。
+  const [modelLevels, setModelLevels] = useState<string[]>([]);
+  const draftModel = profileDraft?.model ?? "";
+  useEffect(() => {
+    if (!draftModel.trim()) {
+      setModelLevels([]);
+      return;
+    }
+    let stale = false;
+    invoke<string[]>("fetch_codex_reasoning_levels", { model: draftModel })
+      .then((levels) => { if (!stale) setModelLevels(levels); })
+      .catch((err) => { console.warn("[AgentsScreen] fetch_codex_reasoning_levels:", err); if (!stale) setModelLevels([]); });
+    return () => { stale = true; };
+  }, [draftModel]);
+
+  const reasoningOptions = useMemo(() => {
+    const levels = modelLevels.length > 0 ? modelLevels : CODEX_REASONING_FALLBACK;
+    const current = profileDraft?.reasoning?.trim();
+    // 保底：方案里已选的档位若不在当前模型的支持列表里（换了模型、或目录取不到），也保留为
+    // 选项——否则下拉显示空白，一保存就把它悄悄改掉了。
+    const all = current && !levels.includes(current) ? [...levels, current] : levels;
+    return all.map((effort) => ({ value: effort, label: reasoningLabel(effort) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelLevels, profileDraft?.reasoning, t]);
 
   function persistProfiles(next: CodexLaunchProfile[]) {
     onSaveSettings({ ...appState.settings, codex_profiles: next, remote_management_key: null });
@@ -518,7 +552,7 @@ export function AgentsScreen({
                 {t("agents.launch.profileName", "方案名称")}
                 <input
                   value={profileDraft.name}
-                  placeholder={t("agents.launch.profileNamePlaceholder", "如：日常-5.5超高")}
+                  placeholder={t("agents.launch.profileNamePlaceholder", "如：日常-5.5极高")}
                   onChange={(event) => setProfileDraft((draft) => (draft ? { ...draft, name: event.target.value } : draft))}
                 />
               </label>
@@ -585,10 +619,7 @@ export function AgentsScreen({
                 {t("agents.codexReasoning", "思考程度")}
                 <Select
                   value={profileDraft.reasoning}
-                  options={CODEX_REASONING.map((item) => ({
-                    value: item.value,
-                    label: t(`agents.reasoning.${item.value}`, item.fallback),
-                  }))}
+                  options={reasoningOptions}
                   onChange={(value) => setProfileDraft((draft) => (draft ? { ...draft, reasoning: value } : draft))}
                 />
               </label>
