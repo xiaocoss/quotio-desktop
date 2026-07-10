@@ -730,6 +730,19 @@ export async function mockInvoke<T>(command: string, args?: Record<string, unkno
       return null as unknown as T;
     case "fetch_codex_models":
       return ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex-spark", "codex-auto-review"] as unknown as T;
+    case "fetch_codex_reasoning_levels": {
+      const model = String(args?.model ?? "").trim().toLowerCase();
+      if (model === "gpt-5.6-sol" || model === "gpt-5.6-terra") {
+        return ["low", "medium", "high", "xhigh", "max", "ultra"] as unknown as T;
+      }
+      if (model === "gpt-5.6-luna") {
+        return ["low", "medium", "high", "xhigh", "max"] as unknown as T;
+      }
+      if (/^gpt-5(?:$|\.(?:[0-5])(?:$|[.-]))/.test(model)) {
+        return ["low", "medium", "high", "xhigh"] as unknown as T;
+      }
+      return [] as unknown as T;
+    }
     case "save_settings": {
       const settings = args?.settings as AppState["settings"] | undefined;
       if (settings) {

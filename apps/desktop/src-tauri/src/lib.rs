@@ -137,10 +137,14 @@ fn list_codex_launch_accounts() -> Vec<quotio_core::codex_launch::CodexAccountRe
 }
 
 /// 某个 Codex 模型支持的推理档位(从本机 codex 二进制内置的模型目录里读)。
-/// 返回空 = 拿不到目录,前端回退到内置的保守列表。
+/// 二进制扫描可能较慢，放到 blocking 线程跑，避免卡住 IPC / UI 线程。
 #[tauri::command]
-fn fetch_codex_reasoning_levels(model: String) -> Vec<String> {
-    quotio_core::codex_catalog::reasoning_levels(&model)
+async fn fetch_codex_reasoning_levels(model: String) -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        quotio_core::codex_catalog::reasoning_levels_result(&model)
+    })
+    .await
+    .map_err(|error| format!("读取 Codex 模型目录任务异常：{}", error))?
 }
 
 /// 一键启动指定方案的 Codex：确保代理 → 备份原始 → 写配置 → 注入账号 → 启动。

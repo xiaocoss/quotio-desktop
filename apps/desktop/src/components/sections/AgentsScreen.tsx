@@ -18,6 +18,7 @@ import type {
 import { RefreshIcon } from "../icons";
 import { Select } from "../Select";
 import { useT } from "../../i18n";
+import { normalizeCodexReasoningLevels } from "../../lib/codexReasoning";
 import { invoke } from "../../lib/tauri";
 
 type AgentsScreenProps = {
@@ -99,6 +100,13 @@ type ProfileDraft = {
   model: string;
   reasoning: string;
   api_key: string;
+};
+
+type CodexReasoningCatalogState = {
+  model: string;
+  levels: string[];
+  loading: boolean;
+  error: boolean;
 };
 
 function newProfileId(): string {
@@ -226,19 +234,54 @@ export function AgentsScreen({
   const reasoningLabel = (effort: string) =>
     REASONING_I18N[effort] ? t(REASONING_I18N[effort]) : effort;
 
-  // 当前方案所选模型支持的档位。空 = 拿不到 Codex 的模型目录（没装 Codex / 提取失败），
-  // 回退到保守四档。
-  const [modelLevels, setModelLevels] = useState<string[]>([]);
-  const draftModel = profileDraft?.model ?? "";
+  // 当前方案所选模型支持的档位。目录里没有该模型时后端会成功返回空数组，静默回退到保守四档；
+  // 只有 IPC / 目录读取失败或响应格式异常时才显示失败提示。
+  const [modelCatalog, setModelCatalog] = useState<CodexReasoningCatalogState>({
+    model: "",
+    levels: [],
+    loading: false,
+    error: false,
+  });
+  const draftModel = profileDraft?.model.trim() ?? "";
+  const currentModelCatalog = modelCatalog.model === draftModel ? modelCatalog : null;
+  const modelLevels = currentModelCatalog?.levels ?? [];
+  const modelLevelsLoading = currentModelCatalog?.loading ?? false;
+  const modelLevelsError = currentModelCatalog?.error ?? false;
   useEffect(() => {
-    if (!draftModel.trim()) {
-      setModelLevels([]);
+    if (!draftModel) {
+      setModelCatalog({ model: "", levels: [], loading: false, error: false });
       return;
     }
     let stale = false;
-    invoke<string[]>("fetch_codex_reasoning_levels", { model: draftModel })
-      .then((levels) => { if (!stale) setModelLevels(levels); })
-      .catch((err) => { console.warn("[AgentsScreen] fetch_codex_reasoning_levels:", err); if (!stale) setModelLevels([]); });
+    const model = draftModel;
+    setModelCatalog({ model, levels: [], loading: true, error: false });
+    invoke<unknown>("fetch_codex_reasoning_levels", { model })
+      .then((payload) => {
+        if (stale) return;
+        const levels = normalizeCodexReasoningLevels(payload);
+        if (levels === null) {
+          console.warn(
+            "[AgentsScreen] fetch_codex_reasoning_levels returned malformed data:",
+            Array.isArray(payload)
+              ? "array contains a blank or non-string entry"
+              : `expected an array, received ${typeof payload}`,
+          );
+          setModelCatalog({ model, levels: [], loading: true, error: true });
+          return;
+        }
+        setModelCatalog({ model, levels, loading: true, error: false });
+      })
+      .catch((err) => {
+        if (stale) return;
+        console.warn("[AgentsScreen] fetch_codex_reasoning_levels:", err);
+        setModelCatalog({ model, levels: [], loading: true, error: true });
+      })
+      .finally(() => {
+        if (stale) return;
+        setModelCatalog((current) => (
+          current.model === model ? { ...current, loading: false } : current
+        ));
+      });
     return () => { stale = true; };
   }, [draftModel]);
 
@@ -622,6 +665,15 @@ export function AgentsScreen({
                   options={reasoningOptions}
                   onChange={(value) => setProfileDraft((draft) => (draft ? { ...draft, reasoning: value } : draft))}
                 />
+                {modelLevelsLoading ? (
+                  <span className="codex-reasoning-status" role="status" aria-live="polite">
+                    {t("agents.reasoningLoading", "正在后台读取 Codex 模型目录…")}
+                  </span>
+                ) : modelLevelsError ? (
+                  <span className="codex-reasoning-status err" role="alert" aria-live="polite">
+                    {t("agents.reasoningLoadFailed", "读取 Codex 推理档位失败")}
+                  </span>
+                ) : null}
               </label>
             </div>
             <p className="codex-launch-hint">
