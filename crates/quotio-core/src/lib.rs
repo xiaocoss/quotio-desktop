@@ -3874,7 +3874,7 @@ fn render_proxy_config(
         settings.logging_to_file,
         settings.logs_max_total_size_mb,
         cooling_disabled(settings),
-        settings.disable_image_generation,
+        image_generation_value(settings),
         settings.force_model_prefix,
         settings.passthrough_headers,
         yaml_quote(routing_strategy_value(&settings.routing_strategy)),
@@ -3918,6 +3918,25 @@ fn render_payload_overrides(settings: &AppSettings) -> String {
 /// 级用号)。不直接改 `disable_cooling` 设置本身,避免覆盖用户的手动选择。
 fn cooling_disabled(settings: &AppSettings) -> bool {
     settings.disable_cooling || settings.scheduler_rule == "priority_failover"
+}
+
+/// CLIProxyAPI 的 `disable-image-generation` 是**四态**(`false` / `true` / `chat` /
+/// `passthrough`),不是布尔。开关关闭时我们写 **`passthrough`** 而不是 `false`:
+///
+/// - `false`(= `Off`)会让代理往**每笔 codex 请求里注入** hosted `image_generation` 工具
+///   (`codex_executor.go`:`if cfg.DisableImageGeneration == Off { ensureImageGenerationTool(body) }`)。
+///   新版 Codex 自带 function 工具 `image_gen.imagegen`,两者同时出现 → 上游 400
+///   `Invalid Value: 'tools'. Function 'image_gen.imagegen' conflicts with a hosted tool`。
+/// - `passthrough` **不注入也不剥离**,客户端 payload 原样转发;`/v1/images/*` 生图端点照常可用。
+///
+/// 开关打开时写 `true`(真·全局禁用:`ImagesGenerations` 直接 404)。语义也更贴开关字面意思——
+/// 「不禁用」= 别动我的请求,而不是「替我注入个工具」。
+fn image_generation_value(settings: &AppSettings) -> &'static str {
+    if settings.disable_image_generation {
+        "true"
+    } else {
+        "'passthrough'"
+    }
 }
 
 fn routing_strategy_value(strategy: &RoutingStrategy) -> &'static str {
@@ -4280,6 +4299,18 @@ mod tests {
         assert!(cooling_disabled(&s));
         s.scheduler_rule = "off".to_string();
         assert!(cooling_disabled(&s));
+    }
+
+    #[test]
+    fn image_generation_off_renders_passthrough_not_false() {
+        let mut s = AppSettings::default();
+        // 开关关闭 → 'passthrough':不注入 hosted image_generation(否则和新版 Codex 自带的
+        // image_gen.imagegen function 撞 → 上游 400),同时 /v1/images/* 生图端点照常可用。
+        // ⚠️ 绝不能写 `false`——那是 Off,代理会主动注入工具。
+        assert_eq!(image_generation_value(&s), "'passthrough'");
+        // 开关打开 → true:真·全局禁用(/v1/images/* 会 404)。
+        s.disable_image_generation = true;
+        assert_eq!(image_generation_value(&s), "true");
     }
 
     #[test]
