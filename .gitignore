@@ -66,6 +66,7 @@ Thumbs.db
 .cursor/
 .claude/
 .cargo/
+.worktrees/
 
 # npm / package manager logs
 npm-debug.log*
