@@ -14,18 +14,21 @@
 //! **从用户自己的 codex 二进制提取**则天然与其版本一致(替换 = 恒等,零风险),且 Codex 一升级、
 //! 二进制指纹一变就自动重新提取。**提取失败就不写这个键**,行为与从前完全一致,绝不弄丢用户的模型。
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashSet;
 use std::fs;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use tempfile::NamedTempFile;
 
 /// 目录 JSON 的落盘位置(Codex 的家目录里,和 config.toml 同级)。
 fn catalog_path() -> PathBuf {
     quotio_platform::expand_home_path("~/.codex/quotio-model-catalog.json")
 }
 
-/// 记录「这份目录是从哪个二进制、什么指纹提取的」,用来判断要不要重提。
+/// 记录目录来源和当时完整的候选指纹快照,用来判断候选优先级是否发生变化。
 fn meta_path() -> PathBuf {
     quotio_platform::expand_home_path("~/.codex/quotio-model-catalog.meta.json")
 }
@@ -36,43 +39,212 @@ const ANCHOR: &[u8] = b"\"supported_reasoning_levels\"";
 const BACK_WINDOW: usize = 16 * 1024;
 /// 从目录起始位置往后取多大一块来做花括号配平。目录实测约 300KB,留足余量。
 const FORWARD_WINDOW: usize = 8 * 1024 * 1024;
+/// 同一进程里只允许一个线程扫描 / 更新目录,避免相互覆盖临时文件和元数据。
+static CATALOG_LOCK: Mutex<()> = Mutex::new(());
+
+#[derive(Debug, Deserialize, Serialize)]
+struct CatalogMetadata {
+    /// 实际成功提取目录的候选指纹。
+    source_fingerprint: String,
+    /// 本轮按优先级排列的全部可读候选指纹。
+    candidate_fingerprints: Vec<String>,
+}
 
 /// 确保目录文件存在且与当前 codex 二进制同步,返回它的路径。
 /// 任何一步失败都返回 `None` —— 调用方据此**跳过** `model_catalog_json`,保持旧行为。
 pub fn ensure_catalog() -> Option<PathBuf> {
-    let binary = locate_codex_cli()?;
-    let fingerprint = fingerprint(&binary)?;
-    let target = catalog_path();
-
-    if target.is_file() && fs::read_to_string(meta_path()).ok().as_deref() == Some(&fingerprint) {
-        return Some(target);
-    }
-
-    let json = extract_from_binary(&binary)?;
-    if let Some(parent) = target.parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-    fs::write(&target, json).ok()?;
-    // meta 写失败不致命:下次会重提一遍,只是白花点时间。
-    let _ = fs::write(meta_path(), &fingerprint);
-    Some(target)
+    ensure_catalog_result().ok()
 }
 
-/// 二进制指纹:路径 + 大小 + mtime。Codex 升级后三者必有变化 → 触发重新提取。
+/// `ensure_catalog` 的可诊断版本。Task 3 会把这里的错误异步暴露给 UI。
+pub fn ensure_catalog_result() -> Result<PathBuf, String> {
+    let _guard = CATALOG_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let candidates = codex_candidates();
+    let target = catalog_path();
+    let metadata = meta_path();
+    ensure_catalog_from(&candidates, &target, &metadata)
+}
+
+/// 用给定候选列表确保目录可用。独立出来让磁盘缓存策略可以用真实文件做单测。
+fn ensure_catalog_from(
+    candidates: &[PathBuf],
+    target: &Path,
+    metadata: &Path,
+) -> Result<PathBuf, String> {
+    ensure_catalog_from_with_writer(candidates, target, metadata, atomic_write)
+}
+
+fn ensure_catalog_from_with_writer<F>(
+    candidates: &[PathBuf],
+    target: &Path,
+    metadata: &Path,
+    write_catalog: F,
+) -> Result<PathBuf, String>
+where
+    F: FnMut(&Path, &[u8]) -> Result<(), String>,
+{
+    ensure_catalog_from_with_writers(candidates, target, metadata, write_catalog, atomic_write)
+}
+
+fn ensure_catalog_from_with_writers<C, M>(
+    candidates: &[PathBuf],
+    target: &Path,
+    metadata: &Path,
+    mut write_catalog: C,
+    mut write_metadata: M,
+) -> Result<PathBuf, String>
+where
+    C: FnMut(&Path, &[u8]) -> Result<(), String>,
+    M: FnMut(&Path, &[u8]) -> Result<(), String>,
+{
+    let fingerprints_by_candidate: Vec<Option<String>> =
+        candidates.iter().map(|candidate| fingerprint(candidate)).collect();
+    let current_candidate_fingerprints: Vec<String> = fingerprints_by_candidate
+        .iter()
+        .flatten()
+        .cloned()
+        .collect();
+    let cached_is_valid = fs::read_to_string(target)
+        .ok()
+        .is_some_and(|text| is_valid_catalog_text(&text));
+
+    if cached_is_valid {
+        if let Ok(cached_metadata) = fs::read_to_string(metadata) {
+            if serde_json::from_str::<CatalogMetadata>(&cached_metadata)
+                .ok()
+                .is_some_and(|cached| {
+                    cached.candidate_fingerprints == current_candidate_fingerprints
+                        && current_candidate_fingerprints
+                            .iter()
+                            .any(|current| current == &cached.source_fingerprint)
+                })
+            {
+                return Ok(target.to_path_buf());
+            }
+        }
+    }
+
+    let mut last_failure = None;
+    for (candidate, current_fingerprint) in candidates.iter().zip(fingerprints_by_candidate) {
+        let Some(current_fingerprint) = current_fingerprint else {
+            last_failure = Some(format!("无法读取候选指纹 {}", candidate.display()));
+            continue;
+        };
+        let Some(json) = extract_from_binary(candidate) else {
+            last_failure = Some(format!("候选不含有效模型目录 {}", candidate.display()));
+            continue;
+        };
+        let serialized_metadata = serde_json::to_vec(&CatalogMetadata {
+            source_fingerprint: current_fingerprint,
+            candidate_fingerprints: current_candidate_fingerprints.clone(),
+        })
+        .map_err(|error| format!("序列化模型目录元数据失败: {error}"))?;
+
+        let metadata_exists = match fs::symlink_metadata(metadata) {
+            Ok(_) => true,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+            Err(error) => {
+                last_failure = Some(format!(
+                    "检查模型目录元数据失败 {}: {error}",
+                    metadata.display()
+                ));
+                continue;
+            }
+        };
+        if metadata_exists {
+            if let Err(error) = write_metadata(metadata, b"") {
+                last_failure = Some(format!(
+                    "使模型目录元数据失效失败 {}: {error}",
+                    metadata.display()
+                ));
+                continue;
+            }
+        }
+
+        if let Err(error) = write_catalog(target, json.as_bytes()) {
+            last_failure = Some(format!("写入模型目录失败 {}: {error}", target.display()));
+            continue;
+        }
+        // 正确元数据写失败不致命:预先写入的空标记仍在,下次会重提一遍。
+        let _ = write_metadata(metadata, &serialized_metadata);
+        return Ok(target.to_path_buf());
+    }
+
+    if fs::read_to_string(target)
+        .ok()
+        .is_some_and(|text| is_valid_catalog_text(&text))
+    {
+        return Ok(target.to_path_buf());
+    }
+
+    let detail = last_failure
+        .map(|failure| format!(";最后失败:{failure}"))
+        .unwrap_or_default();
+    Err(format!(
+        "无法生成 Codex 模型目录:检查了 {} 个候选二进制,且没有可用的有效缓存{detail}",
+        candidates.len(),
+    ))
+}
+
+/// 在目标目录创建临时文件,完整同步后用同文件系统 rename 原子替换目标。
+fn atomic_write(target: &Path, bytes: &[u8]) -> Result<(), String> {
+    atomic_write_with_persist(target, bytes, |temp, target| {
+        temp.persist(target)
+            .map(|_| ())
+            .map_err(|error| format!("原子替换目录文件失败 {}: {}", target.display(), error.error))
+    })
+}
+
+fn atomic_write_with_persist<F>(target: &Path, bytes: &[u8], persist: F) -> Result<(), String>
+where
+    F: FnOnce(NamedTempFile, &Path) -> Result<(), String>,
+{
+    let parent = target
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(parent)
+        .map_err(|error| format!("创建目录失败 {}: {error}", parent.display()))?;
+
+    let mut temp = NamedTempFile::new_in(parent)
+        .map_err(|error| format!("创建临时目录文件失败 {}: {error}", parent.display()))?;
+    temp.write_all(bytes)
+        .map_err(|error| format!("写入临时目录文件失败: {error}"))?;
+    temp.as_file()
+        .sync_all()
+        .map_err(|error| format!("同步临时目录文件失败: {error}"))?;
+    persist(temp, target)?;
+    Ok(())
+}
+
+/// 二进制指纹:路径 + 大小 + 纳秒精度 mtime。避免同秒、同大小的原地替换误命中缓存。
 fn fingerprint(binary: &Path) -> Option<String> {
     let meta = fs::metadata(binary).ok()?;
-    let mtime = meta
+    let mtime_nanos = meta
         .modified()
         .ok()?
         .duration_since(std::time::UNIX_EPOCH)
         .ok()?
-        .as_secs();
-    Some(format!("{}|{}|{}", binary.display(), meta.len(), mtime))
+        .as_nanos();
+    Some(format!(
+        "{}|{}|{}",
+        binary.display(),
+        meta.len(),
+        mtime_nanos
+    ))
 }
 
 /// 定位 Codex CLI 二进制。桌面应用是靠它跑的(config.toml 里的 `CODEX_CLI_PATH` 即指向它),
 /// 所以它内置的目录就是 Codex 实际使用的那份。
+#[cfg(test)]
 fn locate_codex_cli() -> Option<PathBuf> {
+    codex_candidates().into_iter().next()
+}
+
+/// 收集生产环境里所有可能的 Codex CLI,让提取层逐个尝试而不是只信第一个。
+fn codex_candidates() -> Vec<PathBuf> {
     let exe = if cfg!(windows) { "codex.exe" } else { "codex" };
 
     let mut roots: Vec<PathBuf> = Vec::new();
@@ -94,8 +266,6 @@ fn locate_codex_cli() -> Option<PathBuf> {
         .unwrap_or_default();
 
     collect_codex_candidates(app_path.as_deref(), &roots, &path_dirs, exe)
-        .into_iter()
-        .next()
 }
 
 /// 收集所有已知安装布局里的 Codex CLI,按 mtime 从新到旧排列。
@@ -143,7 +313,12 @@ fn collect_codex_candidates(
             (modified, path)
         })
         .collect();
-    candidates.sort_by(|(left, _), (right, _)| right.cmp(left));
+    candidates.sort_by(|(left_time, left_path), (right_time, right_path)| {
+        right_time
+            .cmp(left_time)
+            // read_dir 在相同 mtime 下没有稳定顺序,路径保证元数据快照可复现。
+            .then_with(|| left_path.cmp(right_path))
+    });
 
     let mut seen = HashSet::new();
     candidates
@@ -176,7 +351,7 @@ fn extract_from_binary(binary: &Path) -> Option<String> {
             anchor_at = Some(base + i as u64);
             break;
         }
-        if n < overlap {
+        if n <= overlap {
             break;
         }
         base += (n - overlap) as u64;
@@ -224,20 +399,27 @@ fn extract_catalog_json(window: &[u8], anchor: usize) -> Option<String> {
     let end = match_braces(&window[open_at..])?;
     let raw = &window[open_at..open_at + end];
 
-    let value: Value = serde_json::from_slice(raw).ok()?;
-    let models = value.get("models")?.as_array()?;
+    let text = std::str::from_utf8(raw).ok()?;
+    is_valid_catalog_text(text).then(|| text.to_string())
+}
+
+/// 提取结果和磁盘缓存共用同一条结构校验规则,避免只凭指纹信任损坏文件。
+fn is_valid_catalog_text(text: &str) -> bool {
+    let Ok(value) = serde_json::from_str::<Value>(text) else {
+        return false;
+    };
+    let Some(models) = value.get("models").and_then(Value::as_array) else {
+        return false;
+    };
     // 空目录会被 Codex 拒:"must contain at least one model"。字段不对也别写出去。
-    if models.is_empty()
-        || !models.iter().all(|m| {
-            m.get("slug").and_then(Value::as_str).is_some()
-                && m.get("supported_reasoning_levels")
+    !models.is_empty()
+        && models.iter().all(|model| {
+            model.get("slug").and_then(Value::as_str).is_some()
+                && model
+                    .get("supported_reasoning_levels")
                     .and_then(Value::as_array)
                     .is_some_and(|levels| !levels.is_empty())
         })
-    {
-        return None;
-    }
-    String::from_utf8(raw.to_vec()).ok()
 }
 
 /// 只在锚点附近的小窗口(≤16KB)里反向搜,用 memmem 的 rfind。
@@ -292,20 +474,22 @@ pub fn toml_path_value(path: &Path) -> String {
 /// low…ultra 六档,luna 五档,gpt-5.5 及更早只有四档),而且 Codex 以后加新档位时无需改 Quotio。
 /// 目录取不到 / 模型不在目录里 → 返回空,调用方回退到内置的保守列表。
 pub fn reasoning_levels(model_slug: &str) -> Vec<String> {
+    reasoning_levels_result(model_slug).unwrap_or_default()
+}
+
+/// `reasoning_levels` 的可诊断版本,区分目录获取、读取和 JSON 解析错误。
+pub fn reasoning_levels_result(model_slug: &str) -> Result<Vec<String>, String> {
     let slug = model_slug.trim();
     if slug.is_empty() {
-        return Vec::new();
+        return Ok(Vec::new());
     }
-    let Some(path) = ensure_catalog() else {
-        return Vec::new();
-    };
-    let Ok(text) = fs::read_to_string(path) else {
-        return Vec::new();
-    };
-    let Ok(value) = serde_json::from_str::<Value>(&text) else {
-        return Vec::new();
-    };
-    value
+    let path =
+        ensure_catalog_result().map_err(|error| format!("获取 Codex 模型目录失败: {error}"))?;
+    let text = fs::read_to_string(&path)
+        .map_err(|error| format!("读取 Codex 模型目录失败 {}: {error}", path.display()))?;
+    let value = serde_json::from_str::<Value>(&text)
+        .map_err(|error| format!("解析 Codex 模型目录失败 {}: {error}", path.display()))?;
+    Ok(value
         .get("models")
         .and_then(Value::as_array)
         .and_then(|models| {
@@ -320,7 +504,7 @@ pub fn reasoning_levels(model_slug: &str) -> Vec<String> {
                 .filter_map(|level| level.get("effort")?.as_str().map(str::to_string))
                 .collect()
         })
-        .unwrap_or_default()
+        .unwrap_or_default())
 }
 
 #[cfg(test)]
@@ -362,6 +546,537 @@ mod tests {
     }
 
     const ONE_MODEL: &str = r#"{"models":[{"slug":"gpt-5.6-sol","supported_reasoning_levels":[{"effort":"low"},{"effort":"ultra"}]}]}"#;
+    const NEW_MODEL: &str = r#"{"models":[{"slug":"gpt-5.7","supported_reasoning_levels":[{"effort":"medium"},{"effort":"max"}]}]}"#;
+
+    fn metadata_json(source_fingerprint: &str, candidate_fingerprints: &[String]) -> String {
+        serde_json::json!({
+            "source_fingerprint": source_fingerprint,
+            "candidate_fingerprints": candidate_fingerprints,
+        })
+        .to_string()
+    }
+
+    fn assert_metadata_bytes(
+        bytes: &[u8],
+        source_fingerprint: &str,
+        candidate_fingerprints: &[String],
+    ) {
+        let value: Value = serde_json::from_slice(bytes).unwrap();
+        assert_eq!(value["source_fingerprint"], source_fingerprint);
+        assert_eq!(
+            value["candidate_fingerprints"],
+            serde_json::json!(candidate_fingerprints)
+        );
+    }
+
+    fn assert_metadata(
+        metadata: &Path,
+        source_fingerprint: &str,
+        candidate_fingerprints: &[String],
+    ) {
+        assert_metadata_bytes(
+            &fs::read(metadata).unwrap(),
+            source_fingerprint,
+            candidate_fingerprints,
+        );
+    }
+
+    #[test]
+    fn extraction_continues_after_an_invalid_candidate() {
+        let temp = TestDir::new("invalid-then-valid");
+        let invalid = temp.path().join("invalid-codex.exe");
+        let valid = temp.path().join("valid-codex.exe");
+        let target = temp.path().join("catalog.json");
+        let meta = temp.path().join("catalog.meta.json");
+        fs::write(&invalid, b"binary without a model catalog").unwrap();
+        fs::write(&valid, catalog_bytes(ONE_MODEL)).unwrap();
+        let invalid_fingerprint = fingerprint(&invalid).unwrap();
+        let valid_fingerprint = fingerprint(&valid).unwrap();
+
+        let result = ensure_catalog_from(&[invalid, valid.clone()], &target, &meta)
+            .expect("the valid fallback candidate should be extracted");
+
+        assert_eq!(result, target);
+        assert_eq!(fs::read_to_string(&target).unwrap(), ONE_MODEL);
+        assert_metadata(
+            &meta,
+            &valid_fingerprint,
+            &[invalid_fingerprint, valid_fingerprint.clone()],
+        );
+    }
+
+    #[test]
+    fn newer_candidate_invalidates_cache_recorded_with_only_old_candidate() {
+        let temp = TestDir::new("new-candidate-invalidates-cache");
+        let old_candidate = temp.path().join("old-codex.exe");
+        let new_candidate = temp.path().join("new-codex.exe");
+        let target = temp.path().join("catalog.json");
+        let meta = temp.path().join("catalog.meta.json");
+        fs::write(&old_candidate, catalog_bytes(ONE_MODEL)).unwrap();
+        fs::write(&new_candidate, catalog_bytes(NEW_MODEL)).unwrap();
+        fs::write(&target, ONE_MODEL).unwrap();
+
+        let old_fingerprint = fingerprint(&old_candidate).unwrap();
+        let new_fingerprint = fingerprint(&new_candidate).unwrap();
+        fs::write(
+            &meta,
+            metadata_json(&old_fingerprint, std::slice::from_ref(&old_fingerprint)),
+        )
+        .unwrap();
+
+        ensure_catalog_from(
+            &[new_candidate.clone(), old_candidate],
+            &target,
+            &meta,
+        )
+        .expect("adding a higher-priority candidate should regenerate the catalog");
+
+        assert_eq!(fs::read_to_string(&target).unwrap(), NEW_MODEL);
+        assert_metadata(
+            &meta,
+            &new_fingerprint,
+            &[new_fingerprint.clone(), old_fingerprint],
+        );
+    }
+
+    #[test]
+    fn unchanged_candidates_use_cached_lower_valid_source() {
+        let temp = TestDir::new("cached-lower-valid-source");
+        let invalid = temp.path().join("invalid-codex.exe");
+        let valid = temp.path().join("valid-codex.exe");
+        let target = temp.path().join("catalog.json");
+        let meta = temp.path().join("catalog.meta.json");
+        fs::write(&invalid, b"binary without a model catalog").unwrap();
+        fs::write(&valid, catalog_bytes(ONE_MODEL)).unwrap();
+        fs::write(&target, ONE_MODEL).unwrap();
+
+        let invalid_fingerprint = fingerprint(&invalid).unwrap();
+        let valid_fingerprint = fingerprint(&valid).unwrap();
+        fs::write(
+            &meta,
+            metadata_json(
+                &valid_fingerprint,
+                &[invalid_fingerprint, valid_fingerprint.clone()],
+            ),
+        )
+        .unwrap();
+
+        let mut catalog_writes = 0;
+        let mut metadata_writes = 0;
+        ensure_catalog_from_with_writers(
+            &[invalid, valid],
+            &target,
+            &meta,
+            |path, bytes| {
+                catalog_writes += 1;
+                atomic_write(path, bytes)
+            },
+            |path, bytes| {
+                metadata_writes += 1;
+                atomic_write(path, bytes)
+            },
+        )
+        .expect("an unchanged candidate list should use the lower valid cached source");
+
+        assert_eq!(catalog_writes, 0);
+        assert_eq!(metadata_writes, 0);
+    }
+
+    #[test]
+    fn legacy_raw_fingerprint_metadata_is_regenerated() {
+        let temp = TestDir::new("legacy-raw-metadata");
+        let valid = temp.path().join("valid-codex.exe");
+        let target = temp.path().join("catalog.json");
+        let meta = temp.path().join("catalog.meta.json");
+        fs::write(&valid, catalog_bytes(ONE_MODEL)).unwrap();
+        fs::write(&target, ONE_MODEL).unwrap();
+        let valid_fingerprint = fingerprint(&valid).unwrap();
+        fs::write(&meta, &valid_fingerprint).unwrap();
+
+        let mut catalog_writes = 0;
+        let mut metadata_writes = 0;
+        ensure_catalog_from_with_writers(
+            std::slice::from_ref(&valid),
+            &target,
+            &meta,
+            |path, bytes| {
+                catalog_writes += 1;
+                atomic_write(path, bytes)
+            },
+            |path, bytes| {
+                metadata_writes += 1;
+                atomic_write(path, bytes)
+            },
+        )
+        .expect("legacy metadata should be stale rather than fatal");
+
+        assert_eq!(catalog_writes, 1);
+        assert_eq!(metadata_writes, 2);
+        assert_metadata(
+            &meta,
+            &valid_fingerprint,
+            std::slice::from_ref(&valid_fingerprint),
+        );
+    }
+
+    #[test]
+    fn seconds_precision_structured_metadata_is_regenerated() {
+        let temp = TestDir::new("seconds-precision-metadata");
+        let valid = temp.path().join("valid-codex.exe");
+        let target = temp.path().join("catalog.json");
+        let meta = temp.path().join("catalog.meta.json");
+        fs::write(&valid, catalog_bytes(ONE_MODEL)).unwrap();
+        fs::write(&target, ONE_MODEL).unwrap();
+
+        let binary_metadata = fs::metadata(&valid).unwrap();
+        let legacy_mtime = binary_metadata
+            .modified()
+            .unwrap()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let legacy_fingerprint = format!(
+            "{}|{}|{}",
+            valid.display(),
+            binary_metadata.len(),
+            legacy_mtime
+        );
+        fs::write(
+            &meta,
+            metadata_json(
+                &legacy_fingerprint,
+                std::slice::from_ref(&legacy_fingerprint),
+            ),
+        )
+        .unwrap();
+
+        let mut catalog_writes = 0;
+        let mut metadata_writes = 0;
+        ensure_catalog_from_with_writers(
+            std::slice::from_ref(&valid),
+            &target,
+            &meta,
+            |path, bytes| {
+                catalog_writes += 1;
+                atomic_write(path, bytes)
+            },
+            |path, bytes| {
+                metadata_writes += 1;
+                atomic_write(path, bytes)
+            },
+        )
+        .expect("seconds-precision structured metadata should be regenerated");
+
+        let current_fingerprint = fingerprint(&valid).unwrap();
+        assert_eq!(catalog_writes, 1);
+        assert_eq!(metadata_writes, 2);
+        assert_ne!(current_fingerprint, legacy_fingerprint);
+        assert_metadata(
+            &meta,
+            &current_fingerprint,
+            std::slice::from_ref(&current_fingerprint),
+        );
+    }
+
+    #[test]
+    fn cached_source_must_belong_to_candidate_snapshot() {
+        let temp = TestDir::new("source-not-in-candidates");
+        let valid = temp.path().join("valid-codex.exe");
+        let target = temp.path().join("catalog.json");
+        let meta = temp.path().join("catalog.meta.json");
+        fs::write(&valid, catalog_bytes(ONE_MODEL)).unwrap();
+        fs::write(&target, ONE_MODEL).unwrap();
+        let valid_fingerprint = fingerprint(&valid).unwrap();
+        fs::write(
+            &meta,
+            metadata_json(
+                "fingerprint-not-in-candidate-list",
+                std::slice::from_ref(&valid_fingerprint),
+            ),
+        )
+        .unwrap();
+
+        let mut catalog_writes = 0;
+        let mut metadata_writes = 0;
+        ensure_catalog_from_with_writers(
+            std::slice::from_ref(&valid),
+            &target,
+            &meta,
+            |path, bytes| {
+                catalog_writes += 1;
+                atomic_write(path, bytes)
+            },
+            |path, bytes| {
+                metadata_writes += 1;
+                atomic_write(path, bytes)
+            },
+        )
+        .expect("metadata with an impossible source should be regenerated");
+
+        assert_eq!(catalog_writes, 1);
+        assert_eq!(metadata_writes, 2);
+        assert_metadata(
+            &meta,
+            &valid_fingerprint,
+            std::slice::from_ref(&valid_fingerprint),
+        );
+    }
+
+    #[test]
+    fn failed_fingerprint_update_leaves_metadata_invalid_for_retry() {
+        let temp = TestDir::new("failed-fingerprint-update");
+        let old_candidate = temp.path().join("old-codex.exe");
+        let new_candidate = temp.path().join("new-codex.exe");
+        let target = temp.path().join("catalog.json");
+        let meta = temp.path().join("catalog.meta.json");
+        fs::write(&old_candidate, catalog_bytes(ONE_MODEL)).unwrap();
+        fs::write(&new_candidate, catalog_bytes(NEW_MODEL)).unwrap();
+        fs::write(&target, ONE_MODEL).unwrap();
+
+        let old_fingerprint = fingerprint(&old_candidate).unwrap();
+        let new_fingerprint = fingerprint(&new_candidate).unwrap();
+        fs::write(
+            &meta,
+            metadata_json(&old_fingerprint, std::slice::from_ref(&old_fingerprint)),
+        )
+        .unwrap();
+
+        let mut catalog_writes = 0;
+        let mut metadata_writes = 0;
+        let result = ensure_catalog_from_with_writers(
+            std::slice::from_ref(&new_candidate),
+            &target,
+            &meta,
+            |path, bytes| {
+                catalog_writes += 1;
+                assert_eq!(
+                    fs::read(&meta).unwrap(),
+                    b"",
+                    "metadata must be invalidated before catalog replacement"
+                );
+                atomic_write(path, bytes)
+            },
+            |path, bytes| {
+                metadata_writes += 1;
+                match metadata_writes {
+                    1 => {
+                        assert!(bytes.is_empty(), "first metadata write must invalidate");
+                        assert_eq!(fs::read_to_string(&target).unwrap(), ONE_MODEL);
+                        atomic_write(path, bytes)
+                    }
+                    2 => {
+                        assert_metadata_bytes(
+                            bytes,
+                            &new_fingerprint,
+                            std::slice::from_ref(&new_fingerprint),
+                        );
+                        assert_eq!(fs::read_to_string(&target).unwrap(), NEW_MODEL);
+                        Err("simulated final fingerprint write failure".to_string())
+                    }
+                    _ => panic!("unexpected metadata write #{metadata_writes}"),
+                }
+            },
+        )
+        .expect("the valid replacement catalog should remain usable");
+
+        assert_eq!(result, target);
+        assert_eq!(catalog_writes, 1);
+        assert_eq!(metadata_writes, 2);
+        assert_eq!(fs::read_to_string(&target).unwrap(), NEW_MODEL);
+        assert_eq!(fs::read(&meta).unwrap(), b"");
+        assert_ne!(fs::read_to_string(&meta).unwrap(), old_fingerprint);
+
+        let mut retry_catalog_writes = 0;
+        let mut retry_metadata_writes = 0;
+        ensure_catalog_from_with_writers(
+            &[new_candidate, old_candidate],
+            &target,
+            &meta,
+            |path, bytes| {
+                retry_catalog_writes += 1;
+                atomic_write(path, bytes)
+            },
+            |path, bytes| {
+                retry_metadata_writes += 1;
+                atomic_write(path, bytes)
+            },
+        )
+        .expect("invalid metadata should force a retry instead of the cache fast path");
+
+        assert_eq!(retry_catalog_writes, 1);
+        assert!(retry_metadata_writes > 0);
+    }
+
+    #[test]
+    fn metadata_invalidation_failure_prevents_catalog_replacement() {
+        let temp = TestDir::new("metadata-invalidation-failure");
+        let old_candidate = temp.path().join("old-codex.exe");
+        let new_candidate = temp.path().join("new-codex.exe");
+        let target = temp.path().join("catalog.json");
+        let meta = temp.path().join("catalog.meta.json");
+        fs::write(&old_candidate, catalog_bytes(ONE_MODEL)).unwrap();
+        fs::write(&new_candidate, catalog_bytes(NEW_MODEL)).unwrap();
+        fs::write(&target, ONE_MODEL).unwrap();
+        let old_fingerprint = fingerprint(&old_candidate).unwrap();
+        fs::write(
+            &meta,
+            metadata_json(&old_fingerprint, std::slice::from_ref(&old_fingerprint)),
+        )
+        .unwrap();
+
+        let mut catalog_writes = 0;
+        let mut metadata_writes = 0;
+        let result = ensure_catalog_from_with_writers(
+            std::slice::from_ref(&new_candidate),
+            &target,
+            &meta,
+            |path, bytes| {
+                catalog_writes += 1;
+                atomic_write(path, bytes)
+            },
+            |_, _| {
+                metadata_writes += 1;
+                Err("simulated metadata invalidation failure".to_string())
+            },
+        )
+        .expect("the valid old catalog should remain the last-known-good fallback");
+
+        assert_eq!(result, target);
+        assert_eq!(metadata_writes, 1);
+        assert_eq!(catalog_writes, 0);
+        assert_eq!(fs::read_to_string(&target).unwrap(), ONE_MODEL);
+        assert_metadata(
+            &meta,
+            &old_fingerprint,
+            std::slice::from_ref(&old_fingerprint),
+        );
+    }
+
+    #[test]
+    fn valid_existing_catalog_survives_when_all_candidates_fail() {
+        let temp = TestDir::new("last-known-good");
+        let invalid = temp.path().join("invalid-codex.exe");
+        let target = temp.path().join("catalog.json");
+        let meta = temp.path().join("catalog.meta.json");
+        fs::write(&invalid, b"binary without a model catalog").unwrap();
+        fs::write(&target, ONE_MODEL).unwrap();
+
+        let result = ensure_catalog_from(std::slice::from_ref(&invalid), &target, &meta)
+            .expect("a valid existing catalog should be retained");
+
+        assert_eq!(result, target);
+        assert_eq!(fs::read_to_string(&target).unwrap(), ONE_MODEL);
+        assert!(!meta.exists(), "fallback must not invent new metadata");
+    }
+
+    #[test]
+    fn write_failures_try_every_candidate_and_preserve_last_known_good() {
+        let temp = TestDir::new("write-failure-fallback");
+        let first = temp.path().join("first-codex.exe");
+        let second = temp.path().join("second-codex.exe");
+        let target = temp.path().join("catalog.json");
+        let meta = temp.path().join("catalog.meta.json");
+        fs::write(&first, catalog_bytes(ONE_MODEL)).unwrap();
+        fs::write(&second, catalog_bytes(ONE_MODEL)).unwrap();
+        fs::write(&target, ONE_MODEL).unwrap();
+        let mut write_attempts = 0;
+
+        let result = ensure_catalog_from_with_writer(&[first, second], &target, &meta, |_, _| {
+            write_attempts += 1;
+            Err("simulated catalog write failure".to_string())
+        })
+        .expect("the valid existing catalog should survive replacement failures");
+
+        assert_eq!(write_attempts, 2);
+        assert_eq!(result, target);
+        assert_eq!(fs::read_to_string(&target).unwrap(), ONE_MODEL);
+        assert!(!meta.exists(), "failed writes must not invent metadata");
+    }
+
+    #[test]
+    fn malformed_cached_catalog_is_not_trusted_even_when_meta_matches() {
+        let temp = TestDir::new("malformed-cache");
+        let valid = temp.path().join("valid-codex.exe");
+        let target = temp.path().join("catalog.json");
+        let meta = temp.path().join("catalog.meta.json");
+        fs::write(&valid, catalog_bytes(ONE_MODEL)).unwrap();
+        fs::write(&target, r#"{"models":[]}"#).unwrap();
+        let valid_fingerprint = fingerprint(&valid).unwrap();
+        fs::write(
+            &meta,
+            metadata_json(
+                &valid_fingerprint,
+                std::slice::from_ref(&valid_fingerprint),
+            ),
+        )
+        .unwrap();
+
+        let result = ensure_catalog_from(std::slice::from_ref(&valid), &target, &meta)
+            .expect("the malformed cache should be replaced from the valid candidate");
+
+        assert_eq!(result, target);
+        assert_eq!(fs::read_to_string(&target).unwrap(), ONE_MODEL);
+    }
+
+    #[test]
+    fn atomic_write_replaces_existing_content() {
+        let temp = TestDir::new("atomic-replace");
+        let target = temp.path().join("catalog.json");
+        fs::write(&target, b"old").unwrap();
+
+        atomic_write(&target, b"new catalog").expect("atomic replacement should succeed");
+
+        assert_eq!(fs::read(&target).unwrap(), b"new catalog");
+    }
+
+    #[test]
+    fn atomic_write_preserves_existing_content_when_persist_fails() {
+        let temp = TestDir::new("atomic-persist-failure");
+        let target = temp.path().join("catalog.json");
+        fs::write(&target, b"known old catalog bytes").unwrap();
+        let mut persist_attempts = 0;
+
+        let error = atomic_write_with_persist(
+            &target,
+            b"replacement catalog bytes",
+            |temp: NamedTempFile, persist_target: &Path| {
+                persist_attempts += 1;
+                assert_eq!(persist_target, target.as_path());
+                assert_eq!(temp.path().parent(), target.parent());
+                assert_eq!(fs::read(temp.path()).unwrap(), b"replacement catalog bytes");
+                Err("simulated persist failure".to_string())
+            },
+        )
+        .expect_err("persist failure should be returned");
+
+        assert_eq!(persist_attempts, 1);
+        assert!(error.contains("simulated persist failure"));
+        assert_eq!(fs::read(&target).unwrap(), b"known old catalog bytes");
+    }
+
+    #[test]
+    fn missing_catalog_reports_the_candidate_count() {
+        let temp = TestDir::new("candidate-count");
+        let first = temp.path().join("first-codex.exe");
+        let second = temp.path().join("second-codex.exe");
+        let target = temp.path().join("catalog.json");
+        let meta = temp.path().join("catalog.meta.json");
+        fs::write(&first, b"no catalog here").unwrap();
+        fs::write(&second, b"still no catalog here").unwrap();
+
+        let error = ensure_catalog_from(&[first, second], &target, &meta)
+            .expect_err("missing extraction and cache should be diagnostic");
+
+        assert!(
+            error.contains("2 个候选"),
+            "candidate count should be reported: {error}"
+        );
+    }
+
+    #[test]
+    fn empty_model_slug_is_an_empty_success() {
+        assert_eq!(reasoning_levels_result("  ").unwrap(), Vec::<String>::new());
+    }
 
     #[test]
     fn discovers_windows_app_resource_without_local_bin_cache() {
@@ -406,6 +1121,57 @@ mod tests {
             candidates.contains(&direct),
             "direct binary should remain as a fallback: {candidates:?}"
         );
+    }
+
+    #[test]
+    fn equal_mtime_candidates_use_a_path_tiebreaker() {
+        let temp = TestDir::new("equal-mtime-candidates");
+        let first_dir = temp.path().join("a-bin");
+        let second_dir = temp.path().join("b-bin");
+        let first = first_dir.join("codex.exe");
+        let second = second_dir.join("codex.exe");
+        fs::create_dir_all(&first_dir).unwrap();
+        fs::create_dir_all(&second_dir).unwrap();
+        let same_mtime = std::time::UNIX_EPOCH + std::time::Duration::from_secs(3);
+        let first_file = fs::File::create(&first).unwrap();
+        first_file.set_modified(same_mtime).unwrap();
+        let second_file = fs::File::create(&second).unwrap();
+        second_file.set_modified(same_mtime).unwrap();
+
+        let candidates = collect_codex_candidates(
+            None,
+            &[],
+            &[second_dir, first_dir],
+            "codex.exe",
+        );
+
+        assert_eq!(candidates, vec![first, second]);
+    }
+
+    #[test]
+    fn fingerprint_distinguishes_subsecond_mtime_changes() {
+        let temp = TestDir::new("subsecond-fingerprint");
+        let binary = temp.path().join("codex.exe");
+        let bytes = b"fixed-size-binary";
+        fs::write(&binary, bytes).unwrap();
+        let file = fs::OpenOptions::new().write(true).open(&binary).unwrap();
+        let first_mtime =
+            std::time::UNIX_EPOCH + std::time::Duration::new(42, 100_000_000);
+        let second_mtime =
+            std::time::UNIX_EPOCH + std::time::Duration::new(42, 900_000_000);
+
+        file.set_modified(first_mtime).unwrap();
+        let first_fingerprint = fingerprint(&binary).unwrap();
+        let first_len = fs::metadata(&binary).unwrap().len();
+
+        file.set_modified(second_mtime).unwrap();
+        let second_fingerprint = fingerprint(&binary).unwrap();
+        let second_len = fs::metadata(&binary).unwrap().len();
+
+        assert_eq!(first_len, bytes.len() as u64);
+        assert_eq!(second_len, first_len);
+        assert_eq!(binary, temp.path().join("codex.exe"));
+        assert_ne!(first_fingerprint, second_fingerprint);
     }
 
     #[test]
