@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import type {
   AgentBackupFile,
   AgentConfigMode,
@@ -156,12 +156,22 @@ export function AgentsScreen({
   const [profileDraft, setProfileDraft] = useState<ProfileDraft | null>(null);
   const [pendingStart, setPendingStart] = useState<{ profile: CodexLaunchProfile; warnings: string[] } | null>(null);
 
+  // 从运行中的代理拉它实际服务的模型。**不能只在挂载时拉一次**:用户去「服务商」页改了
+  // 自定义接口(加/改模型名、加模型前缀)后,代理的 /v1/models 就变了,而本页的 proxyModels
+  // 还是旧的 —— 下拉里看不到刚加的带前缀模型(如 weiloo/gpt-5.5),得手动点刷新才出来。
+  // 所以打开「新建 / 编辑方案」表单时也重拉一次(下拉只有那时才用得上,拉得最准)。
+  const refreshProxyModels = useCallback(() => {
+    invoke<string[]>("fetch_codex_models")
+      .then(setProxyModels)
+      .catch((err) => console.warn("[AgentsScreen] fetch_codex_models:", err));
+  }, []);
+
   useEffect(() => {
     invoke<CodexAccountRef[]>("list_codex_launch_accounts").then(setCodexAccounts).catch((err) => console.warn("[AgentsScreen] list_codex_launch_accounts:", err));
     invoke<string | null>("codex_active_profile")
       .then((id) => setActiveProfileId(id ?? null))
       .catch((err) => console.warn("[AgentsScreen] codex_active_profile:", err));
-    invoke<string[]>("fetch_codex_models").then(setProxyModels).catch((err) => console.warn("[AgentsScreen] fetch_codex_models:", err));
+    refreshProxyModels();
     // 后台监控发现用户自己退出了 Codex（没点「停止」）：状态回落，配置已自动还原。
     if (!("__TAURI_INTERNALS__" in window)) return;
     let unlisten: (() => void) | undefined;
@@ -212,6 +222,8 @@ export function AgentsScreen({
 
   function openNewProfile() {
     setLaunchMsg(null);
+    // 重拉模型:自定义接口刚改过(如新加了模型前缀)时,下拉才能看到 weiloo/gpt-5.5 这类新名字。
+    refreshProxyModels();
     setProfileDraft({
       id: null,
       name: "",
@@ -227,6 +239,7 @@ export function AgentsScreen({
   // 编辑:把现有方案预填进同一个小表单(submitProfileDraft 按 id 命中就更新而不是新增)。
   function openEditProfile(profile: CodexLaunchProfile) {
     setLaunchMsg(null);
+    refreshProxyModels();
     setProfileDraft({
       id: profile.id,
       name: profile.name,
@@ -555,6 +568,12 @@ export function AgentsScreen({
                   value={profileDraft.model}
                   options={[
                     { value: "", label: t("agents.unspecified") },
+                    // 保底:方案里已选的模型若不在当前模型列表中(代理没跑 → 回退到内置列表,
+                    // 或列表还没刷新到),也要保留为选项 —— 否则编辑时下拉显示空白,一保存就把
+                    // 模型悄悄丢了。
+                    ...(profileDraft.model.trim() && !codexModelList.includes(profileDraft.model.trim())
+                      ? [{ value: profileDraft.model.trim(), label: profileDraft.model.trim() }]
+                      : []),
                     ...codexModelList.map((model) => ({ value: model, label: model })),
                   ]}
                   onChange={(value) => setProfileDraft((draft) => (draft ? { ...draft, model: value } : draft))}
