@@ -11,7 +11,10 @@ serde.workspace = true
 serde_json.workspace = true
 urlencoding = "2.1.3"
 uuid = { version = "1.23.2", features = ["v4"] }
-ureq = { version = "2", features = ["json"] }
+# socks-proxy:用户的全局代理常填 socks5://(clash/karing 的 socks 端口)。不启用这个
+# feature 时 ureq 的 connect_socks 直接返回 Err("SOCKS feature disabled."),OAuth / 额度
+# 查询会连不上,而不是回退直连——所以必须开。
+ureq = { version = "2", features = ["json", "socks-proxy"] }
 flate2 = "1"
 tar = "0.4"
 base64 = "0.22"

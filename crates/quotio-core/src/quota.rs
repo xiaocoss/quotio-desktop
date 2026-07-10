@@ -210,7 +210,9 @@ fn build_agent(proxy_url: Option<&str>) -> ureq::Agent {
     builder.build()
 }
 
-fn proxy_from_env() -> Option<String> {
+/// 标准代理环境变量(HTTPS_PROXY / HTTP_PROXY / ALL_PROXY)。`native_oauth` 也复用它:
+/// OAuth 的 token 交换同样需要走代理,否则部分地区会被上游按 IP 403 拒掉。
+pub(crate) fn proxy_from_env() -> Option<String> {
     for key in [
         "HTTPS_PROXY",
         "https_proxy",

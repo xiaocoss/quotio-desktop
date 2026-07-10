@@ -546,14 +546,42 @@ fn parse_query(query: &str) -> HashMap<String, String> {
 /// 共享带超时的 HTTP agent。裸 `ureq::post/get` 用的默认 agent 既无 connect 也无
 /// read 超时,网络半开 / 被中间代理强制断开(wsarecv)时会永久卡住登录线程,连
 /// cancel 都打不断。所有 OAuth 出站请求统一走它,与 management.rs 的做法一致。
-pub(crate) fn http_agent() -> &'static ureq::Agent {
-    static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
-    AGENT.get_or_init(|| {
-        ureq::AgentBuilder::new()
-            .timeout_connect(Duration::from_secs(15))
-            .timeout_read(Duration::from_secs(30))
-            .build()
-    })
+/// 代理:OAuth 的 token 交换端点(`auth.openai.com/oauth/token` 等)在部分地区**直连会被
+/// 上游按 IP 403 拒掉**(`{"code":"unsupported_country_region_territory"}`)。浏览器那一步
+/// 能过是因为它走系统代理,而 Quotio 自己发的交换请求此前是**裸直连** —— 表现为「已收到
+/// 授权回调」之后紧跟着 `Token 交换失败(403)`。与 [`crate::quota::build_agent`] 同策略:
+/// 优先用设置里的 `proxy_url`,回退标准代理环境变量。
+///
+/// 每次新建而非 `OnceLock` 缓存:用户改完代理无需重启应用即可生效;OAuth 请求频次极低,
+/// 不复用连接池的开销可忽略。(`Agent::post` 内部会 clone 出自己的 Agent,所以把临时值
+/// 交给 `http_agent().post(..)` 链式调用是安全的。)
+pub(crate) fn http_agent() -> ureq::Agent {
+    build_oauth_agent(oauth_proxy_url())
+}
+
+/// OAuth 出站请求该走的代理:优先设置里的「全局代理」,回退标准代理环境变量。
+fn oauth_proxy_url() -> Option<String> {
+    crate::read_settings()
+        .map(|settings| settings.proxy_url)
+        .filter(|url| !url.trim().is_empty())
+        .or_else(crate::quota::proxy_from_env)
+}
+
+/// 与 [`oauth_proxy_url`] 分开,便于单测注入一个假代理来验证「请求真的发给了代理」。
+fn build_oauth_agent(proxy_url: Option<String>) -> ureq::Agent {
+    let mut builder = ureq::AgentBuilder::new()
+        .timeout_connect(Duration::from_secs(15))
+        .timeout_read(Duration::from_secs(30));
+    if let Some(url) = proxy_url {
+        let url = url.trim();
+        match ureq::Proxy::new(url) {
+            Ok(proxy) => builder = builder.proxy(proxy),
+            // 代理地址写错就悄悄直连的话,用户只会看到上游那句莫名其妙的
+            // `unsupported_country_region_territory` 403,根本想不到是代理没生效。留一行日志。
+            Err(err) => eprintln!("[oauth] 代理地址无效,本次将直连:{url}({err})"),
+        }
+    }
+    builder.build()
 }
 
 /// Token 交换的失败分类:决定前端是「继续轮询重试」还是「停在永久错误」。
@@ -1595,6 +1623,35 @@ pub fn supports_native_oauth(provider_id: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn oauth_agent_actually_dials_the_configured_proxy() {
+        // 「走代理」不能只是口头承诺:起一个假代理端口,断言 agent 把请求**发给了它**
+        // (HTTPS 经 HTTP 代理是先发 `CONNECT host:443`),而不是直连目标主机。
+        // 这条一旦回归,OAuth 在被按 IP 封锁的地区就会重现上游的
+        // `403 unsupported_country_region_territory`——而那个报错完全看不出是代理没生效。
+        use std::io::Read;
+        use std::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("绑定假代理端口");
+        let port = listener.local_addr().unwrap().port();
+        let proxy_saw = std::thread::spawn(move || {
+            let (mut sock, _) = listener.accept().expect("agent 应当连到代理端口");
+            let mut buf = [0u8; 128];
+            let n = sock.read(&mut buf).unwrap_or(0);
+            String::from_utf8_lossy(&buf[..n]).into_owned()
+        });
+
+        let agent = build_oauth_agent(Some(format!("http://127.0.0.1:{port}")));
+        // 假代理不会应答,请求必然失败;我们只关心它把 CONNECT 发到了代理而非直连。
+        let _ = agent.get("https://auth.openai.com/oauth/token").call();
+
+        let first_bytes = proxy_saw.join().expect("假代理线程");
+        assert!(
+            first_bytes.starts_with("CONNECT auth.openai.com:443"),
+            "agent 没把请求发给配置的代理,代理端收到:{first_bytes:?}"
+        );
+    }
 
     fn auth_code_pending_with_token_endpoint(token_endpoint: &str) -> PendingOAuth {
         PendingOAuth {
