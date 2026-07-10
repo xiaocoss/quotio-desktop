@@ -231,6 +231,17 @@ impl AppCore {
         // 否则会出现「前端以为后端会重启而跳过推路由、后端却不重启 → 路由永不生效」。
         let failover_changed = (self.settings.scheduler_rule == "priority_failover")
             != (settings.scheduler_rule == "priority_failover");
+        // 「禁用图像生成」同样必须重启才生效,而且是被两件事叠着坑的:
+        //   ① CLIProxyAPI 对该字段的热加载**只打日志**(internal/api/server.go 的 reload 分支
+        //      仅 `log.Infof("disable-image-generation updated: ...")`),不像隔壁 disable-cooling
+        //      会真的调 `auth.SetQuotaCooldownDisabled()` 去应用;
+        //   ② 它还会用自己内存里的**旧值回写 config.yaml**,把我们刚写进去的覆盖掉
+        //      (写回的是字符串形式,所以会看到 `'true'` 带引号——Quotio 自己从不加引号)。
+        // 结果就是用户改完开关**看不到任何变化**(实测:生图端点一直 404、或一直往 codex 请求
+        // 注入图像工具)。重启走 `proxy.start()`,它会用当前设置重新生成 config.yaml,代理再从头
+        // 以新模式启动,两个坑一起绕过。
+        let image_gen_changed =
+            self.settings.disable_image_generation != settings.disable_image_generation;
         self.settings = settings;
         if self.settings.remote_management_key.is_none() {
             self.settings.remote_management_key = None;
@@ -239,13 +250,13 @@ impl AppCore {
         if let Err(err) = self.proxy.write_config(&self.settings) {
             eprintln!("[save_settings] write_config failed: {err}");
         }
-        if failover_changed {
+        if failover_changed || image_gen_changed {
             // 重启前先刷新一次运行状态:刚启动 / 上一会话收养的代理,缓存的 status 可能还是旧值,
             // 不刷新会漏判而跳过重启 → 失败转移仍带着旧路由 / 冷却跑。
             self.proxy.refresh(&self.settings);
             if matches!(self.proxy.state.status, ProxyStatusKind::Running) {
                 if let Err(err) = self.restart_proxy() {
-                    eprintln!("[save_settings] restart for failover toggle failed: {err}");
+                    eprintln!("[save_settings] restart after settings change failed: {err}");
                 }
             }
         }
