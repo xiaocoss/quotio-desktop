@@ -15,6 +15,7 @@
 //! 二进制指纹一变就自动重新提取。**提取失败就不写这个键**,行为与从前完全一致,绝不弄丢用户的模型。
 
 use serde_json::Value;
+use std::collections::HashSet;
 use std::fs;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -87,33 +88,71 @@ fn locate_codex_cli() -> Option<PathBuf> {
     roots.push(quotio_platform::expand_home_path("~/.local/share/OpenAI/Codex/bin"));
     roots.push(quotio_platform::expand_home_path("~/.codex/bin"));
 
-    for root in &roots {
-        // 直接放在 bin/ 下。
-        let direct = root.join(exe);
-        if direct.is_file() {
-            return Some(direct);
-        }
-        // 实际布局是 bin/<hash>/codex.exe,可能并存多个版本 —— 取 mtime 最新的。
-        let mut best: Option<(std::time::SystemTime, PathBuf)> = None;
-        if let Ok(entries) = fs::read_dir(root) {
-            for entry in entries.flatten() {
-                let candidate = entry.path().join(exe);
-                if !candidate.is_file() {
-                    continue;
-                }
-                let Ok(modified) = fs::metadata(&candidate).and_then(|m| m.modified()) else {
-                    continue;
-                };
-                if best.as_ref().is_none_or(|(t, _)| modified > *t) {
-                    best = Some((modified, candidate));
+    let app_path = crate::codex_launch::detect_codex_app_path_cached();
+    let path_dirs: Vec<PathBuf> = std::env::var_os("PATH")
+        .map(|path| std::env::split_paths(&path).collect())
+        .unwrap_or_default();
+
+    collect_codex_candidates(app_path.as_deref(), &roots, &path_dirs, exe)
+        .into_iter()
+        .next()
+}
+
+/// 收集所有已知安装布局里的 Codex CLI,按 mtime 从新到旧排列。
+fn collect_codex_candidates(
+    app_path: Option<&Path>,
+    roots: &[PathBuf],
+    path_dirs: &[PathBuf],
+    exe: &str,
+) -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+
+    if let Some(app_path) = app_path {
+        if let Some(app_dir) = app_path.parent() {
+            // WindowsApps: app/Codex.exe + app/resources/codex.exe。
+            paths.push(app_dir.join("resources").join(exe));
+
+            // macOS: Codex.app/Contents/MacOS/Codex + Contents/Resources/codex。
+            if app_dir
+                .file_name()
+                .is_some_and(|name| name.eq_ignore_ascii_case("MacOS"))
+            {
+                if let Some(contents_dir) = app_dir.parent() {
+                    paths.push(contents_dir.join("Resources").join(exe));
                 }
             }
         }
-        if let Some((_, path)) = best {
-            return Some(path);
+    }
+
+    paths.extend(path_dirs.iter().map(|dir| dir.join(exe)));
+
+    for root in roots {
+        paths.push(root.join(exe));
+        if let Ok(entries) = fs::read_dir(root) {
+            paths.extend(entries.flatten().map(|entry| entry.path().join(exe)));
         }
     }
-    None
+
+    let mut candidates: Vec<(std::time::SystemTime, PathBuf)> = paths
+        .into_iter()
+        .filter(|path| path.is_file())
+        .map(|path| {
+            let modified = fs::metadata(&path)
+                .and_then(|meta| meta.modified())
+                .unwrap_or(std::time::UNIX_EPOCH);
+            (modified, path)
+        })
+        .collect();
+    candidates.sort_by(|(left, _), (right, _)| right.cmp(left));
+
+    let mut seen = HashSet::new();
+    candidates
+        .into_iter()
+        .filter_map(|(_, path)| {
+            let canonical = fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
+            seen.insert(canonical).then_some(path)
+        })
+        .collect()
 }
 
 /// 在二进制里分块搜锚点(不能把几百 MB 整个读进内存),命中后只取锚点附近一块做解析。
@@ -288,11 +327,86 @@ pub fn reasoning_levels(model_slug: &str) -> Vec<String> {
 mod tests {
     use super::*;
 
+    struct TestDir(PathBuf);
+
+    impl TestDir {
+        fn new(label: &str) -> Self {
+            static NEXT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            let unique = format!(
+                "quotio-codex-catalog-{label}-{}-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .expect("system clock should be after Unix epoch")
+                    .as_nanos(),
+                NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            );
+            let path = std::env::temp_dir().join(unique);
+            fs::create_dir(&path).expect("temporary test directory should be created");
+            Self(path)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TestDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
     fn catalog_bytes(inner: &str) -> Vec<u8> {
         format!("....junk....{inner}....trailing junk....").into_bytes()
     }
 
     const ONE_MODEL: &str = r#"{"models":[{"slug":"gpt-5.6-sol","supported_reasoning_levels":[{"effort":"low"},{"effort":"ultra"}]}]}"#;
+
+    #[test]
+    fn discovers_windows_app_resource_without_local_bin_cache() {
+        let temp = TestDir::new("windows-app-resource");
+        let app_dir = temp.path().join("app");
+        let app = app_dir.join("Codex.exe");
+        let resource_cli = app_dir.join("resources").join("codex.exe");
+        fs::create_dir_all(resource_cli.parent().unwrap()).unwrap();
+        fs::write(&app, b"desktop launcher").unwrap();
+        fs::write(&resource_cli, b"embedded codex cli").unwrap();
+
+        let candidates = collect_codex_candidates(Some(&app), &[], &[], "codex.exe");
+
+        assert!(
+            candidates.contains(&resource_cli),
+            "desktop resource CLI should be discovered: {candidates:?}"
+        );
+    }
+
+    #[test]
+    fn newer_hashed_binary_is_not_hidden_by_old_direct_binary() {
+        let temp = TestDir::new("newer-hashed-binary");
+        let root = temp.path().join("bin");
+        let direct = root.join("codex.exe");
+        let newer = root.join("new-version").join("codex.exe");
+        fs::create_dir_all(newer.parent().unwrap()).unwrap();
+
+        let direct_file = fs::File::create(&direct).unwrap();
+        direct_file
+            .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1))
+            .unwrap();
+        let newer_file = fs::File::create(&newer).unwrap();
+        newer_file
+            .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(2))
+            .unwrap();
+
+        let candidates =
+            collect_codex_candidates(None, std::slice::from_ref(&root), &[], "codex.exe");
+
+        assert_eq!(candidates.first(), Some(&newer));
+        assert!(
+            candidates.contains(&direct),
+            "direct binary should remain as a fallback: {candidates:?}"
+        );
+    }
 
     #[test]
     fn extracts_catalog_around_the_anchor() {
