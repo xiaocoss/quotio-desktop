@@ -245,10 +245,16 @@ export function useAppState() {
     }
   }
 
-  async function saveSettings(settings: AppSettings) {
+  async function saveSettings(
+    settings: AppSettings,
+    options: { allowClearCodexProfiles?: boolean } = {},
+  ) {
     setIsSaving(true);
     try {
-      const nextState = await invoke<AppState>("save_settings", { settings });
+      const nextState = await invoke<AppState>("save_settings", {
+        settings,
+        allowClearCodexProfiles: options.allowClearCodexProfiles ?? false,
+      });
       setAppState(nextState);
       setCredentialStatus(nextState.credentials);
       setError(null);

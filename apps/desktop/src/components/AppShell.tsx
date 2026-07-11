@@ -54,7 +54,10 @@ type AppShellProps = {
   onRefreshQuotas: () => void;
   onToggleNotifications: () => void;
   onRunProxyAction: (command: ProxyCommand) => void;
-  onSaveSettings: (settings: AppSettings) => void;
+  onSaveSettings: (
+    settings: AppSettings,
+    options?: { allowClearCodexProfiles?: boolean },
+  ) => void;
   onRunManagementStateAction: (command: string, args?: Record<string, unknown>) => void;
   onRunFallbackConfigAction: (action: FallbackConfigAction) => void;
   onStartOAuth: (endpoint: string, projectId: string | null, isWebui?: boolean) => Promise<OAuthUrlResponse | null>;

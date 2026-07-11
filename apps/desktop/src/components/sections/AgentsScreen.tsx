@@ -35,7 +35,10 @@ type AgentsScreenProps = {
   onListBackups: (agentId: string) => Promise<AgentBackupFile[]>;
   onRestoreBackup: (agentId: string, backupPath: string) => Promise<AgentConfigurationResult | null>;
   onResetConfiguration: (agentId: string) => Promise<AgentConfigurationResult | null>;
-  onSaveSettings: (settings: AppSettings) => void;
+  onSaveSettings: (
+    settings: AppSettings,
+    options?: { allowClearCodexProfiles?: boolean },
+  ) => void;
 };
 
 const modelSlots: ModelSlot[] = ["opus", "sonnet", "haiku"];
@@ -295,8 +298,14 @@ export function AgentsScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelLevels, profileDraft?.reasoning, t]);
 
-  function persistProfiles(next: CodexLaunchProfile[]) {
-    onSaveSettings({ ...appState.settings, codex_profiles: next, remote_management_key: null });
+  function persistProfiles(
+    next: CodexLaunchProfile[],
+    options?: { allowClearCodexProfiles?: boolean },
+  ) {
+    onSaveSettings(
+      { ...appState.settings, codex_profiles: next, remote_management_key: null },
+      options,
+    );
   }
 
   function openNewProfile() {
@@ -367,7 +376,10 @@ export function AgentsScreen({
       return;
     }
     if (profileDraft?.id === profile.id) setProfileDraft(null);
-    persistProfiles(codexProfiles.filter((item) => item.id !== profile.id));
+    const next = codexProfiles.filter((item) => item.id !== profile.id);
+    persistProfiles(next, {
+      allowClearCodexProfiles: codexProfiles.length > 0 && next.length === 0,
+    });
   }
 
   // 启动入口：收集"需要先确认"的事项（要切换正在跑的方案 / 密钥没绑到 Codex），

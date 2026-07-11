@@ -132,7 +132,7 @@ function App() {
         onRefreshQuotas={() => void app.refreshQuotas(true)}
         onToggleNotifications={() => void app.toggleNotifications()}
         onRunProxyAction={(command) => void app.runProxyAction(command)}
-        onSaveSettings={(settings) => void app.saveSettings(settings)}
+        onSaveSettings={(settings, options) => void app.saveSettings(settings, options)}
         onRunManagementStateAction={(command, args) => void app.runManagementStateAction(command, args)}
         onRunFallbackConfigAction={(action) => void app.runFallbackConfigAction(action)}
         onStartOAuth={app.startOAuth}

@@ -189,7 +189,9 @@ impl CodexMonitorProbe {
 
 impl Default for AppCore {
     fn default() -> Self {
+        let had_settings_file = settings_path().exists();
         let mut settings = read_settings().unwrap_or_default();
+        let before_migrations = settings.clone();
         migrate_codex_profiles(&mut settings);
         let mut credential_error = migrate_remote_management_key(&mut settings);
         let (management_key, local_credential_error) = load_or_create_local_management_key();
@@ -198,12 +200,20 @@ impl Default for AppCore {
         } else if let Some(local_error) = local_credential_error {
             credential_error = credential_error.map(|error| format!("{} {}", error, local_error));
         }
-        if let Err(error) = write_settings(&settings) {
-            let message = format!("无法保存应用设置：{}", error);
-            credential_error = Some(match credential_error {
-                Some(existing) => format!("{} {}", existing, message),
-                None => message,
-            });
+        // 旧逻辑启动时无条件把整份 settings.json 重写一遍；一旦解析/迁移过程中
+        // codex_profiles 被临时看成空数组，就会把用户的启动方案永久覆盖掉。
+        //
+        // 现在只在首次创建配置或确有迁移(remote key / 旧 codex_* 平铺字段)时落盘；
+        // 并且写入走 merge + codex_profiles 防清空保护。
+        let should_persist_settings = !had_settings_file || settings != before_migrations;
+        if should_persist_settings {
+            if let Err(error) = write_settings(&settings) {
+                let message = format!("无法保存应用设置：{}", error);
+                credential_error = Some(match credential_error {
+                    Some(existing) => format!("{} {}", existing, message),
+                    None => message,
+                });
+            }
         }
         Self {
             proxy: ProxyLifecycle::new(&settings, management_key),
@@ -235,6 +245,7 @@ impl AppCore {
     pub fn save_settings(
         &mut self,
         mut settings: AppSettings,
+        allow_clear_codex_profiles: bool,
     ) -> Result<AppState, ManagementCoreError> {
         if let Some(remote_key) = settings
             .remote_management_key
@@ -261,9 +272,15 @@ impl AppCore {
 
         let mut persisted = settings.clone();
         persisted.remote_management_key = None;
-        write_settings(&persisted).map_err(|error| {
-            ManagementCoreError::Unavailable(format!("无法保存应用设置：{}", error))
-        })?;
+        // 只有前端明确声明“这是用户删除最后一条方案”的保存，才允许把磁盘里
+        // 已存在的 codex_profiles 清成空数组。其它设置保存只更新属性，不让
+        // stale/默认化的空列表覆盖已有方案。
+        let allow_profile_clear = allow_clear_codex_profiles
+            && !self.settings.codex_profiles.is_empty()
+            && persisted.codex_profiles.is_empty();
+        settings = write_settings_with_profile_clear(&persisted, allow_profile_clear).map_err(
+            |error| ManagementCoreError::Unavailable(format!("无法保存应用设置：{}", error)),
+        )?;
 
         // 「顺序故障转移」要靠 config.yaml 的 fill-first 路由 + 关闭冷却才生效,这两者都没有
         // 热更新接口(管理 API 只有路由,且我们统一走重启)。所以**只在进/出失败转移这条边界**
@@ -2959,6 +2976,8 @@ fn settings_path() -> PathBuf {
     quotio_platform::app_config_dir().join("settings.json")
 }
 
+const CODEX_PROFILES_SETTINGS_KEY: &str = "codex_profiles";
+
 fn read_settings() -> Option<AppSettings> {
     let path = settings_path();
     let content = fs::read_to_string(path).ok()?;
@@ -2998,15 +3017,82 @@ fn parse_settings_tolerant(content: &str) -> Option<AppSettings> {
     serde_json::from_value(merged).ok()
 }
 
-fn write_settings(settings: &AppSettings) -> std::io::Result<()> {
+fn settings_json_for_write(
+    existing_content: Option<&str>,
+    settings: &AppSettings,
+    allow_clear_codex_profiles: bool,
+) -> serde_json::Value {
+    let mut persisted = settings.clone();
+    persisted.remote_management_key = None;
+    let incoming = serde_json::to_value(&persisted)
+        .unwrap_or_else(|_| serde_json::Value::Object(Default::default()));
+
+    let Some(existing_content) = existing_content else {
+        return incoming;
+    };
+    let Ok(mut existing) = serde_json::from_str::<serde_json::Value>(existing_content) else {
+        return incoming;
+    };
+    let (Some(existing_obj), Some(incoming_obj)) = (existing.as_object_mut(), incoming.as_object())
+    else {
+        return incoming;
+    };
+
+    let existing_has_profiles = existing_obj
+        .get(CODEX_PROFILES_SETTINGS_KEY)
+        .and_then(serde_json::Value::as_array)
+        .is_some_and(|profiles| !profiles.is_empty());
+    let incoming_profiles_empty = incoming_obj
+        .get(CODEX_PROFILES_SETTINGS_KEY)
+        .and_then(serde_json::Value::as_array)
+        .is_some_and(Vec::is_empty);
+    let preserve_existing_profiles =
+        existing_has_profiles && incoming_profiles_empty && !allow_clear_codex_profiles;
+
+    for (key, value) in incoming_obj {
+        if preserve_existing_profiles && key == CODEX_PROFILES_SETTINGS_KEY {
+            continue;
+        }
+        existing_obj.insert(key.clone(), value.clone());
+    }
+    existing
+}
+
+fn settings_json_and_settings_for_write(
+    existing_content: Option<&str>,
+    settings: &AppSettings,
+    allow_clear_codex_profiles: bool,
+) -> (serde_json::Value, AppSettings) {
+    let merged = settings_json_for_write(existing_content, settings, allow_clear_codex_profiles);
+    let mut fallback = settings.clone();
+    fallback.remote_management_key = None;
+    let written_settings = serde_json::to_string(&merged)
+        .ok()
+        .and_then(|content| parse_settings_tolerant(&content))
+        .unwrap_or(fallback);
+    (merged, written_settings)
+}
+
+fn write_settings_with_profile_clear(
+    settings: &AppSettings,
+    allow_clear_codex_profiles: bool,
+) -> std::io::Result<AppSettings> {
     let path = settings_path();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let mut persisted = settings.clone();
-    persisted.remote_management_key = None;
-    let content = serde_json::to_string_pretty(&persisted).unwrap_or_else(|_| "{}".to_string());
-    fs::write(path, content)
+    let existing_content = fs::read_to_string(&path).ok();
+    let (merged, written_settings) = settings_json_and_settings_for_write(
+        existing_content.as_deref(),
+        settings,
+        allow_clear_codex_profiles,
+    );
+    let content = serde_json::to_string_pretty(&merged).unwrap_or_else(|_| "{}".to_string());
+    quotio_platform::write_text_file(&path, &content, true, "settings").map(|_| written_settings)
+}
+
+fn write_settings(settings: &AppSettings) -> std::io::Result<AppSettings> {
+    write_settings_with_profile_clear(settings, false)
 }
 
 fn migrate_remote_management_key(settings: &mut AppSettings) -> Option<String> {
@@ -4625,6 +4711,114 @@ mod tests {
         // 完全合法的设置走快路径,原样返回。
         let clean = serde_json::to_string(&AppSettings::default()).unwrap();
         assert!(parse_settings_tolerant(&clean).is_some());
+    }
+
+    #[test]
+    fn parse_settings_tolerant_keeps_codex_profiles_with_missing_profile_fields() {
+        // 升级时如果单条方案缺了新字段（例如 proxy_url），不能把整组 codex_profiles
+        // 当成不兼容字段丢掉；缺字段按默认值补齐即可。
+        let json = r#"{
+            "language": "zh-CN",
+            "codex_profiles": [{
+                "id": "p1",
+                "name": "日常",
+                "launch_mode": "app",
+                "bound_account": "codex-user@example.com",
+                "model": "gpt-5.6-sol",
+                "reasoning": "max",
+                "api_key": "sk-test"
+            }]
+        }"#;
+
+        let settings = parse_settings_tolerant(json).expect("应保留可修复的启动方案");
+
+        assert_eq!(settings.codex_profiles.len(), 1);
+        assert_eq!(
+            settings.codex_profiles[0].bound_account,
+            "codex-user@example.com"
+        );
+        assert_eq!(settings.codex_profiles[0].proxy_url, "");
+    }
+
+    #[test]
+    fn settings_write_merge_preserves_existing_codex_profiles_when_incoming_is_stale_empty() {
+        let existing = serde_json::json!({
+            "language": "zh-CN",
+            "future_field": { "kept": true },
+            "codex_profiles": [{
+                "id": "p1",
+                "name": "保留方案",
+                "launch_mode": "app",
+                "bound_account": "codex-user@example.com",
+                "proxy_url": "",
+                "model": "gpt-5.6-sol",
+                "reasoning": "max",
+                "api_key": "sk-test"
+            }]
+        })
+        .to_string();
+        let mut incoming = AppSettings::default();
+        incoming.language = "en-US".to_string();
+        incoming.codex_profiles = Vec::new();
+
+        let merged = settings_json_for_write(Some(&existing), &incoming, false);
+
+        assert_eq!(merged["language"], "en-US");
+        assert_eq!(merged["future_field"]["kept"], true);
+        assert_eq!(merged["codex_profiles"].as_array().unwrap().len(), 1);
+        assert_eq!(merged["codex_profiles"][0]["name"], "保留方案");
+    }
+
+    #[test]
+    fn settings_write_merge_returns_preserved_profiles_for_in_memory_state() {
+        let existing = serde_json::json!({
+            "codex_profiles": [{
+                "id": "p1",
+                "name": "保留到内存",
+                "launch_mode": "app",
+                "bound_account": "codex-user@example.com",
+                "proxy_url": "",
+                "model": "gpt-5.6-sol",
+                "reasoning": "max",
+                "api_key": "sk-test"
+            }]
+        })
+        .to_string();
+        let incoming = AppSettings {
+            codex_profiles: Vec::new(),
+            ..AppSettings::default()
+        };
+
+        let (_merged, written_settings) =
+            settings_json_and_settings_for_write(Some(&existing), &incoming, false);
+
+        assert_eq!(written_settings.codex_profiles.len(), 1);
+        assert_eq!(written_settings.codex_profiles[0].name, "保留到内存");
+    }
+
+    #[test]
+    fn settings_write_merge_allows_explicit_codex_profile_clear() {
+        let existing = serde_json::json!({
+            "codex_profiles": [{
+                "id": "p1",
+                "name": "待删除方案",
+                "launch_mode": "app",
+                "bound_account": "codex-user@example.com",
+                "proxy_url": "",
+                "model": "gpt-5.6-sol",
+                "reasoning": "max",
+                "api_key": "sk-test"
+            }]
+        })
+        .to_string();
+        let incoming = AppSettings {
+            codex_profiles: Vec::new(),
+            ..AppSettings::default()
+        };
+
+        let merged = settings_json_for_write(Some(&existing), &incoming, true);
+
+        assert!(merged["codex_profiles"].as_array().unwrap().is_empty());
     }
 
     #[test]

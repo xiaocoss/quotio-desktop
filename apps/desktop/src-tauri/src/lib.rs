@@ -75,11 +75,12 @@ fn get_platform_info(state: State<'_, DesktopState>) -> Result<PlatformInfo, Str
 fn save_settings(
     app: AppHandle,
     settings: AppSettings,
+    allow_clear_codex_profiles: Option<bool>,
     state: State<'_, DesktopState>,
 ) -> Result<AppState, String> {
     let mut core = lock_core(&state.core);
     let result = core
-        .save_settings(settings)
+        .save_settings(settings, allow_clear_codex_profiles.unwrap_or(false))
         .map_err(|error| error.to_string())?;
     // 调度规则可能刚被开/关：立即收敛池子（开→接管，关→还原 standby 账号）。
     if core.scheduler_reconcile() {
@@ -326,7 +327,7 @@ async fn set_launch_at_login(
         let mut core = lock_core(&core);
         let mut settings = core.app_state().settings;
         settings.launch_at_login = resolved;
-        core.save_settings(settings)
+        core.save_settings(settings, false)
             .map_err(|error| error.to_string())
     })
     .await

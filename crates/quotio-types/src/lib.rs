@@ -102,6 +102,7 @@ pub struct PlatformInfo {
 /// 一套 Codex 一键启动方案。多套可共存,但同一时刻只能启动一套
 /// (启动改的是全局 `~/.codex`,后端只有一个会话)。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
 pub struct CodexLaunchProfile {
     /// 稳定 id(前端创建时生成;旧平铺配置迁移成的方案用固定种子)。
     pub id: String,
@@ -120,6 +121,21 @@ pub struct CodexLaunchProfile {
     pub reasoning: String,
     /// 代理访问密钥(写入 config.toml 的 experimental_bearer_token);留空 = 自动取代理第一个 key。
     pub api_key: String,
+}
+
+impl Default for CodexLaunchProfile {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            name: String::new(),
+            launch_mode: "app".to_string(),
+            bound_account: String::new(),
+            proxy_url: String::new(),
+            model: String::new(),
+            reasoning: "high".to_string(),
+            api_key: String::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
