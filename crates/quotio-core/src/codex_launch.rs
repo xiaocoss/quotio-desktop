@@ -55,8 +55,10 @@ fn proxy_account_path_in(dir: &Path, key: &str) -> PathBuf {
 
 // ---------- App 探测 ----------
 
-const MACOS_CODEX_APP_BUNDLES: [(&str, &str); 2] =
-    [("Codex.app", "Codex"), ("ChatGPT.app", "ChatGPT")];
+/// macOS 上 Codex 桌面应用可能的 `.app` 外壳名。改名过渡期两者都可能出现，
+/// 且**外壳名和里面的主程序名不一定一致**（真机实测有 `Codex.app` 里主程序叫
+/// `ChatGPT`），所以只按外壳名定位，主程序名一律从 `Contents/MacOS` 里实读，别写死配对。
+const MACOS_CODEX_APP_BUNDLE_NAMES: [&str; 2] = ["Codex.app", "ChatGPT.app"];
 
 /// 从给定根目录里找 Codex/ChatGPT 桌面应用。
 /// WindowsApps 风格根目录里找 `<pkg>/app/Codex.exe`（pkg 名含 "codex"），返回版本号最高的那个；
@@ -95,18 +97,30 @@ pub fn detect_codex_app_path_in(roots: &[PathBuf]) -> Option<PathBuf> {
 
 fn detect_macos_codex_app_path_in(roots: &[PathBuf]) -> Option<PathBuf> {
     for root in roots {
-        for (bundle_name, executable_name) in MACOS_CODEX_APP_BUNDLES {
-            let candidate = root
-                .join(bundle_name)
-                .join("Contents")
-                .join("MacOS")
-                .join(executable_name);
-            if candidate.exists() {
-                return Some(candidate);
+        for bundle_name in MACOS_CODEX_APP_BUNDLE_NAMES {
+            let macos_dir = root.join(bundle_name).join("Contents").join("MacOS");
+            // 不写死主程序名：直接取 Contents/MacOS 里的主可执行文件。改名过渡期外壳名
+            // （Codex.app）和里面的主程序名（ChatGPT）可能对不上，死绑配对会整个漏掉。
+            if let Some(exe) = first_macos_bundle_executable(&macos_dir) {
+                return Some(exe);
             }
         }
     }
     None
+}
+
+/// 取 `.app/Contents/MacOS` 里的主可执行文件。macOS 规范里这个目录通常只放一个主程序；
+/// 有多个时按文件名排序取第一个（确定、可测）。纯按文件是否存在判断，不依赖具体命名，
+/// 因此 `Codex.app` 配 `ChatGPT`、`ChatGPT.app` 配 `Codex` 等任意组合都能认到。
+fn first_macos_bundle_executable(macos_dir: &Path) -> Option<PathBuf> {
+    let mut executables: Vec<PathBuf> = std::fs::read_dir(macos_dir)
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.is_file())
+        .collect();
+    executables.sort();
+    executables.into_iter().next()
 }
 
 /// 从包目录名里抽第一段点分数字版本
@@ -515,7 +529,7 @@ pub fn codex_app_process_running() -> bool {
     }
     #[cfg(target_os = "macos")]
     {
-        for (bundle_name, _) in MACOS_CODEX_APP_BUNDLES {
+        for bundle_name in MACOS_CODEX_APP_BUNDLE_NAMES {
             let Ok(output) = Command::new("pgrep").args(["-f", bundle_name]).output() else {
                 return true;
             };
@@ -687,7 +701,7 @@ pub fn close_codex_app() {
     }
     #[cfg(target_os = "macos")]
     {
-        for (bundle_name, _) in MACOS_CODEX_APP_BUNDLES {
+        for bundle_name in MACOS_CODEX_APP_BUNDLE_NAMES {
             let _ = Command::new("pkill").args(["-f", bundle_name]).output();
         }
         let _ = Command::new("pkill").args(["-x", "codex"]).output();
@@ -920,6 +934,23 @@ mod tests {
         let tmp = std::env::temp_dir().join("ql_codex_detect_chatgpt_app");
         let _ = std::fs::remove_dir_all(&tmp);
         let macos = tmp.join("ChatGPT.app").join("Contents").join("MacOS");
+        std::fs::create_dir_all(&macos).unwrap();
+        let exe = macos.join("ChatGPT");
+        std::fs::write(&exe, b"x").unwrap();
+
+        let found = detect_codex_app_path_in(&[tmp.clone()]);
+
+        assert_eq!(found, Some(exe));
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn detects_codex_bundle_with_renamed_chatgpt_executable() {
+        // 真机实测:外壳仍叫 Codex.app,里面的主程序已改名成 ChatGPT。旧的死绑配对
+        // （Codex.app→Codex / ChatGPT.app→ChatGPT）两条都不中,必须实读 Contents/MacOS。
+        let tmp = std::env::temp_dir().join("ql_codex_detect_codex_app_chatgpt_exe");
+        let _ = std::fs::remove_dir_all(&tmp);
+        let macos = tmp.join("Codex.app").join("Contents").join("MacOS");
         std::fs::create_dir_all(&macos).unwrap();
         let exe = macos.join("ChatGPT");
         std::fs::write(&exe, b"x").unwrap();
