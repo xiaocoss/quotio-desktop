@@ -116,12 +116,19 @@ fn read_agent_configuration(
 }
 
 #[tauri::command]
-fn configure_agent(
+async fn configure_agent(
     request: AgentConfigurationRequest,
-    state: State<'_, DesktopState>,
 ) -> Result<AgentConfigurationResult, String> {
-    let mut core = lock_core(&state.core);
-    core.configure_agent_with_result(request)
+    // 配置生成可能扫描 Codex 安装并执行文件 I/O，移到阻塞线程池避免占用 IPC/UI 线程。
+    tauri::async_runtime::spawn_blocking(move || configure_agent_blocking(request))
+        .await
+        .map_err(|error| format!("配置智能体任务异常：{error}"))?
+}
+
+fn configure_agent_blocking(
+    request: AgentConfigurationRequest,
+) -> Result<AgentConfigurationResult, String> {
+    quotio_core::agent_config::configure_agent(request)
         .map_err(|error| error.to_string())
 }
 
@@ -1936,4 +1943,33 @@ pub fn run() {
                 }
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use quotio_types::{AgentConfigMode, AgentConfigStorageOption, AgentSetupMode};
+
+    use super::*;
+
+    #[test]
+    fn configure_agent_blocking_returns_unknown_agent_error_without_state() {
+        let request = AgentConfigurationRequest {
+            agent_id: "unknown-agent".to_string(),
+            mode: AgentConfigMode::Automatic,
+            setup_mode: AgentSetupMode::Proxy,
+            storage_option: AgentConfigStorageOption::Json,
+            proxy_url: String::new(),
+            api_key: String::new(),
+            model_slots: BTreeMap::new(),
+            use_oauth: false,
+            available_models: Vec::new(),
+            reasoning_effort: String::new(),
+        };
+
+        let error = configure_agent_blocking(request).expect_err("unknown agent should fail");
+
+        assert_eq!(error, "未知 CLI agent。");
+    }
 }
