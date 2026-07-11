@@ -19,6 +19,7 @@ flate2 = "1"
 # 在几百 MB 的 codex 二进制里搜锚点:朴素的 windows().position() 是 O(n·m),实测 8s+;
 # memmem 走 SIMD,同样的扫描降到亚秒级。见 codex_catalog。
 memchr = "2"
+tempfile = "3"
 tar = "0.4"
 base64 = "0.22"
 chrono = "0.4"

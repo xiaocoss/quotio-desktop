@@ -20,7 +20,7 @@ use std::{
     net::{TcpStream, ToSocketAddrs},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
-    sync::Arc,
+    sync::{Arc, Mutex},
     thread,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -29,14 +29,14 @@ use management::{ManagementApiClient, ManagementApiError};
 use quotio_types::{
     default_available_models, default_providers, mask_secret, AccountAuthHealth, AccountQuota,
     AccountSummaryRow, AgentBackupFile, AgentConfigMode, AgentConfigStorageOption,
-    AgentConfigurationRequest, AgentConfigurationResult, AgentSetupMode, ApiKeyBinding, ApiKeyEntry, AppSettings,
-    AppState, AuthFile, AvailableModel, ConnectionMode, CredentialStatus, FallbackConfigAction,
-    FallbackConfiguration, FallbackEntry, FallbackEntryMoveDirection, FallbackRouteState,
-    FallbackRuntimeState, ManagementSnapshot, MigrationPhase, ModelPrice, ModelSlot, PlatformInfo,
-    ProxyHealthState, ProxyPlatformResourceStatus, ProxyResourceStatus, ProxyState,
-    ProxyStatusKind, RequestStats, RoutingStrategy, SavedAgentConfiguration, UsageAggregate,
-    UsageChartBucket, UsageFilterOptions, UsageModelBreakdownRow, UsageQuery, UsageTimeSeriesPoint,
-    VirtualModel,
+    AgentConfigurationRequest, AgentConfigurationResult, AgentSetupMode, ApiKeyBinding,
+    ApiKeyEntry, AppSettings, AppState, AuthFile, AvailableModel, ConnectionMode, CredentialStatus,
+    FallbackConfigAction, FallbackConfiguration, FallbackEntry, FallbackEntryMoveDirection,
+    FallbackRouteState, FallbackRuntimeState, ManagementSnapshot, MigrationPhase, ModelPrice,
+    ModelSlot, PlatformInfo, ProxyHealthState, ProxyPlatformResourceStatus, ProxyResourceStatus,
+    ProxyState, ProxyStatusKind, RequestStats, RoutingStrategy, SavedAgentConfiguration,
+    UsageAggregate, UsageChartBucket, UsageFilterOptions, UsageModelBreakdownRow, UsageQuery,
+    UsageTimeSeriesPoint, VirtualModel,
 };
 use usage_store::UsageStore;
 use uuid::Uuid;
@@ -82,6 +82,46 @@ impl From<ManagementApiError> for ManagementCoreError {
     fn from(error: ManagementApiError) -> Self {
         Self::Api(error)
     }
+}
+
+/// Serialize process-wide agent configuration mutations targeting HOME files.
+/// Callers that also need `AppCore` must acquire the core mutex first.
+static AGENT_CONFIG_IO_LOCK: Mutex<()> = Mutex::new(());
+
+#[cfg(test)]
+static AGENT_CONFIG_LOCK_ATTEMPT_SENDER: Mutex<
+    Option<std::sync::mpsc::Sender<std::thread::ThreadId>>,
+> = Mutex::new(None);
+
+#[cfg(test)]
+pub(crate) fn set_agent_config_lock_attempt_sender_for_test(
+    sender: Option<std::sync::mpsc::Sender<std::thread::ThreadId>>,
+) -> Option<std::sync::mpsc::Sender<std::thread::ThreadId>> {
+    let mut guard = AGENT_CONFIG_LOCK_ATTEMPT_SENDER
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    std::mem::replace(&mut *guard, sender)
+}
+
+#[cfg(test)]
+fn notify_agent_config_lock_attempt_for_test() {
+    let sender = AGENT_CONFIG_LOCK_ATTEMPT_SENDER
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone();
+    if let Some(sender) = sender {
+        let _ = sender.send(std::thread::current().id());
+    }
+}
+
+pub(crate) fn with_agent_config_io_lock<T>(operation: impl FnOnce() -> T) -> T {
+    #[cfg(test)]
+    notify_agent_config_lock_attempt_for_test();
+
+    let _guard = AGENT_CONFIG_IO_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    operation()
 }
 
 fn io_error(context: &'static str, source: std::io::Error) -> ProxyCoreError {
@@ -278,6 +318,10 @@ impl AppCore {
     /// bridge, and terminate an adopted/external proxy by its port, so closing
     /// the app doesn't leave the proxy API running in the background.
     pub fn shutdown(&mut self) {
+        with_agent_config_io_lock(|| self.shutdown_unlocked());
+    }
+
+    fn shutdown_unlocked(&mut self) {
         // 退出前先解除当前方案的绑定占用（依赖 codex_active_profile_id，须在清理前读取）：
         // 否则 login-only 的 disabled=true 会持久化到磁盘、跨重启残留，账号下次开机仍被
         // 排除出代理池，而此时并没有运行中的会话需要它被禁用。与 codex_stop 行为一致。
@@ -287,12 +331,12 @@ impl AppCore {
                 codex_launch::kill_process(pid);
             }
             codex_launch::close_codex_app();
-            if let Err(err) = codex_launch::restore_codex_state_from_launch_backup() {
+            if let Err(err) = codex_launch::restore_codex_state_from_launch_backup_unlocked() {
                 eprintln!("[shutdown] restore codex state failed: {err}");
             }
         } else if codex_launch::launch_backup_exists() {
             codex_launch::close_codex_app();
-            if let Err(err) = codex_launch::restore_codex_state_from_launch_backup() {
+            if let Err(err) = codex_launch::restore_codex_state_from_launch_backup_unlocked() {
                 eprintln!("[shutdown] restore codex state failed: {err}");
             }
         }
@@ -809,8 +853,8 @@ impl AppCore {
         if !base.to_ascii_lowercase().ends_with(".json") {
             return Err("仅支持 .json 账号文件".to_string());
         }
-        let parsed: serde_json::Value = serde_json::from_str(content)
-            .map_err(|_| "文件内容不是有效的 JSON".to_string())?;
+        let parsed: serde_json::Value =
+            serde_json::from_str(content).map_err(|_| "文件内容不是有效的 JSON".to_string())?;
         let dir = quotio_platform::proxy_auth_dir();
         std::fs::create_dir_all(&dir).map_err(|error| format!("创建 auth 目录失败：{}", error))?;
 
@@ -876,7 +920,9 @@ impl AppCore {
             })
             .unwrap_or_else(|| {
                 // Last resort: filename prefix before first _ or -
-                let stem = original_filename.trim_end_matches(".json").trim_end_matches(".JSON");
+                let stem = original_filename
+                    .trim_end_matches(".json")
+                    .trim_end_matches(".JSON");
                 stem.split(|c: char| c == '_' || c == '-')
                     .next()
                     .unwrap_or(stem)
@@ -955,6 +1001,10 @@ impl AppCore {
     /// 一键启动 Codex：备份原始 auth.json/config.toml → 写代理配置 → 注入绑定账号 → 启动 App/CLI。
     /// 参数全部来自已保存的设置（codex_* 字段）。
     pub fn codex_start(&mut self, profile_id: &str) -> Result<String, ManagementCoreError> {
+        with_agent_config_io_lock(|| self.codex_start_unlocked(profile_id))
+    }
+
+    fn codex_start_unlocked(&mut self, profile_id: &str) -> Result<String, ManagementCoreError> {
         let profile_id = profile_id.trim();
         // 找到要启动的方案（按 id）。
         let profile = self
@@ -972,7 +1022,7 @@ impl AppCore {
             if self.codex_active_profile_id.as_deref() == Some(profile_id) {
                 return Ok("该方案已在运行".to_string());
             }
-            self.codex_stop()?;
+            self.codex_stop_unlocked()?;
         }
 
         let account_key = profile.bound_account.trim().to_string();
@@ -988,7 +1038,7 @@ impl AppCore {
         if codex_launch::launch_backup_exists() {
             codex_launch::close_codex_app();
             thread::sleep(Duration::from_millis(400));
-            codex_launch::restore_codex_state_from_launch_backup().map_err(|error| {
+            codex_launch::restore_codex_state_from_launch_backup_unlocked().map_err(|error| {
                 ManagementCoreError::Unavailable(format!(
                     "检测到上次 Codex 启动未完成，自动恢复失败：{}",
                     error
@@ -996,7 +1046,7 @@ impl AppCore {
             })?;
         }
 
-        codex_launch::mark_bound_account_login_only(&account_key)
+        codex_launch::mark_bound_account_login_only_unlocked(&account_key)
             .map_err(ManagementCoreError::Unavailable)?;
         // 绑定占用可能正好拿走了调度器当前选中的账号：立刻重选，
         // 避免「目标被绑定 + 其余都在待命」导致代理池空窗。
@@ -1006,109 +1056,111 @@ impl AppCore {
         // 否则绑定账号会卡在 disabled、被踢出代理池,而用户只看到「启动失败」。
         // 用闭包收口所有早退,在下方 Err 分支统一回滚(放回账号 + 还原可能写出的备份)。
         let launch_outcome = (|| -> Result<String, ManagementCoreError> {
-        if !matches!(
-            self.app_state().proxy.status,
-            ProxyStatusKind::Running | ProxyStatusKind::Starting
-        ) {
-            self.start_proxy().map_err(|error| {
-                ManagementCoreError::Unavailable(format!("启动代理失败：{error}"))
-            })?;
-        }
-        let local_endpoint = self.app_state().proxy.endpoint.clone();
-        // 方案指定了代理地址就用它（让不同方案走不同账号池）；留空回退本机端点。
-        let proxy_url = if profile.proxy_url.trim().is_empty() {
-            local_endpoint
-        } else {
-            profile.proxy_url.trim().to_string()
-        };
-        // 只有 Codex 真在跑时才关它（避免运行中的实例覆盖我们写的 config、并让它重启读到新
-        // 配置）并等它退干净；没在跑（典型：首次启动 / 切换时已先停掉旧的）就别白等这 500ms。
-        if codex_launch::codex_app_process_running() {
-            codex_launch::close_codex_app();
-            thread::sleep(Duration::from_millis(500));
-        }
-        // 此刻把 ~/.codex 原样写进固定备份文件（停止/关软件时从这个文件还原）。
-        codex_launch::write_launch_backup().map_err(ManagementCoreError::Unavailable)?;
-
-        let mut model_slots = std::collections::BTreeMap::new();
-        if !profile.model.trim().is_empty() {
-            model_slots.insert(ModelSlot::Sonnet, profile.model.trim().to_string());
-        }
-        // bearer token（写入 config.toml 的 experimental_bearer_token）：
-        // 优先用用户在表单里填的；没填就自动用代理的第一个 api-key，省得手填。
-        let api_key = if !profile.api_key.trim().is_empty() {
-            profile.api_key.clone()
-        } else {
-            // 没填就自动取代理的 api-key：先管理快照，再读代理配置兜底。
-            self.management_snapshot
-                .api_keys
-                .first()
-                .cloned()
-                .or_else(|| get_api_keys().into_iter().next())
-                .unwrap_or_default()
-        };
-        let request = AgentConfigurationRequest {
-            agent_id: "codex".to_string(),
-            mode: AgentConfigMode::Automatic,
-            setup_mode: AgentSetupMode::Proxy,
-            storage_option: AgentConfigStorageOption::Json,
-            proxy_url,
-            api_key,
-            model_slots,
-            use_oauth: false,
-            available_models: Vec::new(),
-            reasoning_effort: profile.reasoning.clone(),
-        };
-        // 直接写代理配置（不刷文件备份）+ 注入选中账号当登录（写 auth.json）。
-        agent_config::write_codex_proxy_config_no_backup(&request)?;
-        codex_launch::inject_bound_account(&account_key)
-            .map_err(ManagementCoreError::Unavailable)?;
-        // 刚把 config 切到代理(cliproxyapi)。Codex 只显示 provider 跟当前 config 一致
-        // 的历史会话,所以把会话元数据一并对齐到 cliproxyapi,否则历史会话在代理会话里
-        // 会消失。此刻 Codex 已关闭(上面 close_codex_app),改库安全。Best-effort。
-        let _ = codex_session_visibility::repair_session_visibility_in_default_dir_no_backup();
-
-        let mode = if profile.launch_mode.trim().is_empty() {
-            "app"
-        } else {
-            profile.launch_mode.trim()
-        };
-        let pid = if mode == "cli" {
-            codex_launch::launch_codex_cli().map_err(ManagementCoreError::Unavailable)?
-        } else {
-            let exe = (!self.settings.codex_app_path.trim().is_empty())
-                .then(|| PathBuf::from(self.settings.codex_app_path.trim()))
-                .filter(|path| path.exists())
-                .or_else(codex_launch::detect_codex_app_path)
-                .ok_or_else(|| {
-                    ManagementCoreError::Unavailable(
-                        "未找到 Codex 应用，请在 Codex 卡片里手填应用路径".to_string(),
-                    )
+            if !matches!(
+                self.app_state().proxy.status,
+                ProxyStatusKind::Running | ProxyStatusKind::Starting
+            ) {
+                self.start_proxy().map_err(|error| {
+                    ManagementCoreError::Unavailable(format!("启动代理失败：{error}"))
                 })?;
-            codex_launch::launch_codex_app(&exe).map_err(ManagementCoreError::Unavailable)?
-        };
-        self.codex_session = Some(codex_launch::CodexSession::new(pid, mode));
-        self.codex_session_generation = self.codex_session_generation.wrapping_add(1);
-        self.codex_active_profile_id = Some(profile_id.to_string());
-        Ok(if mode == "cli" {
-            "已在终端启动 Codex（停止会还原配置）".to_string()
-        } else {
-            match pid {
-                Some(pid) => format!("已启动 Codex 应用（pid={pid}）"),
-                None => "已启动 Codex 应用".to_string(),
             }
-        })
+            let local_endpoint = self.app_state().proxy.endpoint.clone();
+            // 方案指定了代理地址就用它（让不同方案走不同账号池）；留空回退本机端点。
+            let proxy_url = if profile.proxy_url.trim().is_empty() {
+                local_endpoint
+            } else {
+                profile.proxy_url.trim().to_string()
+            };
+            // 只有 Codex 真在跑时才关它（避免运行中的实例覆盖我们写的 config、并让它重启读到新
+            // 配置）并等它退干净；没在跑（典型：首次启动 / 切换时已先停掉旧的）就别白等这 500ms。
+            if codex_launch::codex_app_process_running() {
+                codex_launch::close_codex_app();
+                thread::sleep(Duration::from_millis(500));
+            }
+            // 此刻把 ~/.codex 原样写进固定备份文件（停止/关软件时从这个文件还原）。
+            codex_launch::write_launch_backup_unlocked()
+                .map_err(ManagementCoreError::Unavailable)?;
+
+            let mut model_slots = std::collections::BTreeMap::new();
+            if !profile.model.trim().is_empty() {
+                model_slots.insert(ModelSlot::Sonnet, profile.model.trim().to_string());
+            }
+            // bearer token（写入 config.toml 的 experimental_bearer_token）：
+            // 优先用用户在表单里填的；没填就自动用代理的第一个 api-key，省得手填。
+            let api_key = if !profile.api_key.trim().is_empty() {
+                profile.api_key.clone()
+            } else {
+                // 没填就自动取代理的 api-key：先管理快照，再读代理配置兜底。
+                self.management_snapshot
+                    .api_keys
+                    .first()
+                    .cloned()
+                    .or_else(|| get_api_keys().into_iter().next())
+                    .unwrap_or_default()
+            };
+            let request = AgentConfigurationRequest {
+                agent_id: "codex".to_string(),
+                mode: AgentConfigMode::Automatic,
+                setup_mode: AgentSetupMode::Proxy,
+                storage_option: AgentConfigStorageOption::Json,
+                proxy_url,
+                api_key,
+                model_slots,
+                use_oauth: false,
+                available_models: Vec::new(),
+                reasoning_effort: profile.reasoning.clone(),
+            };
+            // 直接写代理配置（不刷文件备份）+ 注入选中账号当登录（写 auth.json）。
+            agent_config::write_codex_proxy_config_no_backup_unlocked(&request)?;
+            codex_launch::inject_bound_account_unlocked(&account_key)
+                .map_err(ManagementCoreError::Unavailable)?;
+            // 刚把 config 切到代理(cliproxyapi)。Codex 只显示 provider 跟当前 config 一致
+            // 的历史会话,所以把会话元数据一并对齐到 cliproxyapi,否则历史会话在代理会话里
+            // 会消失。此刻 Codex 已关闭(上面 close_codex_app),改库安全。Best-effort。
+            let _ = codex_session_visibility::repair_session_visibility_in_default_dir_no_backup_unlocked();
+
+            let mode = if profile.launch_mode.trim().is_empty() {
+                "app"
+            } else {
+                profile.launch_mode.trim()
+            };
+            let pid = if mode == "cli" {
+                codex_launch::launch_codex_cli().map_err(ManagementCoreError::Unavailable)?
+            } else {
+                let exe = (!self.settings.codex_app_path.trim().is_empty())
+                    .then(|| PathBuf::from(self.settings.codex_app_path.trim()))
+                    .filter(|path| path.exists())
+                    .or_else(codex_launch::detect_codex_app_path)
+                    .ok_or_else(|| {
+                        ManagementCoreError::Unavailable(
+                            "未找到 Codex 应用，请在 Codex 卡片里手填应用路径".to_string(),
+                        )
+                    })?;
+                codex_launch::launch_codex_app(&exe).map_err(ManagementCoreError::Unavailable)?
+            };
+            self.codex_session = Some(codex_launch::CodexSession::new(pid, mode));
+            self.codex_session_generation = self.codex_session_generation.wrapping_add(1);
+            self.codex_active_profile_id = Some(profile_id.to_string());
+            Ok(if mode == "cli" {
+                "已在终端启动 Codex（停止会还原配置）".to_string()
+            } else {
+                match pid {
+                    Some(pid) => format!("已启动 Codex 应用（pid={pid}）"),
+                    None => "已启动 Codex 应用".to_string(),
+                }
+            })
         })();
 
         if launch_outcome.is_err() {
             // 启动失败:把绑定账号放回代理池(直接按 account_key 解绑,此刻 codex_active_profile_id
             // 还没设、release_active_profile_binding 会 no-op)+ 还原可能已写出的启动备份,
             // 避免泄漏 login-only 占用让账号永久卡在禁用态。
-            if let Err(err) = codex_launch::release_bound_account_login_only(&account_key) {
+            if let Err(err) = codex_launch::release_bound_account_login_only_unlocked(&account_key)
+            {
                 eprintln!("[codex_start] 回滚释放绑定失败: {err}");
             }
             if codex_launch::launch_backup_exists() {
-                if let Err(err) = codex_launch::restore_codex_state_from_launch_backup() {
+                if let Err(err) = codex_launch::restore_codex_state_from_launch_backup_unlocked() {
                     eprintln!("[codex_start] 回滚还原备份失败: {err}");
                 }
             }
@@ -1120,6 +1172,10 @@ impl AppCore {
 
     /// 停止 Codex：杀掉启动的进程 + 还原 auth.json/config.toml 到启动前。
     pub fn codex_stop(&mut self) -> Result<String, ManagementCoreError> {
+        with_agent_config_io_lock(|| self.codex_stop_unlocked())
+    }
+
+    fn codex_stop_unlocked(&mut self) -> Result<String, ManagementCoreError> {
         let session = self.codex_session.take();
         if session.is_none() && !codex_launch::launch_backup_exists() {
             self.codex_active_profile_id = None;
@@ -1137,7 +1193,7 @@ impl AppCore {
         // 且即使还原失败(Windows 上 Codex 残留进程仍持文件句柄等)也已把账号放回代理池，
         // 不让它卡在 login-only 禁用态被踢出池子。次序对齐 codex_monitor_apply。
         self.release_active_profile_binding();
-        let restore = codex_launch::restore_codex_state_from_launch_backup();
+        let restore = codex_launch::restore_codex_state_from_launch_backup_unlocked();
         self.codex_active_profile_id = None;
         restore.map_err(ManagementCoreError::Unavailable)?;
         Ok("已停止 Codex 并还原配置".to_string())
@@ -1188,7 +1244,7 @@ impl AppCore {
             .map(|profile| profile.bound_account.trim().to_string())
             .unwrap_or_default();
         if !account.is_empty() {
-            let _ = codex_launch::release_bound_account_login_only(&account);
+            let _ = codex_launch::release_bound_account_login_only_unlocked(&account);
         }
     }
 
@@ -1211,6 +1267,10 @@ impl AppCore {
     /// （没点「停止」）时，自动还原 auth.json/config.toml 并清理会话。
     /// 返回 true 表示发生了自动还原。代数不匹配（探测期间停止/重启过）则丢弃。
     pub fn codex_monitor_apply(&mut self, generation: u64, alive: bool) -> bool {
+        with_agent_config_io_lock(|| self.codex_monitor_apply_unlocked(generation, alive))
+    }
+
+    fn codex_monitor_apply_unlocked(&mut self, generation: u64, alive: bool) -> bool {
         if generation != self.codex_session_generation {
             return false;
         }
@@ -1235,7 +1295,7 @@ impl AppCore {
         }
         self.codex_session = None;
         self.release_active_profile_binding();
-        if let Err(err) = codex_launch::restore_codex_state_from_launch_backup() {
+        if let Err(err) = codex_launch::restore_codex_state_from_launch_backup_unlocked() {
             eprintln!("[codex_monitor] restore codex state failed: {err}");
         }
         self.codex_active_profile_id = None;
@@ -1505,7 +1565,10 @@ fn save_api_key_bindings(bindings: &[ApiKeyBinding]) -> Result<(), String> {
     Ok(())
 }
 
-pub fn set_api_key_binding(api_key: String, provider_id: String) -> Result<Vec<ApiKeyBinding>, String> {
+pub fn set_api_key_binding(
+    api_key: String,
+    provider_id: String,
+) -> Result<Vec<ApiKeyBinding>, String> {
     let mut bindings = get_api_key_bindings();
     bindings.retain(|b| b.api_key != api_key);
     if !provider_id.is_empty() {
@@ -1952,7 +2015,10 @@ fn convert_sub2api_accounts(parsed: &serde_json::Value) -> Option<Vec<serde_json
             continue;
         }
         let mut auth = serde_json::Map::new();
-        auth.insert("type".to_string(), serde_json::Value::String(provider.to_string()));
+        auth.insert(
+            "type".to_string(),
+            serde_json::Value::String(provider.to_string()),
+        );
         for key in ["access_token", "refresh_token", "id_token", "email"] {
             if let Some(value) = creds.get(key) {
                 auth.insert(key.to_string(), value.clone());
@@ -2007,7 +2073,10 @@ fn convert_accounts_export(parsed: &serde_json::Value) -> Option<Vec<serde_json:
             continue;
         }
         let mut auth = serde_json::Map::new();
-        auth.insert("type".to_string(), serde_json::Value::String("codex".to_string()));
+        auth.insert(
+            "type".to_string(),
+            serde_json::Value::String("codex".to_string()),
+        );
         auth.insert(
             "access_token".to_string(),
             serde_json::Value::String(access.to_string()),
@@ -2017,9 +2086,15 @@ fn convert_accounts_export(parsed: &serde_json::Value) -> Option<Vec<serde_json:
             serde_json::Value::String(refresh.to_string()),
         );
         // 导出不带 id_token —— 空串占位,首次续期补全。
-        auth.insert("id_token".to_string(), serde_json::Value::String(String::new()));
+        auth.insert(
+            "id_token".to_string(),
+            serde_json::Value::String(String::new()),
+        );
         if let Some(email) = field("email") {
-            auth.insert("email".to_string(), serde_json::Value::String(email.to_string()));
+            auth.insert(
+                "email".to_string(),
+                serde_json::Value::String(email.to_string()),
+            );
         }
         if let Some(account_id) = field("accountId") {
             auth.insert(
@@ -2110,7 +2185,9 @@ fn dedup_codex_auth_keep_newest(dir: &std::path::Path, bound_account: &str) {
         // 账号"). Provider keeps the same email on two providers (codex vs gemini)
         // distinct. Fall back to account_id only when there is NO email; no identity
         // at all → leave the file alone.
-        let provider = credential_provider(&value).unwrap_or_default().to_ascii_lowercase();
+        let provider = credential_provider(&value)
+            .unwrap_or_default()
+            .to_ascii_lowercase();
         let identity = match credential_email(&value) {
             Some(email) => format!("{}|{}", email.to_ascii_lowercase(), provider),
             None => match credential_account_id(&value) {
@@ -2173,7 +2250,11 @@ pub fn append_request_errors(events: &[quotio_types::UsageEvent]) {
 
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     let path = dir.join(format!("errors-{today}.jsonl"));
-    let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(&path) else {
+    let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    else {
         return;
     };
     for event in failed {
@@ -2330,15 +2411,16 @@ pub fn export_auth_files(
     let only: Option<std::collections::HashSet<String>> =
         names.map(|list| list.iter().map(|name| normalize(name)).collect());
     let src = quotio_platform::proxy_auth_dir();
-    let entries = std::fs::read_dir(&src).map_err(|error| format!("读取账号目录失败：{}", error))?;
+    let entries =
+        std::fs::read_dir(&src).map_err(|error| format!("读取账号目录失败：{}", error))?;
     if let Some(parent) = zip_path.parent() {
         std::fs::create_dir_all(parent).map_err(|error| format!("创建导出目录失败：{}", error))?;
     }
     let file =
         std::fs::File::create(zip_path).map_err(|error| format!("创建导出文件失败：{}", error))?;
     let mut zip = zip::ZipWriter::new(file);
-    let options =
-        zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
     let mut count = 0usize;
     for entry in entries.flatten() {
         let path = entry.path();
@@ -2363,7 +2445,8 @@ pub fn export_auth_files(
             .map_err(|error| format!("写入压缩包失败：{}", error))?;
         count += 1;
     }
-    zip.finish().map_err(|error| format!("完成压缩包失败：{}", error))?;
+    zip.finish()
+        .map_err(|error| format!("完成压缩包失败：{}", error))?;
     if count == 0 {
         let _ = std::fs::remove_file(zip_path);
         return Err("没有可导出的账号文件".to_string());
@@ -2417,8 +2500,12 @@ pub struct ProviderKey {
     pub weight: u32,
 }
 
-fn default_true() -> bool { true }
-fn default_weight() -> u32 { 1 }
+fn default_true() -> bool {
+    true
+}
+fn default_weight() -> u32 {
+    1
+}
 
 /// A user-defined third-party provider (OpenAI/Gemini-compatible endpoint).
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -2637,10 +2724,7 @@ pub fn add_provider_key(
     Ok(list)
 }
 
-pub fn remove_provider_key(
-    provider_id: &str,
-    key_id: &str,
-) -> Result<Vec<CustomProvider>, String> {
+pub fn remove_provider_key(provider_id: &str, key_id: &str) -> Result<Vec<CustomProvider>, String> {
     let mut list = list_custom_providers();
     let Some(provider) = list.iter_mut().find(|p| p.id == provider_id) else {
         return Err("未找到服务商。".to_string());
@@ -2650,10 +2734,7 @@ pub fn remove_provider_key(
     Ok(list)
 }
 
-pub fn toggle_provider_key(
-    provider_id: &str,
-    key_id: &str,
-) -> Result<Vec<CustomProvider>, String> {
+pub fn toggle_provider_key(provider_id: &str, key_id: &str) -> Result<Vec<CustomProvider>, String> {
     let mut list = list_custom_providers();
     let Some(provider) = list.iter_mut().find(|p| p.id == provider_id) else {
         return Err("未找到服务商。".to_string());
@@ -2696,7 +2777,10 @@ fn custom_providers_yaml() -> String {
                 .collect();
             if section == "openai-compatibility" {
                 out.push_str(&format!("  - name: {}\n", yaml_quote(&provider.name)));
-                out.push_str(&format!("    base-url: {}\n", yaml_quote(&provider.base_url)));
+                out.push_str(&format!(
+                    "    base-url: {}\n",
+                    yaml_quote(&provider.base_url)
+                ));
                 if !provider.prefix.is_empty() {
                     out.push_str(&format!("    prefix: {}\n", yaml_quote(&provider.prefix)));
                 }
@@ -2731,7 +2815,10 @@ fn custom_providers_yaml() -> String {
                 for key in &enabled_keys {
                     out.push_str(&format!("  - api-key: {}\n", yaml_quote(&key.api_key)));
                     if !provider.base_url.is_empty() {
-                        out.push_str(&format!("    base-url: {}\n", yaml_quote(&provider.base_url)));
+                        out.push_str(&format!(
+                            "    base-url: {}\n",
+                            yaml_quote(&provider.base_url)
+                        ));
                     }
                     // "direct" bypasses the global proxy-url for this upstream.
                     if provider.proxy_mode == "direct" {
@@ -2966,16 +3053,18 @@ fn migrate_codex_profiles(settings: &mut AppSettings) {
     } else {
         settings.codex_reasoning.trim().to_string()
     };
-    settings.codex_profiles.push(quotio_types::CodexLaunchProfile {
-        id: "migrated-default".to_string(),
-        name: profile_name_from_account_key(&account),
-        launch_mode,
-        bound_account: account,
-        proxy_url: String::new(), // 旧配置没有自定义地址,启动时回退本机端点。
-        model: settings.codex_model.trim().to_string(),
-        reasoning,
-        api_key: settings.codex_api_key.trim().to_string(),
-    });
+    settings
+        .codex_profiles
+        .push(quotio_types::CodexLaunchProfile {
+            id: "migrated-default".to_string(),
+            name: profile_name_from_account_key(&account),
+            launch_mode,
+            bound_account: account,
+            proxy_url: String::new(), // 旧配置没有自定义地址,启动时回退本机端点。
+            model: settings.codex_model.trim().to_string(),
+            reasoning,
+            api_key: settings.codex_api_key.trim().to_string(),
+        });
     // 清空旧平铺字段：迁移后以 codex_profiles 为唯一数据源。
     settings.codex_launch_mode = "app".to_string();
     settings.codex_bound_account = String::new();
@@ -4383,8 +4472,16 @@ mod tests {
         // "a" comes back blank (transient probe failure), "b" still good →
         // "a" keeps its previous numbers instead of flapping to "fetch failed".
         core.store_quotas(vec![quota_blank("a"), quota_with_models("b")]);
-        let a = core.quotas.iter().find(|item| item.account_key == "a").unwrap();
-        assert_eq!(a.models.len(), 1, "transiently-blank 'a' keeps its previous models");
+        let a = core
+            .quotas
+            .iter()
+            .find(|item| item.account_key == "a")
+            .unwrap();
+        assert_eq!(
+            a.models.len(),
+            1,
+            "transiently-blank 'a' keeps its previous models"
+        );
         // An all-blank refresh is a real outage — stored as-is so the UI can flag it.
         core.store_quotas(vec![quota_blank("a"), quota_blank("b")]);
         assert!(
@@ -4431,7 +4528,10 @@ mod tests {
             2,
             "alice (3 copies incl. a dead one → 1) + bob (distinct member): {remaining:?}"
         );
-        assert!(remaining.iter().any(|n| n == "b.json"), "distinct Team member kept");
+        assert!(
+            remaining.iter().any(|n| n == "b.json"),
+            "distinct Team member kept"
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -4459,7 +4559,10 @@ mod tests {
         assert_eq!(a.get("email").unwrap(), "a@x.com");
         assert_eq!(a.get("access_token").unwrap(), "at");
         assert_eq!(a.get("disabled").unwrap(), &serde_json::Value::Bool(false));
-        assert!(a.get("client_id").is_none(), "codex auth 不需要 client_id,应丢弃");
+        assert!(
+            a.get("client_id").is_none(),
+            "codex auth 不需要 client_id,应丢弃"
+        );
         assert!(a.get("plan_type").is_none(), "plan_type 应丢弃");
 
         // 非 sub2api → None,走原有导入逻辑
@@ -4493,9 +4596,15 @@ mod tests {
         assert_eq!(a.get("disabled").unwrap(), &serde_json::Value::Bool(false));
 
         // sub2api 交给它自己的转换器
-        assert!(convert_accounts_export(&serde_json::json!({"type":"sub2api-data","accounts":[]})).is_none());
+        assert!(
+            convert_accounts_export(&serde_json::json!({"type":"sub2api-data","accounts":[]}))
+                .is_none()
+        );
         // 缺 refreshToken 的账号被跳过 → 整体 None
-        assert!(convert_accounts_export(&serde_json::json!({"accounts":[{"token":"a","email":"x@e.com"}]})).is_none());
+        assert!(convert_accounts_export(
+            &serde_json::json!({"accounts":[{"token":"a","email":"x@e.com"}]})
+        )
+        .is_none());
         // 普通 JSON 数组不是这个格式 → None(走原有逻辑)
         assert!(convert_accounts_export(&serde_json::json!([{"type":"codex"}])).is_none());
     }
@@ -4531,9 +4640,18 @@ mod tests {
 
         prune_old_error_logs(&dir);
 
-        assert!(!dir.join("errors-2000-01-01.jsonl").exists(), "30天前的删掉");
-        assert!(dir.join(format!("errors-{today}.jsonl")).exists(), "今天的保留");
-        assert!(dir.join("native-oauth.log").exists(), "非 errors-* 文件不动");
+        assert!(
+            !dir.join("errors-2000-01-01.jsonl").exists(),
+            "30天前的删掉"
+        );
+        assert!(
+            dir.join(format!("errors-{today}.jsonl")).exists(),
+            "今天的保留"
+        );
+        assert!(
+            dir.join("native-oauth.log").exists(),
+            "非 errors-* 文件不动"
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -4549,10 +4667,84 @@ mod tests {
 
     use std::{
         net::{TcpListener, TcpStream},
-        sync::{Arc, Mutex},
+        sync::{mpsc, Arc, Mutex, TryLockError},
         thread,
         time::{Duration, Instant},
     };
+
+    #[test]
+    fn agent_config_io_lock_serializes_concurrent_operations() {
+        let root =
+            std::env::temp_dir().join(format!("quotio-agent-config-lock-{}", Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let target = root.join("config.toml");
+        fs::write(&target, "original").unwrap();
+        let namespace = format!("agent-config-lock-test-{}", Uuid::new_v4());
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let (first_entered_tx, first_entered_rx) = mpsc::channel();
+        let (release_first_tx, release_first_rx) = mpsc::channel();
+        let first_events = Arc::clone(&events);
+        let first_target = target.clone();
+        let first_namespace = namespace.clone();
+
+        let first = thread::spawn(move || {
+            with_agent_config_io_lock(|| {
+                quotio_platform::write_text_file(&first_target, "first", false, &first_namespace)
+                    .unwrap();
+                first_events.lock().unwrap().push("first-enter");
+                first_entered_tx.send(()).unwrap();
+                release_first_rx.recv().unwrap();
+                first_events.lock().unwrap().push("first-exit");
+            });
+        });
+
+        first_entered_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("first operation should enter the critical section");
+        assert!(matches!(
+            AGENT_CONFIG_IO_LOCK.try_lock(),
+            Err(TryLockError::WouldBlock)
+        ));
+
+        let (second_ready_tx, second_ready_rx) = mpsc::channel();
+        let second_events = Arc::clone(&events);
+        let second_target = target.clone();
+        let second_namespace = namespace.clone();
+        let second = thread::spawn(move || {
+            second_ready_tx.send(()).unwrap();
+            with_agent_config_io_lock(|| {
+                quotio_platform::write_text_file(
+                    &second_target,
+                    "second",
+                    false,
+                    &second_namespace,
+                )
+                .unwrap();
+                second_events.lock().unwrap().push("second-enter");
+            });
+        });
+
+        second_ready_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("second operation should attempt the critical section");
+        release_first_tx.send(()).unwrap();
+        first.join().unwrap();
+        second.join().unwrap();
+
+        assert_eq!(
+            events.lock().unwrap().as_slice(),
+            ["first-enter", "first-exit", "second-enter"]
+        );
+        assert_eq!(fs::read_to_string(&target).unwrap(), "second");
+        let backups = quotio_platform::list_backups(&namespace).unwrap();
+        assert_eq!(backups.len(), 1);
+        assert_eq!(fs::read_to_string(&backups[0].path).unwrap(), "first");
+
+        let _ = fs::remove_dir_all(&root);
+        if let Some(backup_dir) = backups[0].path.parent() {
+            let _ = fs::remove_dir_all(backup_dir);
+        }
+    }
 
     #[test]
     fn codex_monitor_apply_ignores_stale_generation_and_debounces() {
@@ -4699,7 +4891,8 @@ mod tests {
     fn scheduler_recheck_immediate_on_auth_failure_and_debounced_on_others() {
         let mut core = AppCore::default();
         core.settings.scheduler_rule = "reset_soonest".to_string();
-        core.schedulers.insert("codex".to_string(), codex_target_state());
+        core.schedulers
+            .insert("codex".to_string(), codex_target_state());
 
         // 别的账号失败 / 目标成功:不触发。
         assert!(!core.scheduler_should_recheck_for_failures(&[
@@ -4708,23 +4901,28 @@ mod tests {
         ]));
 
         // 鉴权失败(401):目标第 1 次就触发。
-        assert!(core
-            .scheduler_should_recheck_for_failures(&[usage_event_status("a@example.com", 401)]));
+        assert!(
+            core.scheduler_should_recheck_for_failures(&[usage_event_status("a@example.com", 401)])
+        );
         // 鉴权失败绕过 60s 冷却:紧接着 403 仍立即触发。
-        assert!(core
-            .scheduler_should_recheck_for_failures(&[usage_event_status("a@example.com", 403)]));
+        assert!(
+            core.scheduler_should_recheck_for_failures(&[usage_event_status("a@example.com", 403)])
+        );
 
         // 非鉴权(5xx):前 2 次不切,第 3 次才切。
-        core.schedulers.insert("codex".to_string(), codex_target_state());
+        core.schedulers
+            .insert("codex".to_string(), codex_target_state());
         assert!(!core
             .scheduler_should_recheck_for_failures(&[usage_event_status("a@example.com", 500)]));
         assert!(!core
             .scheduler_should_recheck_for_failures(&[usage_event_status("a@example.com", 500)]));
-        assert!(core
-            .scheduler_should_recheck_for_failures(&[usage_event_status("a@example.com", 500)]));
+        assert!(
+            core.scheduler_should_recheck_for_failures(&[usage_event_status("a@example.com", 500)])
+        );
 
         // 非鉴权累计中途出现一次成功 → 连击清零,需重新累计 3 次。
-        core.schedulers.insert("codex".to_string(), codex_target_state());
+        core.schedulers
+            .insert("codex".to_string(), codex_target_state());
         assert!(!core.scheduler_should_recheck_for_failures(&[
             usage_event_status("a@example.com", 500),
             usage_event_status("a@example.com", 500),
@@ -4736,7 +4934,8 @@ mod tests {
         ]));
 
         // 一个批次内直接攒够 3 次非鉴权失败:触发。
-        core.schedulers.insert("codex".to_string(), codex_target_state());
+        core.schedulers
+            .insert("codex".to_string(), codex_target_state());
         assert!(core.scheduler_should_recheck_for_failures(&[
             usage_event_status("a@example.com", 500),
             usage_event_status("a@example.com", 502),
@@ -4745,14 +4944,18 @@ mod tests {
 
         // 规则关闭:永不触发。
         core.settings.scheduler_rule = "off".to_string();
-        core.schedulers.insert("codex".to_string(), codex_target_state());
+        core.schedulers
+            .insert("codex".to_string(), codex_target_state());
         assert!(!core
             .scheduler_should_recheck_for_failures(&[usage_event_status("a@example.com", 401)]));
     }
 
     #[test]
     fn own_proxy_listener_is_recognized_and_foreign_is_not() {
-        assert!(is_own_proxy_process_name("CLIProxyAPI.exe", "CLIProxyAPI.exe"));
+        assert!(is_own_proxy_process_name(
+            "CLIProxyAPI.exe",
+            "CLIProxyAPI.exe"
+        ));
         assert!(is_own_proxy_process_name("cliproxyapi", "CLIProxyAPI.exe"));
         assert!(is_own_proxy_process_name(
             "cli-proxy-api",

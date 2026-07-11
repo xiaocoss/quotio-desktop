@@ -22,7 +22,7 @@ pub struct CodexSessionVisibilityRepairSummary {
 pub fn repair_session_visibility_in_default_dir(
 ) -> Result<CodexSessionVisibilityRepairSummary, String> {
     let root = quotio_platform::expand_home_path("~/.codex");
-    repair_session_visibility_in_dir(&root, true)
+    crate::with_agent_config_io_lock(|| repair_session_visibility_in_dir_unlocked(&root, true))
 }
 
 /// Like [`repair_session_visibility_in_default_dir`] but without the on-disk
@@ -32,10 +32,25 @@ pub fn repair_session_visibility_in_default_dir(
 pub fn repair_session_visibility_in_default_dir_no_backup(
 ) -> Result<CodexSessionVisibilityRepairSummary, String> {
     let root = quotio_platform::expand_home_path("~/.codex");
-    repair_session_visibility_in_dir(&root, false)
+    crate::with_agent_config_io_lock(|| repair_session_visibility_in_dir_unlocked(&root, false))
+}
+
+pub(crate) fn repair_session_visibility_in_default_dir_no_backup_unlocked(
+) -> Result<CodexSessionVisibilityRepairSummary, String> {
+    let root = quotio_platform::expand_home_path("~/.codex");
+    repair_session_visibility_in_dir_unlocked(&root, false)
 }
 
 pub fn repair_session_visibility_in_dir(
+    root: &Path,
+    make_backup: bool,
+) -> Result<CodexSessionVisibilityRepairSummary, String> {
+    crate::with_agent_config_io_lock(|| {
+        repair_session_visibility_in_dir_unlocked(root, make_backup)
+    })
+}
+
+pub(crate) fn repair_session_visibility_in_dir_unlocked(
     root: &Path,
     make_backup: bool,
 ) -> Result<CodexSessionVisibilityRepairSummary, String> {
@@ -69,7 +84,8 @@ pub fn repair_session_visibility_in_dir(
     };
 
     let changed_rollout_file_count = rollout_changes.len();
-    let mutated_instance_count = usize::from(changed_rollout_file_count > 0 || updated_sqlite_row_count > 0);
+    let mutated_instance_count =
+        usize::from(changed_rollout_file_count > 0 || updated_sqlite_row_count > 0);
     let message = build_summary_message(
         changed_rollout_file_count,
         updated_sqlite_row_count,
@@ -200,7 +216,9 @@ fn repair_rollout_file(path: &Path, target_provider: &str) -> Result<(), String>
         };
         let mut line_changed = false;
         if is_session_meta_with_different_provider(&value, target_provider) {
-            if let Some(payload) = value.get_mut("payload").and_then(|payload| payload.as_object_mut())
+            if let Some(payload) = value
+                .get_mut("payload")
+                .and_then(|payload| payload.as_object_mut())
             {
                 payload.insert(
                     "model_provider".to_string(),
@@ -378,12 +396,18 @@ mod tests {
     use super::*;
     use rusqlite::Connection;
     use serde_json::Value;
+    use std::sync::mpsc;
+    use std::time::Duration;
 
     #[test]
     fn repairs_rollout_session_meta_provider_to_config_provider() {
         let root = temp_codex_dir("quotio_visibility_rollout");
         std::fs::create_dir_all(root.join("sessions").join("2026")).unwrap();
-        std::fs::write(root.join("config.toml"), "model_provider = \"cliproxyapi\"\n").unwrap();
+        std::fs::write(
+            root.join("config.toml"),
+            "model_provider = \"cliproxyapi\"\n",
+        )
+        .unwrap();
         let rollout = root.join("sessions").join("2026").join("rollout-a.jsonl");
         std::fs::write(
             &rollout,
@@ -409,7 +433,11 @@ mod tests {
     fn repairs_threads_sqlite_provider_and_visibility_columns() {
         let root = temp_codex_dir("quotio_visibility_sqlite");
         std::fs::create_dir_all(&root).unwrap();
-        std::fs::write(root.join("config.toml"), "model_provider = \"cliproxyapi\"\n").unwrap();
+        std::fs::write(
+            root.join("config.toml"),
+            "model_provider = \"cliproxyapi\"\n",
+        )
+        .unwrap();
         let db_path = root.join("state_5.sqlite");
         let connection = Connection::open(&db_path).unwrap();
         connection
@@ -446,7 +474,11 @@ mod tests {
     fn leaves_matching_history_unchanged_without_backup() {
         let root = temp_codex_dir("quotio_visibility_noop");
         std::fs::create_dir_all(root.join("sessions")).unwrap();
-        std::fs::write(root.join("config.toml"), "model_provider = \"cliproxyapi\"\n").unwrap();
+        std::fs::write(
+            root.join("config.toml"),
+            "model_provider = \"cliproxyapi\"\n",
+        )
+        .unwrap();
         std::fs::write(
             root.join("sessions").join("rollout-a.jsonl"),
             "{\"type\":\"session_meta\",\"payload\":{\"model_provider\":\"cliproxyapi\"}}\n",
@@ -458,12 +490,59 @@ mod tests {
         assert_eq!(summary.mutated_instance_count, 0);
         assert_eq!(summary.changed_rollout_file_count, 0);
         assert!(summary.backup_dirs.is_empty());
-        assert!(
-            std::fs::read_dir(&root)
-                .unwrap()
-                .flatten()
-                .all(|entry| !entry.file_name().to_string_lossy().contains("session-visibility-repair"))
-        );
+        assert!(std::fs::read_dir(&root)
+            .unwrap()
+            .flatten()
+            .all(|entry| !entry
+                .file_name()
+                .to_string_lossy()
+                .contains("session-visibility-repair")));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn repair_session_visibility_uses_agent_config_io_lock() {
+        let root = temp_codex_dir("quotio_visibility_lock");
+        std::fs::create_dir_all(root.join("sessions")).unwrap();
+        std::fs::write(
+            root.join("config.toml"),
+            "model_provider = \"cliproxyapi\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("sessions").join("rollout-a.jsonl"),
+            "{\"type\":\"session_meta\",\"payload\":{\"model_provider\":\"openai\"}}\n",
+        )
+        .unwrap();
+        let repair_root = root.clone();
+        let (attempted_tx, attempted_rx) = mpsc::channel();
+        let (completed_tx, completed_rx) = mpsc::channel();
+
+        let handle = crate::with_agent_config_io_lock(|| {
+            let handle = std::thread::spawn(move || {
+                attempted_tx.send(()).unwrap();
+                let result = repair_session_visibility_in_dir(&repair_root, true);
+                completed_tx.send(result).unwrap();
+            });
+            attempted_rx
+                .recv_timeout(Duration::from_secs(5))
+                .expect("repair thread should attempt to enter the critical section");
+            assert!(
+                completed_rx
+                    .recv_timeout(Duration::from_millis(200))
+                    .is_err(),
+                "repair should wait for the shared agent config IO lock"
+            );
+            handle
+        });
+
+        let summary = completed_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("repair should complete after the lock is released")
+            .unwrap();
+        handle.join().unwrap();
+
+        assert_eq!(summary.changed_rollout_file_count, 1);
         let _ = std::fs::remove_dir_all(&root);
     }
 

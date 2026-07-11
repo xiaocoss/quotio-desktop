@@ -309,6 +309,8 @@ const en: Record<string, string> = {
   "agents.generateConfig": "Generate config",
   "agents.resetDefault": "Restore default",
   "agents.apiKeyPlaceholder": "Proxy access key written into the CLI config",
+  "agents.reasoningLoading": "Reading the Codex model catalog in the background…",
+  "agents.reasoningLoadFailed": "Could not load Codex reasoning levels",
   "agents.launch.repairVisibility": "Repair visibility",
   "agents.launch.repairingVisibility": "Repairing…",
   // Settings — proxy connection
@@ -749,6 +751,8 @@ const zh: Record<string, string> = {
   "agents.generateConfig": "生成配置",
   "agents.resetDefault": "恢复默认",
   "agents.apiKeyPlaceholder": "写入 CLI 配置的代理访问密钥",
+  "agents.reasoningLoading": "正在后台读取 Codex 模型目录…",
+  "agents.reasoningLoadFailed": "读取 Codex 推理档位失败",
   "agents.launch.repairVisibility": "修复可见性",
   "agents.launch.repairingVisibility": "修复中…",
   // Settings — proxy connection

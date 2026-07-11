@@ -5454,6 +5454,22 @@ h3 {
   gap: 10px;
 }
 
+.codex-reasoning-status {
+  display: block;
+  min-width: 0;
+  margin-top: -3px;
+  color: var(--quotio-muted);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.codex-reasoning-status.err {
+  color: var(--quotio-red);
+}
+
 /* ===== API Keys page ===== */
 .api-keys-panel {
   padding-top: 14px;
