@@ -245,9 +245,85 @@ fn locate_codex_cli() -> Option<PathBuf> {
     codex_candidates().into_iter().next()
 }
 
+#[derive(Clone, Copy)]
+enum NpmGlobalLayout {
+    Windows,
+    Unix,
+}
+
+/// 官方 `@openai/codex` 可选平台包的安装布局。
+#[derive(Clone, Copy)]
+struct CodexTargetLayout {
+    npm_layout: NpmGlobalLayout,
+    platform_package: &'static str,
+    target_triple: &'static str,
+    exe: &'static str,
+}
+
+/// 当前编译目标对应的平台包。未知目标仍保留普通 PATH / 桌面应用候选。
+fn codex_target_layout() -> Option<CodexTargetLayout> {
+    if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
+        Some(CodexTargetLayout {
+            npm_layout: NpmGlobalLayout::Windows,
+            platform_package: "@openai/codex-win32-x64",
+            target_triple: "x86_64-pc-windows-msvc",
+            exe: "codex.exe",
+        })
+    } else if cfg!(all(target_os = "windows", target_arch = "aarch64")) {
+        Some(CodexTargetLayout {
+            npm_layout: NpmGlobalLayout::Windows,
+            platform_package: "@openai/codex-win32-arm64",
+            target_triple: "aarch64-pc-windows-msvc",
+            exe: "codex.exe",
+        })
+    } else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+        Some(CodexTargetLayout {
+            npm_layout: NpmGlobalLayout::Unix,
+            platform_package: "@openai/codex-linux-x64",
+            target_triple: "x86_64-unknown-linux-musl",
+            exe: "codex",
+        })
+    } else if cfg!(all(target_os = "linux", target_arch = "aarch64")) {
+        Some(CodexTargetLayout {
+            npm_layout: NpmGlobalLayout::Unix,
+            platform_package: "@openai/codex-linux-arm64",
+            target_triple: "aarch64-unknown-linux-musl",
+            exe: "codex",
+        })
+    } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+        Some(CodexTargetLayout {
+            npm_layout: NpmGlobalLayout::Unix,
+            platform_package: "@openai/codex-darwin-x64",
+            target_triple: "x86_64-apple-darwin",
+            exe: "codex",
+        })
+    } else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        Some(CodexTargetLayout {
+            npm_layout: NpmGlobalLayout::Unix,
+            platform_package: "@openai/codex-darwin-arm64",
+            target_triple: "aarch64-apple-darwin",
+            exe: "codex",
+        })
+    } else {
+        None
+    }
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn linux_codex_bin_root(home: &Path, xdg_data_home: Option<&std::ffi::OsStr>) -> PathBuf {
+    let data_home = xdg_data_home
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join(".local").join("share"));
+    data_home.join("OpenAI").join("Codex").join("bin")
+}
+
 /// 收集生产环境里所有可能的 Codex CLI,让提取层逐个尝试而不是只信第一个。
 fn codex_candidates() -> Vec<PathBuf> {
-    let exe = if cfg!(windows) { "codex.exe" } else { "codex" };
+    let target_layout = codex_target_layout();
+    let exe = target_layout
+        .map(|layout| layout.exe)
+        .unwrap_or(if cfg!(windows) { "codex.exe" } else { "codex" });
 
     let mut roots: Vec<PathBuf> = Vec::new();
     #[cfg(windows)]
@@ -264,8 +340,9 @@ fn codex_candidates() -> Vec<PathBuf> {
         "~/Library/Application Support/OpenAI/Codex/bin",
     ));
     #[cfg(target_os = "linux")]
-    roots.push(quotio_platform::expand_home_path(
-        "~/.local/share/OpenAI/Codex/bin",
+    roots.push(linux_codex_bin_root(
+        &quotio_platform::home_dir(),
+        std::env::var_os("XDG_DATA_HOME").as_deref(),
     ));
     roots.push(quotio_platform::expand_home_path("~/.codex/bin"));
 
@@ -274,7 +351,12 @@ fn codex_candidates() -> Vec<PathBuf> {
         .map(|path| std::env::split_paths(&path).collect())
         .unwrap_or_default();
 
-    collect_codex_candidates(app_path.as_deref(), &roots, &path_dirs, exe)
+    target_layout.map_or_else(
+        || collect_codex_candidates(app_path.as_deref(), &roots, &path_dirs, exe),
+        |layout| {
+            collect_codex_candidates_for_target(app_path.as_deref(), &roots, &path_dirs, layout)
+        },
+    )
 }
 
 /// 收集所有已知安装布局里的 Codex CLI,按 mtime 从新到旧排列。
@@ -283,6 +365,26 @@ fn collect_codex_candidates(
     roots: &[PathBuf],
     path_dirs: &[PathBuf],
     exe: &str,
+) -> Vec<PathBuf> {
+    collect_codex_candidates_with_target(app_path, roots, path_dirs, exe, None)
+}
+
+/// 和生产收集器相同,但由调用方显式给出目标布局,便于跨平台测试 npm 安装结构。
+fn collect_codex_candidates_for_target(
+    app_path: Option<&Path>,
+    roots: &[PathBuf],
+    path_dirs: &[PathBuf],
+    target: CodexTargetLayout,
+) -> Vec<PathBuf> {
+    collect_codex_candidates_with_target(app_path, roots, path_dirs, target.exe, Some(target))
+}
+
+fn collect_codex_candidates_with_target(
+    app_path: Option<&Path>,
+    roots: &[PathBuf],
+    path_dirs: &[PathBuf],
+    exe: &str,
+    target: Option<CodexTargetLayout>,
 ) -> Vec<PathBuf> {
     let mut paths = Vec::new();
 
@@ -304,6 +406,13 @@ fn collect_codex_candidates(
     }
 
     paths.extend(path_dirs.iter().map(|dir| dir.join(exe)));
+    if let Some(target) = target {
+        for path_dir in path_dirs {
+            if let Some(package_root) = npm_codex_package_root(path_dir, target.npm_layout) {
+                paths.extend(npm_native_candidates(&package_root, target));
+            }
+        }
+    }
 
     for root in roots {
         paths.push(root.join(exe));
@@ -337,6 +446,45 @@ fn collect_codex_candidates(
             seen.insert(canonical).then_some(path)
         })
         .collect()
+}
+
+fn npm_codex_package_root(path_dir: &Path, layout: NpmGlobalLayout) -> Option<PathBuf> {
+    let node_modules = match layout {
+        NpmGlobalLayout::Windows => path_dir.join("node_modules"),
+        NpmGlobalLayout::Unix => path_dir.parent()?.join("lib").join("node_modules"),
+    };
+    Some(npm_package_path(&node_modules, "@openai/codex"))
+}
+
+fn npm_native_candidates(codex_package_root: &Path, target: CodexTargetLayout) -> Vec<PathBuf> {
+    let mut package_roots = vec![npm_package_path(
+        &codex_package_root.join("node_modules"),
+        target.platform_package,
+    )];
+    if let Some(node_modules) = codex_package_root.parent().and_then(Path::parent) {
+        package_roots.push(npm_package_path(node_modules, target.platform_package));
+    }
+    package_roots.push(codex_package_root.to_path_buf());
+
+    package_roots
+        .into_iter()
+        .map(|package_root| {
+            package_root
+                .join("vendor")
+                .join(target.target_triple)
+                .join("bin")
+                .join(target.exe)
+        })
+        .collect()
+}
+
+fn npm_package_path(node_modules: &Path, package: &str) -> PathBuf {
+    package
+        .split('/')
+        .filter(|component| !component.is_empty())
+        .fold(node_modules.to_path_buf(), |path, component| {
+            path.join(component)
+        })
 }
 
 /// 在二进制里分块搜锚点(不能把几百 MB 整个读进内存),命中后只取锚点附近一块做解析。
@@ -423,11 +571,22 @@ fn is_valid_catalog_text(text: &str) -> bool {
     // 空目录会被 Codex 拒:"must contain at least one model"。字段不对也别写出去。
     !models.is_empty()
         && models.iter().all(|model| {
-            model.get("slug").and_then(Value::as_str).is_some()
+            model
+                .get("slug")
+                .and_then(Value::as_str)
+                .is_some_and(|slug| !slug.trim().is_empty())
                 && model
                     .get("supported_reasoning_levels")
                     .and_then(Value::as_array)
-                    .is_some_and(|levels| !levels.is_empty())
+                    .is_some_and(|levels| {
+                        !levels.is_empty()
+                            && levels.iter().all(|level| {
+                                level
+                                    .get("effort")
+                                    .and_then(Value::as_str)
+                                    .is_some_and(|effort| !effort.trim().is_empty())
+                            })
+                    })
         })
 }
 
@@ -1099,6 +1258,142 @@ mod tests {
     }
 
     #[test]
+    fn discovers_windows_npm_nested_native_binary_from_path_prefix() {
+        let temp = TestDir::new("windows-npm-layout");
+        let path_dir = temp.path().join("npm");
+        let generic_package = path_dir.join("node_modules").join("@openai").join("codex");
+        let native = generic_package
+            .join("node_modules")
+            .join("@openai")
+            .join("codex-win32-x64")
+            .join("vendor")
+            .join("x86_64-pc-windows-msvc")
+            .join("bin")
+            .join("codex.exe");
+        fs::create_dir_all(native.parent().unwrap()).unwrap();
+        fs::write(path_dir.join("codex.cmd"), b"official npm shim").unwrap();
+        fs::write(&native, b"native codex binary").unwrap();
+
+        let candidates = collect_codex_candidates_for_target(
+            None,
+            &[],
+            std::slice::from_ref(&path_dir),
+            CodexTargetLayout {
+                npm_layout: NpmGlobalLayout::Windows,
+                platform_package: "@openai/codex-win32-x64",
+                target_triple: "x86_64-pc-windows-msvc",
+                exe: "codex.exe",
+            },
+        );
+
+        assert!(
+            candidates.contains(&native),
+            "nested Windows npm native binary should be discovered: {candidates:?}"
+        );
+    }
+
+    #[test]
+    fn discovers_unix_npm_hoisted_native_binary_without_symlinks() {
+        let temp = TestDir::new("unix-npm-hoisted-layout");
+        let prefix = temp.path().join("prefix");
+        let path_dir = prefix.join("bin");
+        let generic_package = prefix
+            .join("lib")
+            .join("node_modules")
+            .join("@openai")
+            .join("codex");
+        let native = prefix
+            .join("lib")
+            .join("node_modules")
+            .join("@openai")
+            .join("codex-linux-x64")
+            .join("vendor")
+            .join("x86_64-unknown-linux-musl")
+            .join("bin")
+            .join("codex");
+        fs::create_dir_all(&path_dir).unwrap();
+        fs::create_dir_all(&generic_package).unwrap();
+        fs::create_dir_all(native.parent().unwrap()).unwrap();
+        fs::write(&native, b"native codex binary").unwrap();
+
+        let candidates = collect_codex_candidates_for_target(
+            None,
+            &[],
+            std::slice::from_ref(&path_dir),
+            CodexTargetLayout {
+                npm_layout: NpmGlobalLayout::Unix,
+                platform_package: "@openai/codex-linux-x64",
+                target_triple: "x86_64-unknown-linux-musl",
+                exe: "codex",
+            },
+        );
+
+        assert!(
+            candidates.contains(&native),
+            "hoisted Unix npm native binary should be discovered: {candidates:?}"
+        );
+    }
+
+    #[test]
+    fn discovers_generic_codex_package_vendor_fallback() {
+        let temp = TestDir::new("npm-generic-vendor-layout");
+        let prefix = temp.path().join("prefix");
+        let path_dir = prefix.join("bin");
+        let native = prefix
+            .join("lib")
+            .join("node_modules")
+            .join("@openai")
+            .join("codex")
+            .join("vendor")
+            .join("x86_64-unknown-linux-musl")
+            .join("bin")
+            .join("codex");
+        fs::create_dir_all(&path_dir).unwrap();
+        fs::create_dir_all(native.parent().unwrap()).unwrap();
+        fs::write(&native, b"native codex binary").unwrap();
+
+        let candidates = collect_codex_candidates_for_target(
+            None,
+            &[],
+            std::slice::from_ref(&path_dir),
+            CodexTargetLayout {
+                npm_layout: NpmGlobalLayout::Unix,
+                platform_package: "@openai/codex-linux-x64",
+                target_triple: "x86_64-unknown-linux-musl",
+                exe: "codex",
+            },
+        );
+
+        assert!(
+            candidates.contains(&native),
+            "generic package vendor fallback should be discovered: {candidates:?}"
+        );
+    }
+
+    #[test]
+    fn linux_codex_bin_root_honors_xdg_and_falls_back_for_missing_or_empty_values() {
+        let temp = TestDir::new("linux-xdg-data-home");
+        let home = temp.path().join("home");
+        let xdg = temp.path().join("xdg-data");
+        let fallback = home
+            .join(".local")
+            .join("share")
+            .join("OpenAI")
+            .join("Codex")
+            .join("bin");
+
+        assert_eq!(
+            linux_codex_bin_root(&home, Some(xdg.as_os_str())),
+            xdg.join("OpenAI").join("Codex").join("bin")
+        );
+        assert_eq!(linux_codex_bin_root(&home, None), fallback);
+        assert_eq!(
+            linux_codex_bin_root(&home, Some(std::ffi::OsStr::new(""))),
+            fallback
+        );
+    }
+
+    #[test]
     fn newer_hashed_binary_is_not_hidden_by_old_direct_binary() {
         let temp = TestDir::new("newer-hashed-binary");
         let root = temp.path().join("bin");
@@ -1205,6 +1500,73 @@ mod tests {
             catalog_bytes(r#"{"models":[{"supported_reasoning_levels":[{"effort":"low"}]}]}"#);
         let anchor = find(&bytes, ANCHOR).unwrap();
         assert!(extract_catalog_json(&bytes, anchor).is_none());
+    }
+
+    #[test]
+    fn catalog_validation_rejects_empty_or_whitespace_slugs() {
+        for slug in ["", "   "] {
+            let catalog = serde_json::json!({
+                "models": [{
+                    "slug": slug,
+                    "supported_reasoning_levels": [{"effort": "low"}],
+                }],
+            })
+            .to_string();
+
+            assert!(
+                !is_valid_catalog_text(&catalog),
+                "blank slug should be rejected: {slug:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn catalog_validation_requires_a_nonempty_reasoning_levels_array() {
+        for model in [
+            serde_json::json!({"slug": "gpt-5.6-sol"}),
+            serde_json::json!({
+                "slug": "gpt-5.6-sol",
+                "supported_reasoning_levels": "low",
+            }),
+            serde_json::json!({
+                "slug": "gpt-5.6-sol",
+                "supported_reasoning_levels": [],
+            }),
+        ] {
+            let catalog = serde_json::json!({"models": [model]}).to_string();
+            assert!(
+                !is_valid_catalog_text(&catalog),
+                "invalid levels: {catalog}"
+            );
+        }
+    }
+
+    #[test]
+    fn catalog_validation_rejects_levels_without_nonempty_string_effort() {
+        for level in [
+            serde_json::json!({}),
+            serde_json::json!({"effort": 1}),
+            serde_json::json!({"effort": ""}),
+            serde_json::json!({"effort": "  "}),
+        ] {
+            let catalog = serde_json::json!({
+                "models": [{
+                    "slug": "gpt-5.6-sol",
+                    "supported_reasoning_levels": [level],
+                }],
+            })
+            .to_string();
+
+            assert!(
+                !is_valid_catalog_text(&catalog),
+                "invalid effort should be rejected: {catalog}"
+            );
+        }
+    }
+
+    #[test]
+    fn catalog_validation_accepts_an_existing_valid_catalog() {
+        assert!(is_valid_catalog_text(ONE_MODEL));
     }
 
     /// 真机验证:在本机真实的 codex 二进制(几百 MB)里跑完整的分块扫描 + 提取。
