@@ -55,8 +55,12 @@ fn proxy_account_path_in(dir: &Path, key: &str) -> PathBuf {
 
 // ---------- App 探测 ----------
 
-/// 从给定的 WindowsApps 风格根目录里找 `<pkg>/app/Codex.exe`（pkg 名含 "codex"），
-/// 返回版本号最高的那个。纯函数，便于测试。
+const MACOS_CODEX_APP_BUNDLES: [(&str, &str); 2] =
+    [("Codex.app", "Codex"), ("ChatGPT.app", "ChatGPT")];
+
+/// 从给定根目录里找 Codex/ChatGPT 桌面应用。
+/// WindowsApps 风格根目录里找 `<pkg>/app/Codex.exe`（pkg 名含 "codex"），返回版本号最高的那个；
+/// macOS 应用目录里找 `Codex.app` 或新名称 `ChatGPT.app`。纯函数，便于测试。
 pub fn detect_codex_app_path_in(roots: &[PathBuf]) -> Option<PathBuf> {
     let mut best: Option<(Vec<u64>, PathBuf)> = None;
     for root in roots {
@@ -86,6 +90,23 @@ pub fn detect_codex_app_path_in(roots: &[PathBuf]) -> Option<PathBuf> {
         }
     }
     best.map(|(_, path)| path)
+        .or_else(|| detect_macos_codex_app_path_in(roots))
+}
+
+fn detect_macos_codex_app_path_in(roots: &[PathBuf]) -> Option<PathBuf> {
+    for root in roots {
+        for (bundle_name, executable_name) in MACOS_CODEX_APP_BUNDLES {
+            let candidate = root
+                .join(bundle_name)
+                .join("Contents")
+                .join("MacOS")
+                .join(executable_name);
+            if candidate.exists() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
 }
 
 /// 从包目录名里抽第一段点分数字版本
@@ -125,7 +146,7 @@ fn detect_codex_via_appx() -> Option<PathBuf> {
 }
 
 /// 探测 Codex 桌面应用可执行文件。
-/// Windows：先 Appx 再扫盘；macOS：`/Applications/Codex.app`；其它：None。
+/// Windows：先 Appx 再扫盘；macOS：`/Applications/Codex.app` 或 `ChatGPT.app`；其它：None。
 pub fn detect_codex_app_path() -> Option<PathBuf> {
     #[cfg(target_os = "windows")]
     {
@@ -149,8 +170,10 @@ pub fn detect_codex_app_path() -> Option<PathBuf> {
     }
     #[cfg(target_os = "macos")]
     {
-        let path = PathBuf::from("/Applications/Codex.app/Contents/MacOS/Codex");
-        return path.exists().then_some(path);
+        return detect_macos_codex_app_path_in(&[
+            PathBuf::from("/Applications"),
+            quotio_platform::expand_home_path("~/Applications"),
+        ]);
     }
     #[allow(unreachable_code)]
     None
@@ -492,11 +515,15 @@ pub fn codex_app_process_running() -> bool {
     }
     #[cfg(target_os = "macos")]
     {
-        Command::new("pgrep")
-            .args(["-f", "Codex.app"])
-            .output()
-            .map(|output| output.status.success())
-            .unwrap_or(true)
+        for (bundle_name, _) in MACOS_CODEX_APP_BUNDLES {
+            let Ok(output) = Command::new("pgrep").args(["-f", bundle_name]).output() else {
+                return true;
+            };
+            if output.status.success() {
+                return true;
+            }
+        }
+        false
     }
     #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
     {
@@ -660,7 +687,9 @@ pub fn close_codex_app() {
     }
     #[cfg(target_os = "macos")]
     {
-        let _ = Command::new("pkill").args(["-f", "Codex.app"]).output();
+        for (bundle_name, _) in MACOS_CODEX_APP_BUNDLES {
+            let _ = Command::new("pkill").args(["-f", bundle_name]).output();
+        }
         let _ = Command::new("pkill").args(["-x", "codex"]).output();
     }
     #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
@@ -883,6 +912,21 @@ mod tests {
         std::fs::write(app.join("Codex.exe"), b"x").unwrap();
         let found = detect_codex_app_path_in(&[tmp.clone()]);
         assert_eq!(found, Some(app.join("Codex.exe")));
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn detects_chatgpt_app_bundle_on_macos_layout() {
+        let tmp = std::env::temp_dir().join("ql_codex_detect_chatgpt_app");
+        let _ = std::fs::remove_dir_all(&tmp);
+        let macos = tmp.join("ChatGPT.app").join("Contents").join("MacOS");
+        std::fs::create_dir_all(&macos).unwrap();
+        let exe = macos.join("ChatGPT");
+        std::fs::write(&exe, b"x").unwrap();
+
+        let found = detect_codex_app_path_in(&[tmp.clone()]);
+
+        assert_eq!(found, Some(exe));
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
