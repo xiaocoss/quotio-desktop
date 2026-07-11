@@ -99,8 +99,10 @@ where
     C: FnMut(&Path, &[u8]) -> Result<(), String>,
     M: FnMut(&Path, &[u8]) -> Result<(), String>,
 {
-    let fingerprints_by_candidate: Vec<Option<String>> =
-        candidates.iter().map(|candidate| fingerprint(candidate)).collect();
+    let fingerprints_by_candidate: Vec<Option<String>> = candidates
+        .iter()
+        .map(|candidate| fingerprint(candidate))
+        .collect();
     let current_candidate_fingerprints: Vec<String> = fingerprints_by_candidate
         .iter()
         .flatten()
@@ -250,14 +252,21 @@ fn codex_candidates() -> Vec<PathBuf> {
     let mut roots: Vec<PathBuf> = Vec::new();
     #[cfg(windows)]
     if let Ok(local) = std::env::var("LOCALAPPDATA") {
-        roots.push(PathBuf::from(local).join("OpenAI").join("Codex").join("bin"));
+        roots.push(
+            PathBuf::from(local)
+                .join("OpenAI")
+                .join("Codex")
+                .join("bin"),
+        );
     }
     #[cfg(target_os = "macos")]
     roots.push(quotio_platform::expand_home_path(
         "~/Library/Application Support/OpenAI/Codex/bin",
     ));
     #[cfg(target_os = "linux")]
-    roots.push(quotio_platform::expand_home_path("~/.local/share/OpenAI/Codex/bin"));
+    roots.push(quotio_platform::expand_home_path(
+        "~/.local/share/OpenAI/Codex/bin",
+    ));
     roots.push(quotio_platform::expand_home_path("~/.codex/bin"));
 
     let app_path = crate::codex_launch::detect_codex_app_path_cached();
@@ -624,12 +633,8 @@ mod tests {
         )
         .unwrap();
 
-        ensure_catalog_from(
-            &[new_candidate.clone(), old_candidate],
-            &target,
-            &meta,
-        )
-        .expect("adding a higher-priority candidate should regenerate the catalog");
+        ensure_catalog_from(&[new_candidate.clone(), old_candidate], &target, &meta)
+            .expect("adding a higher-priority candidate should regenerate the catalog");
 
         assert_eq!(fs::read_to_string(&target).unwrap(), NEW_MODEL);
         assert_metadata(
@@ -1004,10 +1009,7 @@ mod tests {
         let valid_fingerprint = fingerprint(&valid).unwrap();
         fs::write(
             &meta,
-            metadata_json(
-                &valid_fingerprint,
-                std::slice::from_ref(&valid_fingerprint),
-            ),
+            metadata_json(&valid_fingerprint, std::slice::from_ref(&valid_fingerprint)),
         )
         .unwrap();
 
@@ -1138,12 +1140,7 @@ mod tests {
         let second_file = fs::File::create(&second).unwrap();
         second_file.set_modified(same_mtime).unwrap();
 
-        let candidates = collect_codex_candidates(
-            None,
-            &[],
-            &[second_dir, first_dir],
-            "codex.exe",
-        );
+        let candidates = collect_codex_candidates(None, &[], &[second_dir, first_dir], "codex.exe");
 
         assert_eq!(candidates, vec![first, second]);
     }
@@ -1155,10 +1152,8 @@ mod tests {
         let bytes = b"fixed-size-binary";
         fs::write(&binary, bytes).unwrap();
         let file = fs::OpenOptions::new().write(true).open(&binary).unwrap();
-        let first_mtime =
-            std::time::UNIX_EPOCH + std::time::Duration::new(42, 100_000_000);
-        let second_mtime =
-            std::time::UNIX_EPOCH + std::time::Duration::new(42, 900_000_000);
+        let first_mtime = std::time::UNIX_EPOCH + std::time::Duration::new(42, 100_000_000);
+        let second_mtime = std::time::UNIX_EPOCH + std::time::Duration::new(42, 900_000_000);
 
         file.set_modified(first_mtime).unwrap();
         let first_fingerprint = fingerprint(&binary).unwrap();
@@ -1181,7 +1176,10 @@ mod tests {
         let json = extract_catalog_json(&bytes, anchor).expect("应提取出目录");
         let value: Value = serde_json::from_str(&json).unwrap();
         assert_eq!(value["models"][0]["slug"], "gpt-5.6-sol");
-        assert_eq!(value["models"][0]["supported_reasoning_levels"][1]["effort"], "ultra");
+        assert_eq!(
+            value["models"][0]["supported_reasoning_levels"][1]["effort"],
+            "ultra"
+        );
     }
 
     #[test]
@@ -1203,7 +1201,8 @@ mod tests {
         assert!(extract_catalog_json(&bytes, anchor).is_none());
 
         // 条目缺 slug。
-        let bytes = catalog_bytes(r#"{"models":[{"supported_reasoning_levels":[{"effort":"low"}]}]}"#);
+        let bytes =
+            catalog_bytes(r#"{"models":[{"supported_reasoning_levels":[{"effort":"low"}]}]}"#);
         let anchor = find(&bytes, ANCHOR).unwrap();
         assert!(extract_catalog_json(&bytes, anchor).is_none());
     }
@@ -1229,17 +1228,28 @@ mod tests {
                 .iter()
                 .map(|l| l["effort"].as_str().unwrap_or("?"))
                 .collect();
-            println!("  {:22} {} 档: {}", m["slug"].as_str().unwrap_or("?"), levels.len(), levels.join(","));
+            println!(
+                "  {:22} {} 档: {}",
+                m["slug"].as_str().unwrap_or("?"),
+                levels.len(),
+                levels.join(",")
+            );
         }
         assert!(!models.is_empty());
 
         // 顺带验 reasoning_levels 这条真实路径:ensure_catalog(写盘/缓存) → 读回 → 按 slug 查。
         let sol = reasoning_levels("gpt-5.6-sol");
         println!("reasoning_levels(gpt-5.6-sol) = {sol:?}");
-        assert!(sol.contains(&"ultra".to_string()), "sol 应支持 ultra,实得 {sol:?}");
+        assert!(
+            sol.contains(&"ultra".to_string()),
+            "sol 应支持 ultra,实得 {sol:?}"
+        );
         assert!(sol.contains(&"max".to_string()), "sol 应支持 max");
         assert_eq!(reasoning_levels("gpt-5.5").len(), 4, "5.5 只有四档");
-        assert!(reasoning_levels("不存在的模型").is_empty(), "未知模型应返回空,让前端回退");
+        assert!(
+            reasoning_levels("不存在的模型").is_empty(),
+            "未知模型应返回空,让前端回退"
+        );
     }
 
     #[test]
@@ -1249,6 +1259,9 @@ mod tests {
             toml_path_value(&p),
             "C:/Users/x/.codex/quotio-model-catalog.json"
         );
-        assert!(!toml_path_value(&p).contains('\\'), "反斜杠会触发 TOML 非法转义");
+        assert!(
+            !toml_path_value(&p).contains('\\'),
+            "反斜杠会触发 TOML 非法转义"
+        );
     }
 }
