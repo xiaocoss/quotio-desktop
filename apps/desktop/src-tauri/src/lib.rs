@@ -128,8 +128,7 @@ async fn configure_agent(
 fn configure_agent_blocking(
     request: AgentConfigurationRequest,
 ) -> Result<AgentConfigurationResult, String> {
-    quotio_core::agent_config::configure_agent(request)
-        .map_err(|error| error.to_string())
+    quotio_core::agent_config::configure_agent(request).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -240,24 +239,26 @@ fn list_agent_backups(
 }
 
 #[tauri::command]
-fn restore_agent_backup(
+async fn restore_agent_backup(
     agent_id: String,
     backup_path: String,
-    state: State<'_, DesktopState>,
 ) -> Result<AgentConfigurationResult, String> {
-    let mut core = lock_core(&state.core);
-    core.restore_agent_backup(&agent_id, &backup_path)
-        .map_err(|error| error.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        quotio_core::agent_config::restore_agent_backup(&agent_id, &backup_path)
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| format!("恢复智能体备份任务异常：{error}"))?
 }
 
 #[tauri::command]
-fn reset_agent_configuration(
-    agent_id: String,
-    state: State<'_, DesktopState>,
-) -> Result<AgentConfigurationResult, String> {
-    let mut core = lock_core(&state.core);
-    core.reset_agent_configuration(&agent_id)
-        .map_err(|error| error.to_string())
+async fn reset_agent_configuration(agent_id: String) -> Result<AgentConfigurationResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        quotio_core::agent_config::reset_agent_configuration(&agent_id)
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| format!("重置智能体配置任务异常：{error}"))?
 }
 
 #[tauri::command]
@@ -325,7 +326,8 @@ async fn set_launch_at_login(
         let mut core = lock_core(&core);
         let mut settings = core.app_state().settings;
         settings.launch_at_login = resolved;
-        core.save_settings(settings).map_err(|error| error.to_string())
+        core.save_settings(settings)
+            .map_err(|error| error.to_string())
     })
     .await
     .map_err(|error| format!("保存自启状态任务异常：{}", error))?
@@ -392,16 +394,20 @@ async fn download_proxy_binary(
     let progress_app = app.clone();
     let tag = tauri::async_runtime::spawn_blocking(move || {
         let mut last_percent = u8::MAX;
-        quotio_core::proxy_download::download_proxy_binary(&dest, proxy_url.as_deref(), |downloaded, total| {
-            if total == 0 {
-                return;
-            }
-            let percent = (downloaded.saturating_mul(100) / total).min(100) as u8;
-            if percent != last_percent {
-                last_percent = percent;
-                let _ = progress_app.emit("proxy-download-progress", percent);
-            }
-        })
+        quotio_core::proxy_download::download_proxy_binary(
+            &dest,
+            proxy_url.as_deref(),
+            |downloaded, total| {
+                if total == 0 {
+                    return;
+                }
+                let percent = (downloaded.saturating_mul(100) / total).min(100) as u8;
+                if percent != last_percent {
+                    last_percent = percent;
+                    let _ = progress_app.emit("proxy-download-progress", percent);
+                }
+            },
+        )
     })
     .await
     .map_err(|error| format!("下载任务异常：{}", error))??;
@@ -446,16 +452,20 @@ async fn download_cloudflared(
     let progress_app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let mut last_percent = u8::MAX;
-        quotio_core::tunnel::download_cloudflared(&dest, proxy_url.as_deref(), |downloaded, total| {
-            if total == 0 {
-                return;
-            }
-            let percent = (downloaded.saturating_mul(100) / total).min(100) as u8;
-            if percent != last_percent {
-                last_percent = percent;
-                let _ = progress_app.emit("cloudflared-download-progress", percent);
-            }
-        })
+        quotio_core::tunnel::download_cloudflared(
+            &dest,
+            proxy_url.as_deref(),
+            |downloaded, total| {
+                if total == 0 {
+                    return;
+                }
+                let percent = (downloaded.saturating_mul(100) / total).min(100) as u8;
+                if percent != last_percent {
+                    last_percent = percent;
+                    let _ = progress_app.emit("cloudflared-download-progress", percent);
+                }
+            },
+        )
     })
     .await
     .map_err(|error| format!("下载任务异常：{}", error))??;
@@ -788,14 +798,19 @@ fn add_custom_provider(
     proxy_mode: String,
     state: State<'_, DesktopState>,
 ) -> Result<Vec<quotio_core::CustomProvider>, String> {
-    let result = quotio_core::add_custom_provider(name, base_url, api_key, kind, prefix, models, proxy_mode)?;
+    let result = quotio_core::add_custom_provider(
+        name, base_url, api_key, kind, prefix, models, proxy_mode,
+    )?;
     let core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(result)
 }
 
 #[tauri::command]
-fn delete_custom_provider(id: String, state: State<'_, DesktopState>) -> Result<Vec<quotio_core::CustomProvider>, String> {
+fn delete_custom_provider(
+    id: String,
+    state: State<'_, DesktopState>,
+) -> Result<Vec<quotio_core::CustomProvider>, String> {
     let result = quotio_core::delete_custom_provider(&id)?;
     let core = lock_core(&state.core);
     core.rewrite_proxy_config();
@@ -814,7 +829,9 @@ fn update_custom_provider(
     proxy_mode: String,
     state: State<'_, DesktopState>,
 ) -> Result<Vec<quotio_core::CustomProvider>, String> {
-    let result = quotio_core::update_custom_provider(id, name, base_url, api_key, kind, prefix, models, proxy_mode)?;
+    let result = quotio_core::update_custom_provider(
+        id, name, base_url, api_key, kind, prefix, models, proxy_mode,
+    )?;
     let core = lock_core(&state.core);
     core.rewrite_proxy_config();
     Ok(result)
@@ -1147,7 +1164,10 @@ async fn clear_management_logs(state: State<'_, DesktopState>) -> Result<AppStat
 /// 文本日志(clear_management_logs)是两份不同数据,之前删除按钮只清后者,导致在
 /// 「请求」tab 点删除看着没反应。纯本地 SQLite 操作,放 spawn_blocking 不阻塞 UI。
 #[tauri::command]
-async fn clear_request_logs(app: AppHandle, state: State<'_, DesktopState>) -> Result<AppState, String> {
+async fn clear_request_logs(
+    app: AppHandle,
+    state: State<'_, DesktopState>,
+) -> Result<AppState, String> {
     let core = Arc::clone(&state.core);
     let result = tauri::async_runtime::spawn_blocking(move || {
         let mut core = lock_core(&core);
@@ -1349,7 +1369,9 @@ fn submit_oauth_callback(url: String) -> Result<(), String> {
 // ---------------------------------------------------------------------------
 
 #[tauri::command]
-fn native_oauth_start(provider_id: String) -> Result<quotio_core::native_oauth::OAuthStartResponse, String> {
+fn native_oauth_start(
+    provider_id: String,
+) -> Result<quotio_core::native_oauth::OAuthStartResponse, String> {
     quotio_core::native_oauth::start_oauth(&provider_id)
 }
 
@@ -1578,100 +1600,107 @@ fn spawn_usage_collector(app: AppHandle) {
             // the only queue consumer (that would silently stop usage collection
             // for the rest of the process). Catch it and continue next tick.
             if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let prepared = app.try_state::<DesktopState>().and_then(|state| {
-                let mut core = lock_core(&state.core);
-                let client = core.management_client().ok()?;
-                Some((client, core.usage_store()))
-            });
-            if let Some((client, store)) = prepared {
-                // Re-assert usage telemetry every ~30s so the queue keeps filling
-                // even when nothing else refreshes the management snapshot.
-                if tick % 20 == 0 {
-                    let _ =
-                        tauri::async_runtime::block_on(client.set_usage_statistics_enabled(true));
-                }
-                let events = tauri::async_runtime::block_on(client.fetch_usage_events(2000))
-                    .unwrap_or_default();
-                if !events.is_empty() {
-                    let inserted = store.insert_events(&events);
-                    quotio_core::append_request_errors(&events);
-                    if inserted > 0 {
-                        let _ = app.emit("usage-updated", inserted);
+                let prepared = app.try_state::<DesktopState>().and_then(|state| {
+                    let mut core = lock_core(&state.core);
+                    let client = core.management_client().ok()?;
+                    Some((client, core.usage_store()))
+                });
+                if let Some((client, store)) = prepared {
+                    // Re-assert usage telemetry every ~30s so the queue keeps filling
+                    // even when nothing else refreshes the management snapshot.
+                    if tick % 20 == 0 {
+                        let _ = tauri::async_runtime::block_on(
+                            client.set_usage_statistics_enabled(true),
+                        );
                     }
-                    // 智能调度：目标账号刚出现失败请求（往往是 5h 额度耗尽的 429）——
-                    // 秒级触发重拉配额重选，不等 5 分钟轮询（期间池子里只有空号）。
-                    let recheck = app
+                    let events = tauri::async_runtime::block_on(client.fetch_usage_events(2000))
+                        .unwrap_or_default();
+                    if !events.is_empty() {
+                        let inserted = store.insert_events(&events);
+                        quotio_core::append_request_errors(&events);
+                        if inserted > 0 {
+                            let _ = app.emit("usage-updated", inserted);
+                        }
+                        // 智能调度：目标账号刚出现失败请求（往往是 5h 额度耗尽的 429）——
+                        // 秒级触发重拉配额重选，不等 5 分钟轮询（期间池子里只有空号）。
+                        let recheck = app
+                            .try_state::<DesktopState>()
+                            .and_then(|state| {
+                                state.core.lock().ok().map(|mut core| {
+                                    core.scheduler_should_recheck_for_failures(&events)
+                                })
+                            })
+                            .unwrap_or(false);
+                        if recheck {
+                            refresh_quotas_and_reschedule(&app);
+                        }
+                    }
+                }
+
+                // 智能调度（每 ~30s）：① 当前号 5h 窗口到点刷新（纯内存判断）→ 提前重评估;
+                // ② 主动探一次当前目标号的 token——过期/被禁就提前切,把「闲置一段时间后
+                // 首个请求」的报错也省掉(只探目标号、不全量,几乎不增上游负担)。
+                if tick % 20 == 10 {
+                    let (due, targets, proxy_url) = app
                         .try_state::<DesktopState>()
                         .and_then(|state| {
-                            state.core.lock().ok().map(|mut core| {
-                                core.scheduler_should_recheck_for_failures(&events)
+                            state.core.lock().ok().map(|core| {
+                                (
+                                    core.scheduler_reset_due(),
+                                    core.scheduler_active_target_files(),
+                                    core.proxy_upstream_url(),
+                                )
                             })
                         })
-                        .unwrap_or(false);
-                    if recheck {
+                        .unwrap_or((false, Vec::new(), None));
+                    // 网络探测在锁外执行,不阻塞 UI 命令。None(网络抖动)不切,避免误判。
+                    let target_unhealthy = targets.iter().any(|(provider_id, file)| {
+                        quotio_core::quota::fetch_quota_for_file(
+                            provider_id,
+                            file,
+                            proxy_url.as_deref(),
+                        )
+                        .map(|quota| quota.is_forbidden || quota.is_auth_failure())
+                        .unwrap_or(false)
+                    });
+                    if due || target_unhealthy {
                         refresh_quotas_and_reschedule(&app);
                     }
                 }
-            }
 
-            // 智能调度（每 ~30s）：① 当前号 5h 窗口到点刷新（纯内存判断）→ 提前重评估;
-            // ② 主动探一次当前目标号的 token——过期/被禁就提前切,把「闲置一段时间后
-            // 首个请求」的报错也省掉(只探目标号、不全量,几乎不增上游负担)。
-            if tick % 20 == 10 {
-                let (due, targets, proxy_url) = app
-                    .try_state::<DesktopState>()
-                    .and_then(|state| {
-                        state.core.lock().ok().map(|core| {
-                            (
-                                core.scheduler_reset_due(),
-                                core.scheduler_active_target_files(),
-                                core.proxy_upstream_url(),
-                            )
-                        })
-                    })
-                    .unwrap_or((false, Vec::new(), None));
-                // 网络探测在锁外执行,不阻塞 UI 命令。None(网络抖动)不切,避免误判。
-                let target_unhealthy = targets.iter().any(|(provider_id, file)| {
-                    quotio_core::quota::fetch_quota_for_file(provider_id, file, proxy_url.as_deref())
-                        .map(|quota| quota.is_forbidden || quota.is_auth_failure())
-                        .unwrap_or(false)
-                });
-                if due || target_unhealthy {
-                    refresh_quotas_and_reschedule(&app);
-                }
-            }
-
-            // Codex 一键启动监控（每 ~3s）：用户自己退出 Codex（没点「停止」）时，
-            // 自动还原 auth.json/config.toml 并通知前端刷新状态。
-            // 进程探测（tasklist）在锁外执行，两次取锁都是纯内存操作，不阻塞 UI 命令；
-            // 无会话时 probe 直接返回 None，零开销。
-            if tick % 2 == 0 {
-                let probe = app.try_state::<DesktopState>().and_then(|state| {
-                    state
-                        .core
-                        .lock()
-                        .ok()
-                        .and_then(|core| core.codex_monitor_probe())
-                });
-                if let Some((generation, probe)) = probe {
-                    let alive = probe.run();
-                    let restored = app
-                        .try_state::<DesktopState>()
-                        .and_then(|state| {
-                            state
-                                .core
-                                .lock()
-                                .ok()
-                                .map(|mut core| core.codex_monitor_apply(generation, alive))
-                        })
-                        .unwrap_or(false);
-                    if restored {
-                        let _ = app.emit("codex-launch-changed", false);
+                // Codex 一键启动监控（每 ~3s）：用户自己退出 Codex（没点「停止」）时，
+                // 自动还原 auth.json/config.toml 并通知前端刷新状态。
+                // 进程探测（tasklist）在锁外执行，两次取锁都是纯内存操作，不阻塞 UI 命令；
+                // 无会话时 probe 直接返回 None，零开销。
+                if tick % 2 == 0 {
+                    let probe = app.try_state::<DesktopState>().and_then(|state| {
+                        state
+                            .core
+                            .lock()
+                            .ok()
+                            .and_then(|core| core.codex_monitor_probe())
+                    });
+                    if let Some((generation, probe)) = probe {
+                        let alive = probe.run();
+                        let restored = app
+                            .try_state::<DesktopState>()
+                            .and_then(|state| {
+                                state
+                                    .core
+                                    .lock()
+                                    .ok()
+                                    .map(|mut core| core.codex_monitor_apply(generation, alive))
+                            })
+                            .unwrap_or(false);
+                        if restored {
+                            let _ = app.emit("codex-launch-changed", false);
+                        }
                     }
                 }
-            }
             })) {
-                let msg = panic.downcast_ref::<&str>().copied()
+                let msg = panic
+                    .downcast_ref::<&str>()
+                    .copied()
                     .or_else(|| panic.downcast_ref::<String>().map(|s| s.as_str()))
                     .unwrap_or("unknown");
                 eprintln!("[usage-collector] panic caught (tick {tick}): {msg}");
@@ -1971,5 +2000,32 @@ mod tests {
         let error = configure_agent_blocking(request).expect_err("unknown agent should fail");
 
         assert_eq!(error, "未知 CLI agent。");
+    }
+
+    #[test]
+    fn configure_agent_blocking_builds_known_manual_configuration() {
+        let request = AgentConfigurationRequest {
+            agent_id: "gemini-cli".to_string(),
+            mode: AgentConfigMode::Manual,
+            setup_mode: AgentSetupMode::Proxy,
+            storage_option: AgentConfigStorageOption::Shell,
+            proxy_url: "http://127.0.0.1:28317".to_string(),
+            api_key: "test-key".to_string(),
+            model_slots: BTreeMap::new(),
+            use_oauth: false,
+            available_models: Vec::new(),
+            reasoning_effort: String::new(),
+        };
+
+        let result = configure_agent_blocking(request).expect("known agent should configure");
+
+        assert!(result.success);
+        assert_eq!(result.mode, AgentConfigMode::Manual);
+        assert_eq!(result.raw_configs.len(), 1);
+        assert!(result
+            .shell_config
+            .as_deref()
+            .is_some_and(|config| config.contains("GEMINI_API_KEY=\"test-key\"")));
+        assert!(result.backup_path.is_none());
     }
 }

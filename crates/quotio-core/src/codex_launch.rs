@@ -317,7 +317,9 @@ pub(crate) fn write_proxy_account_to(path: &Path, value: &Value) -> Result<(), S
 /// 切换 Codex 绑定账号：释放旧绑定账号，锁定新绑定账号。
 /// 锁定方式是写入 `disabled=true`，让 CLIProxyAPI 不把它放进反代池。
 pub fn apply_bound_account_selection(previous_key: &str, next_key: &str) -> Result<(), String> {
-    apply_bound_account_selection_in(&proxy_auth_dir(), previous_key, next_key)
+    crate::with_agent_config_io_lock(|| {
+        apply_bound_account_selection_in(&proxy_auth_dir(), previous_key, next_key)
+    })
 }
 
 fn apply_bound_account_selection_in(
@@ -339,6 +341,10 @@ fn apply_bound_account_selection_in(
 
 /// 把账号标记为“仅用于 Codex 登录”，并保留它原来的 disabled 状态，供切号时恢复。
 pub fn mark_bound_account_login_only(key: &str) -> Result<(), String> {
+    crate::with_agent_config_io_lock(|| mark_bound_account_login_only_unlocked(key))
+}
+
+pub(crate) fn mark_bound_account_login_only_unlocked(key: &str) -> Result<(), String> {
     mark_bound_account_login_only_in(&proxy_auth_dir(), key)
 }
 
@@ -379,6 +385,10 @@ fn mark_bound_account_login_only_in(dir: &Path, key: &str) -> Result<(), String>
 
 /// 释放由 Quotio 绑定逻辑禁用的账号，恢复为绑定前的 disabled 状态。
 pub fn release_bound_account_login_only(key: &str) -> Result<(), String> {
+    crate::with_agent_config_io_lock(|| release_bound_account_login_only_unlocked(key))
+}
+
+pub(crate) fn release_bound_account_login_only_unlocked(key: &str) -> Result<(), String> {
     release_bound_account_login_only_in(&proxy_auth_dir(), key)
 }
 
@@ -414,6 +424,10 @@ fn release_bound_account_login_only_in(dir: &Path, key: &str) -> Result<(), Stri
 
 /// 绑定账号：把选中号的凭证写进 `~/.codex/auth.json`。
 pub fn inject_bound_account(key: &str) -> Result<(), String> {
+    crate::with_agent_config_io_lock(|| inject_bound_account_unlocked(key))
+}
+
+pub(crate) fn inject_bound_account_unlocked(key: &str) -> Result<(), String> {
     let src = read_proxy_codex_account(key)?;
     let auth = build_codex_auth_json(&src);
     let home = codex_home();
@@ -527,6 +541,10 @@ fn read_codex_state_in(home: &Path) -> (Option<String>, Option<String>) {
 
 /// 把启动前的 auth.json + config.toml 状态写进一个固定备份文件。
 pub fn write_launch_backup() -> Result<(), String> {
+    crate::with_agent_config_io_lock(write_launch_backup_unlocked)
+}
+
+pub(crate) fn write_launch_backup_unlocked() -> Result<(), String> {
     write_launch_backup_in(&codex_home())
 }
 
@@ -552,6 +570,10 @@ pub fn launch_backup_exists() -> bool {
 
 /// 从固定备份文件恢复 auth.json + config.toml，恢复成功后删除备份文件。
 pub fn restore_codex_state_from_launch_backup() -> Result<(), String> {
+    crate::with_agent_config_io_lock(restore_codex_state_from_launch_backup_unlocked)
+}
+
+pub(crate) fn restore_codex_state_from_launch_backup_unlocked() -> Result<(), String> {
     restore_codex_state_from_launch_backup_in(&codex_home())
 }
 
@@ -567,7 +589,7 @@ fn restore_codex_state_from_launch_backup_in(home: &Path) -> Result<(), String> 
     // openai). Codex hides history whose provider != the current config's, so
     // re-align the session metadata to the restored provider — otherwise the
     // sessions from the proxy run vanish after stopping. Best-effort, no backup.
-    let _ = crate::codex_session_visibility::repair_session_visibility_in_dir(home, false);
+    let _ = crate::codex_session_visibility::repair_session_visibility_in_dir_unlocked(home, false);
     std::fs::remove_file(&backup_path)
         .map_err(|e| format!("删除 Codex 启动备份失败 {}: {e}", backup_path.display()))?;
     Ok(())
@@ -575,9 +597,11 @@ fn restore_codex_state_from_launch_backup_in(home: &Path) -> Result<(), String> 
 
 /// 把 auth.json + config.toml 还原到备份内容（None = 原本不存在 → 删除）。
 pub fn restore_codex_state(auth: &Option<String>, config: &Option<String>) -> Result<(), String> {
-    restore_one(&codex_auth_path(), auth)?;
-    restore_one(&codex_config_path(), config)?;
-    Ok(())
+    crate::with_agent_config_io_lock(|| {
+        restore_one(&codex_auth_path(), auth)?;
+        restore_one(&codex_config_path(), config)?;
+        Ok(())
+    })
 }
 
 fn restore_one(path: &Path, backup: &Option<String>) -> Result<(), String> {
@@ -676,9 +700,9 @@ pub fn launch_codex_app(exe: &Path) -> Result<Option<u32>, String> {
             // 商店版 shell 激活拿不到子进程句柄。pid 只是「停止」时精确杀进程的额外保险
             // （App 模式停止/监控本就按进程名兜底），所以只 best-effort 轻探最多 1.5 秒：
             // 进程出现得快就记下 pid，否则返回 None（绝不再像以前那样空转 8 秒）。
-            Ok(resolve_codex_app_pid_within(std::time::Duration::from_millis(
-                1500,
-            )))
+            Ok(resolve_codex_app_pid_within(
+                std::time::Duration::from_millis(1500),
+            ))
         }
         Err(err) => Err(format!("启动 Codex 应用失败: {err}")),
     }
@@ -734,7 +758,9 @@ fn launch_codex_app_via_shell(exe: &Path) -> Result<(), String> {
         Err(error) => error,
     };
     let app_id = detect_codex_store_app_id().ok_or_else(|| {
-        format!("启动 Codex 应用失败（商店版需 shell 启动）: {direct_error}；且未检测到商店应用入口")
+        format!(
+            "启动 Codex 应用失败（商店版需 shell 启动）: {direct_error}；且未检测到商店应用入口"
+        )
     })?;
     let script = format!(
         "Start-Process -FilePath ('shell:AppsFolder\\' + '{}') -ErrorAction Stop | Out-Null",
@@ -781,7 +807,10 @@ fn resolve_codex_app_pid_within(timeout: std::time::Duration) -> Option<u32> {
         if let Ok(output) = run_powershell(
             "(Get-Process -Name Codex -ErrorAction SilentlyContinue | Select-Object -First 1).Id",
         ) {
-            if let Ok(pid) = String::from_utf8_lossy(&output.stdout).trim().parse::<u32>() {
+            if let Ok(pid) = String::from_utf8_lossy(&output.stdout)
+                .trim()
+                .parse::<u32>()
+            {
                 return Some(pid);
             }
         }
@@ -907,7 +936,9 @@ mod tests {
         assert!(is_windowsapps_path(Path::new(
             r"C:\Program Files\WindowsApps\OpenAI.Codex_26.609.3341.0_x64__2p2nqsd0c76g0\app\Codex.exe"
         )));
-        assert!(is_windowsapps_path(Path::new(r"D:\windowsapps\pkg\app\Codex.exe")));
+        assert!(is_windowsapps_path(Path::new(
+            r"D:\windowsapps\pkg\app\Codex.exe"
+        )));
         assert!(!is_windowsapps_path(Path::new(
             r"C:\Users\me\AppData\Local\Programs\Codex\Codex.exe"
         )));

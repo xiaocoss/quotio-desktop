@@ -17,6 +17,61 @@ use crate::ManagementCoreError;
 const MANAGED_BLOCK_START: &str = "# >>> Quotio managed CLIProxyAPI >>>";
 const MANAGED_BLOCK_END: &str = "# <<< Quotio managed CLIProxyAPI <<<";
 
+#[cfg(test)]
+static CODEX_CONFIG_PATH_OVERRIDE: std::sync::Mutex<Option<PathBuf>> = std::sync::Mutex::new(None);
+
+#[cfg(test)]
+static CODEX_CATALOG_LINE_OVERRIDE: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+#[cfg(test)]
+fn set_codex_config_path_override_for_test(path: Option<PathBuf>) -> Option<PathBuf> {
+    let mut guard = CODEX_CONFIG_PATH_OVERRIDE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    std::mem::replace(&mut *guard, path)
+}
+
+#[cfg(test)]
+fn set_codex_catalog_line_override_for_test(line: Option<String>) -> Option<String> {
+    let mut guard = CODEX_CATALOG_LINE_OVERRIDE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    std::mem::replace(&mut *guard, line)
+}
+
+fn codex_config_path() -> PathBuf {
+    #[cfg(test)]
+    if let Some(path) = CODEX_CONFIG_PATH_OVERRIDE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone()
+    {
+        return path;
+    }
+
+    quotio_platform::expand_home_path("~/.codex/config.toml")
+}
+
+fn codex_catalog_line() -> String {
+    #[cfg(test)]
+    if let Some(line) = CODEX_CATALOG_LINE_OVERRIDE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone()
+    {
+        return line;
+    }
+
+    crate::codex_catalog::ensure_catalog()
+        .map(|path| {
+            format!(
+                "model_catalog_json = \"{}\"\n",
+                toml_escape(&crate::codex_catalog::toml_path_value(&path))
+            )
+        })
+        .unwrap_or_default()
+}
+
 pub fn read_agent_configuration(
     agent_id: &str,
 ) -> Result<SavedAgentConfiguration, ManagementCoreError> {
@@ -156,6 +211,12 @@ pub fn read_agent_configuration(
 pub fn configure_agent(
     request: AgentConfigurationRequest,
 ) -> Result<AgentConfigurationResult, ManagementCoreError> {
+    crate::with_agent_config_io_lock(|| configure_agent_unlocked(request))
+}
+
+fn configure_agent_unlocked(
+    request: AgentConfigurationRequest,
+) -> Result<AgentConfigurationResult, ManagementCoreError> {
     let agent = find_agent(&request.agent_id)?;
     let raw_configs = raw_configs_for_request(&request)?;
     let mut result = AgentConfigurationResult {
@@ -224,6 +285,13 @@ pub fn restore_agent_backup(
     agent_id: &str,
     backup_path: &str,
 ) -> Result<AgentConfigurationResult, ManagementCoreError> {
+    crate::with_agent_config_io_lock(|| restore_agent_backup_unlocked(agent_id, backup_path))
+}
+
+fn restore_agent_backup_unlocked(
+    agent_id: &str,
+    backup_path: &str,
+) -> Result<AgentConfigurationResult, ManagementCoreError> {
     // 防路径穿越:backup_path 来自前端,必须是本 agent 备份目录里真实存在的某个备份,
     // 不能是任意路径——否则可借「恢复」把任意文件读出并写进 agent 配置/敏感位置。
     let known = quotio_platform::list_backups(&backup_namespace(agent_id))
@@ -267,6 +335,12 @@ pub fn restore_agent_backup(
 pub fn reset_agent_configuration(
     agent_id: &str,
 ) -> Result<AgentConfigurationResult, ManagementCoreError> {
+    crate::with_agent_config_io_lock(|| reset_agent_configuration_unlocked(agent_id))
+}
+
+fn reset_agent_configuration_unlocked(
+    agent_id: &str,
+) -> Result<AgentConfigurationResult, ManagementCoreError> {
     let mut request = AgentConfigurationRequest {
         agent_id: agent_id.to_string(),
         mode: AgentConfigMode::Automatic,
@@ -282,7 +356,7 @@ pub fn reset_agent_configuration(
     if agent_id == "gemini-cli" {
         request.storage_option = AgentConfigStorageOption::Shell;
     }
-    configure_agent(request)
+    configure_agent_unlocked(request)
 }
 
 struct WriteResult {
@@ -564,7 +638,7 @@ fn claude_configs(
 }
 
 fn codex_configs(request: &AgentConfigurationRequest) -> Vec<RawAgentConfigOutput> {
-    let config_path = quotio_platform::expand_home_path("~/.codex/config.toml");
+    let config_path = codex_config_path();
     let reasoning = if request.reasoning_effort.trim().is_empty() {
         "high"
     } else {
@@ -580,14 +654,7 @@ fn codex_configs(request: &AgentConfigurationRequest) -> Vec<RawAgentConfigOutpu
     // 自定义 model_provider 下 Codex 拿不到服务端下发的模型目录,推理档位会退回通用默认的
     // 4 档(丢失 max / ultra)。把本机 codex 二进制里内置的目录提取出来指给它,档位就恢复了。
     // 提取失败(找不到 codex、二进制格式变了)就**不写这个键**,保持从前的行为。见 codex_catalog。
-    let catalog_line = crate::codex_catalog::ensure_catalog()
-        .map(|path| {
-            format!(
-                "model_catalog_json = \"{}\"\n",
-                toml_escape(&crate::codex_catalog::toml_path_value(&path))
-            )
-        })
-        .unwrap_or_default();
+    let catalog_line = codex_catalog_line();
     // 对齐 CLIProxyAPI 官方文档：必须有 model_provider + supports_websockets（App 走 websocket）。
     let managed = format!(
         "# CLIProxyAPI Configuration for Codex\nmodel_provider = \"cliproxyapi\"\nmodel = \"{}\"\nmodel_reasoning_effort = \"{}\"\nplan_mode_reasoning_effort = \"{}\"\nsupports_websockets = true\n{}\n[model_providers.cliproxyapi]\nname = \"cliproxyapi\"\nbase_url = \"{}\"\nexperimental_bearer_token = \"{}\"\nwire_api = \"responses\"\nrequires_openai_auth = true\n",
@@ -613,6 +680,12 @@ fn codex_configs(request: &AgentConfigurationRequest) -> Vec<RawAgentConfigOutpu
 /// 直接把 Codex 代理配置合并写入 `~/.codex/config.toml`，**不创建备份文件**。
 /// 用于 codex 一键启动这种临时流程（停止时用内存备份还原），避免每次启动都刷一个备份。
 pub fn write_codex_proxy_config_no_backup(
+    request: &AgentConfigurationRequest,
+) -> Result<(), ManagementCoreError> {
+    crate::with_agent_config_io_lock(|| write_codex_proxy_config_no_backup_unlocked(request))
+}
+
+pub(crate) fn write_codex_proxy_config_no_backup_unlocked(
     request: &AgentConfigurationRequest,
 ) -> Result<(), ManagementCoreError> {
     for config in codex_configs(request) {
@@ -1158,6 +1231,49 @@ fn unavailable(context: &'static str, error: std::io::Error) -> ManagementCoreEr
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    struct CodexConfigOverrideGuard {
+        previous_path: Option<PathBuf>,
+        previous_catalog_line: Option<String>,
+    }
+
+    impl CodexConfigOverrideGuard {
+        fn set_to(config_path: PathBuf) -> Self {
+            Self {
+                previous_path: set_codex_config_path_override_for_test(Some(config_path)),
+                previous_catalog_line: set_codex_catalog_line_override_for_test(
+                    Some(String::new()),
+                ),
+            }
+        }
+    }
+
+    impl Drop for CodexConfigOverrideGuard {
+        fn drop(&mut self) {
+            set_codex_config_path_override_for_test(self.previous_path.take());
+            set_codex_catalog_line_override_for_test(self.previous_catalog_line.take());
+        }
+    }
+
+    struct LockAttemptHookGuard {
+        previous: Option<std::sync::mpsc::Sender<std::thread::ThreadId>>,
+    }
+
+    impl LockAttemptHookGuard {
+        fn install(sender: std::sync::mpsc::Sender<std::thread::ThreadId>) -> Self {
+            Self {
+                previous: crate::set_agent_config_lock_attempt_sender_for_test(Some(sender)),
+            }
+        }
+    }
+
+    impl Drop for LockAttemptHookGuard {
+        fn drop(&mut self) {
+            crate::set_agent_config_lock_attempt_sender_for_test(self.previous.take());
+        }
+    }
 
     #[test]
     fn removes_codex_managed_section_without_dropping_user_sections() {
@@ -1224,5 +1340,75 @@ model = "gpt-5"
         assert!(content.contains("base_url = \"http://127.0.0.1:28317/v1\""));
         assert!(content.contains("experimental_bearer_token = \"sk-test-proxy-key\""));
         assert!(content.contains("requires_openai_auth = true"));
+    }
+
+    #[test]
+    fn public_codex_proxy_write_waits_for_agent_config_io_lock() {
+        let root = std::env::temp_dir().join(format!(
+            "quotio-agent-config-public-lock-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let codex_dir = root.join(".codex");
+        fs::create_dir_all(&codex_dir).unwrap();
+        let config_path = codex_dir.join("config.toml");
+        fs::write(&config_path, "model_provider = \"openai\"\n").unwrap();
+        let _override = CodexConfigOverrideGuard::set_to(config_path.clone());
+
+        let request = AgentConfigurationRequest {
+            agent_id: "codex".to_string(),
+            mode: AgentConfigMode::Automatic,
+            setup_mode: AgentSetupMode::Proxy,
+            storage_option: AgentConfigStorageOption::Json,
+            proxy_url: "http://127.0.0.1:28317".to_string(),
+            api_key: "sk-test-proxy-key".to_string(),
+            model_slots: default_model_slots(),
+            use_oauth: false,
+            available_models: default_available_models(),
+            reasoning_effort: "high".to_string(),
+        };
+        let (attempt_tx, attempt_rx) = mpsc::channel();
+        let (thread_id_tx, thread_id_rx) = mpsc::channel();
+        let (completed_tx, completed_rx) = mpsc::channel();
+
+        let handle = crate::with_agent_config_io_lock(|| {
+            let hook = LockAttemptHookGuard::install(attempt_tx);
+            assert!(hook.previous.is_none());
+
+            let handle = std::thread::spawn(move || {
+                let id = std::thread::current().id();
+                thread_id_tx.send(id).unwrap();
+                let result = write_codex_proxy_config_no_backup(&request);
+                completed_tx.send(result).unwrap();
+            });
+            let worker_id = thread_id_rx
+                .recv_timeout(Duration::from_secs(5))
+                .expect("worker should start");
+            loop {
+                let attempt_id = attempt_rx
+                    .recv_timeout(Duration::from_secs(5))
+                    .expect("public API should attempt the production lock");
+                if attempt_id == worker_id {
+                    break;
+                }
+            }
+
+            assert_eq!(
+                fs::read_to_string(&config_path).unwrap(),
+                "model_provider = \"openai\"\n"
+            );
+            assert!(completed_rx.try_recv().is_err());
+            handle
+        });
+
+        let result = completed_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("write should complete after the lock is released");
+        result.unwrap();
+        handle.join().unwrap();
+
+        let written = fs::read_to_string(&config_path).unwrap();
+        assert!(written.contains("model_provider = \"cliproxyapi\""));
+        assert!(written.contains("experimental_bearer_token = \"sk-test-proxy-key\""));
+        let _ = fs::remove_dir_all(&root);
     }
 }
