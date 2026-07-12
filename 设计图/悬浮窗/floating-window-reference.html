@@ -17,15 +17,20 @@
         --track: #e9edf3;
         --dot-idle: #d7dee8;
         --primary: #3978f6;
+        --primary-text: #1d4ed8;
         --primary-soft: #edf3ff;
         --success: #35b96b;
+        --success-text: #15803d;
         --success-soft: #ecf9f1;
         --warning: #f59e0b;
+        --warning-text: #b45309;
         --warning-soft: #fff7e6;
         --danger: #ef4444;
+        --danger-text: #b91c1c;
         --danger-soft: #fef0f0;
-        --plan: #6d6bff;
-        --focus-ring: rgba(57, 120, 246, 0.22);
+        --plan-start: #3d5bd9;
+        --plan-end: #4f46e5;
+        --focus-outline: #1d4ed8;
         --font-sans: "HarmonyOS Sans SC", "MiSans", "PingFang SC", Inter, "Segoe UI", "Microsoft YaHei", sans-serif;
         --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
       }
@@ -44,7 +49,7 @@
         margin: 0;
         height: 100vh;
         height: 100svh;
-        padding: 20px;
+        padding: 30px;
         display: grid;
         place-items: center;
         overflow: hidden;
@@ -58,10 +63,9 @@
       }
 
       .floating-window {
-        width: 360px;
-        max-width: 100%;
-        height: min(960px, calc(100vh - 40px));
-        height: min(960px, calc(100svh - 40px));
+        width: min(360px, calc(100vw - 60px));
+        height: min(960px, calc(100vh - 60px));
+        height: min(960px, calc(100svh - 60px));
         max-height: 960px;
         min-width: 0;
         display: grid;
@@ -129,7 +133,7 @@
         color: #fff;
         border: 0;
         border-radius: 999px;
-        background: var(--danger);
+        background: #dc2626;
         box-shadow: 0 1px 2px rgba(31, 41, 55, 0.08);
         cursor: pointer;
         font-size: 11px;
@@ -139,7 +143,7 @@
       }
 
       .stop-button:hover {
-        background: #dc3535;
+        background: var(--danger-text);
       }
 
       .stop-button:active {
@@ -189,12 +193,12 @@
       }
 
       .provider-tab:hover {
-        color: var(--primary);
+        color: var(--primary-text);
         border-color: #c8d8fb;
       }
 
       .provider-tab.active {
-        color: var(--primary);
+        color: var(--primary-text);
         border-color: #bfd3fb;
         background: var(--primary-soft);
         box-shadow: 0 1px 2px rgba(31, 41, 55, 0.08);
@@ -237,6 +241,7 @@
 
       .account-card {
         --state-color: var(--success);
+        --state-text: var(--success-text);
         --state-soft: rgba(53, 185, 107, 0.075);
         min-width: 0;
         height: 156px;
@@ -254,14 +259,21 @@
         box-shadow: 0 1px 3px rgba(31, 41, 55, 0.06);
       }
 
+      .account-card.healthy {
+        --state-color: var(--success);
+        --state-text: var(--success-text);
+      }
+
       .account-card.warning {
         --state-color: var(--warning);
+        --state-text: var(--warning-text);
         --state-soft: rgba(245, 158, 11, 0.09);
         border-color: #f7dfae;
       }
 
       .account-card.critical {
         --state-color: var(--danger);
+        --state-text: var(--danger-text);
         --state-soft: rgba(239, 68, 68, 0.09);
         border-color: #f7caca;
       }
@@ -286,7 +298,7 @@
       }
 
       .health-percent {
-        color: var(--state-color);
+        color: var(--state-text);
         font-size: 13px;
         font-weight: 700;
         font-variant-numeric: tabular-nums;
@@ -300,7 +312,7 @@
         justify-content: center;
         color: #fff;
         border-radius: 8px;
-        background: linear-gradient(135deg, #538bfa, var(--plan));
+        background: linear-gradient(135deg, var(--plan-start) 0%, var(--plan-end) 100%);
         box-shadow: 0 1px 2px rgba(31, 41, 55, 0.08);
         font-size: 10px;
         line-height: 14px;
@@ -450,11 +462,11 @@
       }
 
       .window-action.action-open {
-        color: var(--primary);
+        color: var(--primary-text);
       }
 
       .window-action.action-exit {
-        color: var(--danger);
+        color: var(--danger-text);
       }
 
       .stop-button:focus-visible,
@@ -462,8 +474,9 @@
       .window-action:focus-visible {
         position: relative;
         z-index: 1;
-        outline: none;
-        box-shadow: 0 0 0 3px var(--focus-ring);
+        outline: 3px solid var(--focus-outline);
+        outline-offset: -3px;
+        box-shadow: inset 0 0 0 1px #fff;
       }
 
       @media (max-width: 379px) {
@@ -515,15 +528,50 @@
     </style>
   </head>
   <body>
+    <!-- Inline sprite mirrors assets/floating-window-icons.svg so Chrome file:// previews render icons; keep the external file as the development asset. -->
+    <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" style="position: absolute; width: 0; height: 0; overflow: hidden">
+      <symbol id="icon-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="6.5" y="6.5" width="11" height="11" rx="2.4" />
+      </symbol>
+      <symbol id="icon-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 7v5h-5" />
+        <path d="M4 17v-5h5" />
+        <path d="M6.1 9a7 7 0 0 1 11.7-2.5L20 9" />
+        <path d="m4 15 2.2 2.5A7 7 0 0 0 18 15" />
+      </symbol>
+      <symbol id="icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 4h6v6" />
+        <path d="m20 4-9 9" />
+        <path d="M10 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+      </symbol>
+      <symbol id="icon-exit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3v9" />
+        <path d="M7.2 5.6a8 8 0 1 0 9.6 0" />
+      </symbol>
+      <symbol id="icon-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 7.5V12l3 2" />
+      </symbol>
+      <symbol id="icon-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3.5" y="5.5" width="17" height="15" rx="2.5" />
+        <path d="M7.5 3.5v4M16.5 3.5v4M3.5 10h17" />
+        <path d="M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01" />
+      </symbol>
+      <symbol id="icon-status" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="m8.2 12.2 2.4 2.4 5.2-5.4" />
+      </symbol>
+    </svg>
+
     <main class="floating-window">
       <header class="window-header">
         <div class="brand">Quotio</div>
         <div class="endpoint" title="本地服务正在运行：http://127.0.0.1:28317">
-          <svg class="status-icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-status"></use></svg>
+          <svg class="status-icon" aria-hidden="true"><use href="#icon-status"></use></svg>
           <code>http://127.0.0.1:28317</code>
         </div>
         <button class="stop-button" type="button" aria-label="停止 Quotio 本地服务">
-          <svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-stop"></use></svg>
+          <svg class="icon" aria-hidden="true"><use href="#icon-stop"></use></svg>
           停止
         </button>
       </header>
@@ -547,9 +595,9 @@
             <span class="plan-badge">PLUS</span>
           </div>
           <div class="account-meta">
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-calendar"></use></svg>重置 ×0</span>
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-calendar"></use></svg>到期 2026-07-23</span>
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-clock"></use></svg>3 小时 14 分后重置</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"></use></svg>重置 ×0</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"></use></svg>到期 2026-07-23</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-clock"></use></svg>3 小时 14 分后重置</span>
           </div>
           <div class="health-dots" aria-hidden="true">
             <span class="active"></span><span class="active"></span><span class="active"></span><span class="active"></span><span class="active"></span>
@@ -574,9 +622,9 @@
             <span class="plan-badge">PLUS</span>
           </div>
           <div class="account-meta">
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-calendar"></use></svg>重置 ×0</span>
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-calendar"></use></svg>到期 2026-07-09</span>
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-clock"></use></svg>4 小时 56 分后重置</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"></use></svg>重置 ×0</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"></use></svg>到期 2026-07-09</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-clock"></use></svg>4 小时 56 分后重置</span>
           </div>
           <div class="health-dots" aria-hidden="true">
             <span class="active"></span><span class="active"></span><span class="active"></span><span class="active"></span><span class="active"></span>
@@ -601,9 +649,9 @@
             <span class="plan-badge">PLUS</span>
           </div>
           <div class="account-meta">
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-calendar"></use></svg>重置 ×0</span>
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-calendar"></use></svg>到期 2026-07-23</span>
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-clock"></use></svg>4 小时 56 分后重置</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"></use></svg>重置 ×0</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"></use></svg>到期 2026-07-23</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-clock"></use></svg>4 小时 56 分后重置</span>
           </div>
           <div class="health-dots" aria-hidden="true">
             <span class="active"></span><span class="active"></span><span class="active"></span><span class="active"></span><span class="active"></span>
@@ -628,9 +676,9 @@
             <span class="plan-badge">PLUS</span>
           </div>
           <div class="account-meta">
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-calendar"></use></svg>重置 ×0</span>
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-calendar"></use></svg>到期 2026-08-12</span>
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-clock"></use></svg>4 小时 56 分后重置</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"></use></svg>重置 ×0</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"></use></svg>到期 2026-08-12</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-clock"></use></svg>4 小时 56 分后重置</span>
           </div>
           <div class="health-dots" aria-hidden="true">
             <span class="active"></span><span class="active"></span><span class="active"></span><span class="active"></span><span class="active"></span>
@@ -655,9 +703,9 @@
             <span class="plan-badge">PLUS</span>
           </div>
           <div class="account-meta">
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-calendar"></use></svg>重置 ×0</span>
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-calendar"></use></svg>到期 2026-08-01</span>
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-clock"></use></svg>1 小时 28 分后重置</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"></use></svg>重置 ×0</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"></use></svg>到期 2026-08-01</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-clock"></use></svg>1 小时 28 分后重置</span>
           </div>
           <div class="health-dots" aria-hidden="true">
             <span class="active"></span><span class="active"></span><span class="active"></span><span class="active"></span><span class="active"></span>
@@ -681,9 +729,9 @@
             <span class="plan-badge">PLUS</span>
           </div>
           <div class="account-meta">
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-calendar"></use></svg>重置 ×0</span>
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-calendar"></use></svg>到期 2026-06-22</span>
-            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-clock"></use></svg>42 分后重置</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"></use></svg>重置 ×0</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"></use></svg>到期 2026-06-22</span>
+            <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#icon-clock"></use></svg>42 分后重置</span>
           </div>
           <div class="health-dots" aria-hidden="true">
             <span class="active"></span><span class="active"></span><span class="active"></span><span class="active"></span><span></span>
@@ -703,15 +751,15 @@
 
       <footer class="window-actions">
         <button class="window-action action-refresh" type="button">
-          <svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-refresh"></use></svg>
+          <svg class="icon" aria-hidden="true"><use href="#icon-refresh"></use></svg>
           <span>刷新</span>
         </button>
         <button class="window-action action-open" type="button">
-          <svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-open"></use></svg>
+          <svg class="icon" aria-hidden="true"><use href="#icon-open"></use></svg>
           <span>打开 Quotio</span>
         </button>
         <button class="window-action action-exit" type="button">
-          <svg class="icon" aria-hidden="true"><use href="./assets/floating-window-icons.svg#icon-exit"></use></svg>
+          <svg class="icon" aria-hidden="true"><use href="#icon-exit"></use></svg>
           <span>退出 Quotio</span>
         </button>
       </footer>

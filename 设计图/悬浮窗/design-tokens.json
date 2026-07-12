@@ -29,15 +29,20 @@
     "track": "#E9EDF3",
     "dotIdle": "#D7DEE8",
     "primary": "#3978F6",
+    "primaryText": "#1D4ED8",
     "primarySoft": "#EDF3FF",
     "success": "#35B96B",
+    "successText": "#15803D",
     "successSoft": "#ECF9F1",
     "warning": "#F59E0B",
+    "warningText": "#B45309",
     "warningSoft": "#FFF7E6",
     "danger": "#EF4444",
+    "dangerText": "#B91C1C",
     "dangerSoft": "#FEF0F0",
-    "plan": "#6D6BFF",
-    "focusRing": "rgba(57, 120, 246, 0.22)"
+    "planGradientStart": "#3D5BD9",
+    "planGradientEnd": "#4F46E5",
+    "focusOutline": "#1D4ED8"
   },
   "typography": {
     "unit": "px",
@@ -97,7 +102,7 @@
     "window": "0 14px 36px rgba(31, 41, 55, 0.16), 0 2px 8px rgba(31, 41, 55, 0.08)",
     "card": "0 1px 3px rgba(31, 41, 55, 0.06)",
     "raisedControl": "0 1px 2px rgba(31, 41, 55, 0.08)",
-    "focus": "0 0 0 3px rgba(57, 120, 246, 0.22)"
+    "focus": "inset 0 0 0 1px #FFFFFF"
   },
   "components": {
     "window": {
@@ -125,7 +130,9 @@
       "stopButton": {
         "height": 28,
         "paddingX": 12,
-        "radius": 999
+        "radius": 999,
+        "background": "#DC2626",
+        "text": "#FFFFFF"
       }
     },
     "tabs": {
@@ -136,7 +143,7 @@
       "paddingX": 10,
       "radius": 8,
       "activeBackground": "#EDF3FF",
-      "activeText": "#3978F6"
+      "activeText": "#1D4ED8"
     },
     "accountCard": {
       "width": "calc(100% - 24px)",
@@ -150,7 +157,9 @@
       "borderColor": "#E7EBF1",
       "emailMaxWidth": 190,
       "titleGap": 8,
-      "sectionGap": 8
+      "sectionGap": 8,
+      "planBackground": "linear-gradient(135deg, #3D5BD9 0%, #4F46E5 100%)",
+      "planText": "#FFFFFF"
     },
     "progress": {
       "height": 6,
@@ -192,8 +201,8 @@
       "iconLabelGap": 10,
       "dividerWidth": 1,
       "background": "rgba(255, 255, 255, 0.94)",
-      "openColor": "#3978F6",
-      "exitColor": "#EF4444"
+      "openColor": "#1D4ED8",
+      "exitColor": "#B91C1C"
     }
   }
 }
