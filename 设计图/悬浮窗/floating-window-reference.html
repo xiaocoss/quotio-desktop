@@ -31,6 +31,7 @@
         --plan-start: #3d5bd9;
         --plan-end: #4f46e5;
         --focus-outline: #1d4ed8;
+        --focus-on-danger: #ffffff;
         --font-sans: "HarmonyOS Sans SC", "MiSans", "PingFang SC", Inter, "Segoe UI", "Microsoft YaHei", sans-serif;
         --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
       }
@@ -469,7 +470,6 @@
         color: var(--danger-text);
       }
 
-      .stop-button:focus-visible,
       .provider-tab:focus-visible,
       .window-action:focus-visible {
         position: relative;
@@ -477,6 +477,14 @@
         outline: 3px solid var(--focus-outline);
         outline-offset: -3px;
         box-shadow: inset 0 0 0 1px #fff;
+      }
+
+      .stop-button:focus-visible {
+        position: relative;
+        z-index: 1;
+        outline: 3px solid var(--focus-on-danger);
+        outline-offset: -3px;
+        box-shadow: inset 0 0 0 1px #7f1d1d;
       }
 
       @media (max-width: 379px) {

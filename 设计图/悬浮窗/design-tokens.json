@@ -42,7 +42,8 @@
     "dangerSoft": "#FEF0F0",
     "planGradientStart": "#3D5BD9",
     "planGradientEnd": "#4F46E5",
-    "focusOutline": "#1D4ED8"
+    "focusOutline": "#1D4ED8",
+    "focusOnDanger": "#FFFFFF"
   },
   "typography": {
     "unit": "px",
@@ -132,7 +133,9 @@
         "paddingX": 12,
         "radius": 999,
         "background": "#DC2626",
-        "text": "#FFFFFF"
+        "text": "#FFFFFF",
+        "focusRing": "3px solid #FFFFFF",
+        "focusInset": -3
       }
     },
     "tabs": {
