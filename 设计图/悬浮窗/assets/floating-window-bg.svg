@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1920" viewBox="0 0 720 1920" role="img" aria-labelledby="title desc">
+  <title id="title">Quotio 悬浮窗暖米白背景</title>
+  <desc id="desc">暖米白纸张底色，带克制的蓝色与薄荷色径向柔光、细网格和轻微纸感。</desc>
+  <defs>
+    <radialGradient id="blue-glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(108 252) rotate(63) scale(470 388)">
+      <stop stop-color="#CFE0FF" stop-opacity="0.58" />
+      <stop offset="0.48" stop-color="#E6EEFF" stop-opacity="0.24" />
+      <stop offset="1" stop-color="#F6F3EC" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="mint-glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(632 1418) rotate(-118) scale(520 430)">
+      <stop stop-color="#CDEFE0" stop-opacity="0.48" />
+      <stop offset="0.5" stop-color="#E7F5ED" stop-opacity="0.2" />
+      <stop offset="1" stop-color="#F6F3EC" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="warm-glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(392 900) rotate(90) scale(680 520)">
+      <stop stop-color="#FFFDFC" stop-opacity="0.72" />
+      <stop offset="1" stop-color="#F6F3EC" stop-opacity="0" />
+    </radialGradient>
+    <pattern id="soft-grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" fill="none" stroke="#9DAABB" stroke-width="0.7" stroke-opacity="0.13" />
+      <circle cx="0" cy="0" r="0.8" fill="#8998AA" fill-opacity="0.14" />
+    </pattern>
+    <filter id="paper" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.78" numOctaves="2" seed="17" result="noise" />
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0.36  0 0 0 0 0.32  0 0 0 0 0.26  0 0 0 0.035 0" />
+    </filter>
+  </defs>
+  <rect width="720" height="1920" fill="#F6F3EC" />
+  <rect width="720" height="1920" fill="url(#warm-glow)" />
+  <rect width="720" height="1920" fill="url(#blue-glow)" />
+  <rect width="720" height="1920" fill="url(#mint-glow)" />
+  <rect width="720" height="1920" fill="url(#soft-grid)" opacity="0.52" />
+  <rect width="720" height="1920" filter="url(#paper)" opacity="0.7" />
+</svg>

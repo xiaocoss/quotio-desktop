@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" aria-hidden="true">
+  <defs>
+    <filter id="card-noise" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.74" numOctaves="2" seed="29" result="noise" />
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0.3  0 0 0 0 0.35  0 0 0 0 0.42  0 0 0 0.04 0" />
+    </filter>
+  </defs>
+  <rect width="180" height="180" fill="#FFFFFF" filter="url(#card-noise)" opacity="0.72" />
+</svg>
