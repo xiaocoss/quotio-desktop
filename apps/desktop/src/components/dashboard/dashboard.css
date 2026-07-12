@@ -1,0 +1,755 @@
+/* ============================================================================
+   仪表盘重设计 —— 严格按 设计图/仪表盘 的参考实现落地。
+   全部选择器挂在 .usage-dash 作用域下,自带暖色玻璃拟态调色板,
+   既不依赖也不污染全局 --quotio-* 主题变量。设计令牌见 design-tokens.json。
+   素材在 apps/desktop/public/dashboard/(通过 /dashboard/xxx.svg 引用)。
+   ========================================================================== */
+
+.usage-dash {
+  /* 设计令牌(design-tokens.json) */
+  --primary: #2e7bff;
+  --primary-soft: #e7f0ff;
+  --cost: #ff8a00;
+  --success: #20b86e;
+  --danger: #f05252;
+  --cached: #8b5cf6;
+  --warning: #f59e0b;
+  --d-surface: rgba(255, 255, 255, 0.82);
+  --d-border: rgba(137, 151, 177, 0.24);
+  --d-text: #172033;
+  --d-muted: #65758f;
+  --d-soft: #96a3b8;
+  --d-radius-md: 14px;
+  --d-radius-lg: 20px;
+  --d-radius-xl: 26px;
+  /* 阴影收紧、减淡:原来 0 18px 44px/0.08 会把上下卡片之间的窄缝糊成 #ededef 灰带。
+     设计稿缝隙只有极淡的 #f5f6f7,所以用小偏移 + 小扩散 + 低透明度。 */
+  --d-shadow-card: 0 3px 10px rgba(28, 39, 68, 0.045), 0 1px 2px rgba(28, 39, 68, 0.03);
+  --d-shadow-hover: 0 6px 18px rgba(28, 39, 68, 0.07), 0 2px 5px rgba(28, 39, 68, 0.045);
+
+  color: var(--d-text);
+  /* 暖米色纸感页底 + 柔光装饰(设计里的 body 背景搬到内容区)。
+     注意:不能用 background-attachment: fixed —— 它在 webview 里会把合成器拖垮、
+     导致整页卡死。用普通非固定背景即可,视觉几乎一致。 */
+  background-color: #fbfafa;
+  /* 三处柔光按 dashboard-bg.svg 的圆位置/配色还原(蓝-左上、暖-右上、蓝-右下),
+     用 CSS 径向渐变代替 SVG 里 stdDeviation=120 的高斯模糊——后者被 cover 放大栅格
+     会把 webview 绘制拖到卡死。 */
+  /* 纯色页底,不叠柔光渐变——渐变中心会聚在顶部形成明显色块。 */
+}
+
+.usage-dash * {
+  box-sizing: border-box;
+}
+
+/* ---------- 顶栏(标题 + 自动刷新/刷新) ---------- */
+.usage-dash.dashboard-content {
+  gap: 0;
+}
+
+.usage-dash .page-topbar {
+  z-index: 5;
+  min-height: 40px;
+  padding: 4px 2px 18px;
+  background: transparent;
+}
+.usage-dash .page-topbar::before {
+  display: none;
+}
+.usage-dash .page-topbar h1 {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  color: var(--d-text);
+}
+
+.usage-dash .dash-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--d-muted);
+  font-size: 13px;
+  font-weight: 740;
+}
+.usage-dash .dash-toolbar-label {
+  white-space: nowrap;
+}
+
+.usage-dash .dashboard-scroll {
+  gap: 18px;
+  padding-right: 6px;
+  padding-bottom: 8px;
+}
+
+/* ---------- 通用控件:按钮 / 选择器 / tab / chip ---------- */
+.usage-dash .dash-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  color: #fff;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+  background: linear-gradient(135deg, #3b86ff, #1f6af0);
+  box-shadow: 0 12px 28px rgba(46, 123, 255, 0.28);
+  transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+}
+.usage-dash .dash-refresh:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(46, 123, 255, 0.34);
+}
+.usage-dash .dash-refresh:active {
+  transform: translateY(0);
+}
+.usage-dash .dash-refresh svg {
+  width: 15px;
+  height: 15px;
+}
+.usage-dash .dash-refresh--busy {
+  opacity: 0.75;
+  pointer-events: none;
+}
+.usage-dash .dash-refresh--busy svg {
+  animation: dash-spin 0.9s linear infinite;
+}
+@keyframes dash-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 自定义 Select 的触发按钮改成设计里的 chip 样式(弹层仍走全局 .qselect-menu) */
+.usage-dash .qselect-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--d-border);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #526179;
+  font: inherit;
+  font-weight: 750;
+  text-align: left;
+  box-shadow: 0 8px 20px rgba(46, 123, 255, 0.06);
+}
+.usage-dash .qselect-button:hover {
+  border-color: rgba(46, 123, 255, 0.32);
+}
+.usage-dash .qselect-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- 面板(白色半透明玻璃卡 + 噪点纹理) ---------- */
+.usage-dash .panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--d-border);
+  border-radius: var(--d-radius-xl);
+  /* 设计稿实测:卡片是干净纯白 #fdfdfd,靠边框+阴影区分,无噪点、无半透明渐变。 */
+  background: #ffffff;
+  box-shadow: var(--d-shadow-card);
+  /* 显式关掉全局 .panel 的 backdrop-filter:11 个面板叠加大背景图的实时模糊会把
+     webview 绘制拖到卡死。半透明白底 + 阴影 + 边框已足够呈现玻璃感。 */
+  backdrop-filter: none;
+}
+
+/* ---------- 筛选区 ---------- */
+.usage-dash .usage-filter-bar {
+  padding: 18px;
+}
+.usage-dash .range-tabs,
+.usage-dash .usage-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.usage-dash .range-tabs {
+  margin-bottom: 14px;
+}
+.usage-dash .range-tab {
+  min-width: 74px;
+  height: 40px;
+  padding: 0 18px;
+  border: 1px solid var(--d-border);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #526179;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(46, 123, 255, 0.06);
+  transition: color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+.usage-dash .range-tab--active {
+  color: var(--primary);
+  background: #fff;
+  border-color: rgba(46, 123, 255, 0.2);
+  box-shadow: 0 10px 24px rgba(46, 123, 255, 0.14);
+}
+
+.usage-dash .custom-range-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.usage-dash .custom-range-row input {
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--d-border);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--d-text);
+  font: inherit;
+  font-weight: 650;
+}
+.usage-dash .custom-range-sep {
+  color: var(--d-soft);
+}
+
+.usage-dash .usage-search-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+.usage-dash .usage-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  height: 46px;
+  padding: 0 16px;
+  color: var(--d-soft);
+  border: 1px solid var(--d-border);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.72);
+}
+.usage-dash .usage-search svg {
+  flex-shrink: 0;
+}
+.usage-dash .usage-search input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--d-text);
+  font: inherit;
+  font-weight: 600;
+  outline: none;
+}
+.usage-dash .usage-search input::placeholder {
+  color: var(--d-soft);
+  font-weight: 600;
+}
+.usage-dash .ghost-action {
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--d-border);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--primary);
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.usage-dash .ghost-action:disabled {
+  color: var(--d-soft);
+  cursor: default;
+  opacity: 0.7;
+}
+
+/* ---------- KPI 卡片(2 × 4) ---------- */
+.usage-dash .kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+.usage-dash .kpi {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  align-items: center;
+  min-height: 112px;
+  padding: 20px;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.usage-dash .kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--d-shadow-hover);
+}
+.usage-dash .orb {
+  width: 58px;
+  height: 58px;
+  border-radius: 22px;
+  display: grid;
+  place-items: center;
+}
+.usage-dash .orb svg {
+  width: 24px;
+  height: 24px;
+}
+.usage-dash .orb.blue {
+  color: var(--primary);
+  background: linear-gradient(135deg, #e8f1ff, #d9e8ff);
+}
+.usage-dash .orb.orange {
+  color: var(--cost);
+  background: linear-gradient(135deg, #fff3df, #ffe4bd);
+}
+.usage-dash .orb.red {
+  color: var(--danger);
+  background: linear-gradient(135deg, #fff0f0, #ffdede);
+}
+.usage-dash .orb.green {
+  color: var(--success);
+  background: linear-gradient(135deg, #e9f9f1, #d7f3e4);
+}
+.usage-dash .orb.purple {
+  color: var(--cached);
+  background: linear-gradient(135deg, #f2edff, #e8dcff);
+}
+.usage-dash .kpi-label {
+  color: var(--d-muted);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.02em;
+}
+.usage-dash .kpi-value {
+  margin-top: 3px;
+  font-size: 32px;
+  line-height: 38px;
+  font-weight: 850;
+  letter-spacing: -0.8px;
+}
+.usage-dash .kpi-note {
+  margin-top: 4px;
+  color: var(--d-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+.usage-dash .blue-text {
+  color: var(--primary);
+}
+.usage-dash .orange-text {
+  color: var(--cost);
+}
+.usage-dash .red-text {
+  color: var(--danger);
+}
+.usage-dash .green-text {
+  color: var(--success);
+}
+.usage-dash .purple-text {
+  color: var(--cached);
+}
+
+/* ---------- 图表面板 ---------- */
+.usage-dash .chart-panel {
+  padding: 22px 24px 20px;
+}
+.usage-dash .panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.usage-dash .panel-title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 850;
+  color: var(--d-text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.usage-dash .panel-desc {
+  margin: 3px 0 0;
+  color: var(--d-muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+.usage-dash .segmented {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--d-border);
+  border-radius: 16px;
+  background: rgba(244, 247, 252, 0.82);
+}
+.usage-dash .segmented button {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.usage-dash .segmented button.active {
+  color: var(--primary);
+  background: #fff;
+  box-shadow: 0 10px 22px rgba(46, 123, 255, 0.14);
+}
+
+/* flex 列里的面板默认 min-width:auto,不肯缩到内容宽度以下 —— Recharts 容器会撑到
+   自身内容宽,导致窄窗横向溢出、被 .usage-dash 的 overflow:hidden 裁掉。给它们
+   min-width:0 才能随窗口收缩。 */
+.usage-dash .dashboard-scroll > * {
+  min-width: 0;
+  /* flex 列 + overflow-y:auto 下,子项默认 flex-shrink:1 会被压扁(筛选栏因 .panel
+     的 overflow:hidden 更是被压到近 0)。flex-shrink:0 让它们保持原高、超出则滚动。 */
+  flex-shrink: 0;
+}
+.usage-dash .chart-canvas {
+  height: 282px;
+  min-width: 0;
+  overflow: hidden;
+}
+.usage-dash .chart-empty {
+  height: 282px;
+  display: grid;
+  place-items: center;
+  color: var(--d-soft);
+  font-weight: 700;
+}
+
+/* Recharts 坐标轴/网格配色贴合设计 */
+.usage-dash .recharts-cartesian-grid line {
+  stroke: #e4eaf4;
+}
+.usage-dash .recharts-text {
+  fill: #8fa0b8;
+  font-size: 12px;
+  font-weight: 700;
+}
+.usage-dash .recharts-default-tooltip {
+  border-radius: 12px !important;
+  border: 1px solid var(--d-border) !important;
+  box-shadow: var(--d-shadow-card) !important;
+}
+
+/* ---------- 账号汇总表格 ---------- */
+.usage-dash .table-panel {
+  padding: 18px 22px;
+}
+.usage-dash .table-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.usage-dash .table-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 850;
+}
+.usage-dash .table-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.usage-dash .table-actions .sort-label {
+  color: var(--d-muted);
+  font-size: 13px;
+  font-weight: 740;
+}
+.usage-dash .mini-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 220px;
+  height: 38px;
+  padding: 0 12px;
+  color: var(--d-soft);
+  border: 1px solid var(--d-border);
+  border-radius: 13px;
+  background: #fff;
+}
+.usage-dash .mini-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--d-text);
+  font: inherit;
+  font-weight: 600;
+  outline: none;
+}
+.usage-dash .mini-search input::placeholder {
+  color: var(--d-soft);
+}
+.usage-dash .view-toggle {
+  display: flex;
+  gap: 6px;
+}
+.usage-dash .view-toggle button {
+  min-width: 56px;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--d-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #526179;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+.usage-dash .view-toggle button.active {
+  color: var(--primary);
+  background: #fff;
+  border-color: rgba(46, 123, 255, 0.2);
+  box-shadow: 0 10px 24px rgba(46, 123, 255, 0.14);
+}
+.usage-dash .icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--d-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--d-muted);
+  cursor: pointer;
+}
+.usage-dash .icon-button--spinning svg {
+  animation: dash-spin 0.9s linear infinite;
+}
+
+.usage-dash .account-table-wrap {
+  overflow-x: auto;
+  min-width: 0;
+}
+.usage-dash table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.usage-dash thead th {
+  color: #65758f;
+  font-size: 12px;
+  font-weight: 750;
+  text-align: left;
+  letter-spacing: 0.02em;
+}
+.usage-dash th,
+.usage-dash td {
+  padding: 12px 8px;
+  border-bottom: 1px solid rgba(221, 228, 238, 0.9);
+}
+.usage-dash td {
+  color: #273246;
+  font-weight: 680;
+}
+.usage-dash th.num,
+.usage-dash td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.usage-dash tbody tr:last-child td {
+  border-bottom: none;
+}
+.usage-dash .account-cell {
+  display: grid;
+  gap: 2px;
+}
+.usage-dash .account-name {
+  color: #273246;
+  font-weight: 720;
+}
+.usage-dash .account-provider {
+  color: #7b8aa2;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.usage-dash .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 850;
+}
+.usage-dash .badge--good {
+  color: #1a7f4b;
+  background: #e3f7ec;
+}
+.usage-dash .badge--warn {
+  color: #b96e00;
+  background: #fff1d9;
+}
+.usage-dash .badge--bad {
+  color: #d93b3b;
+  background: #ffe8e8;
+}
+.usage-dash .badge--neutral {
+  color: #64748b;
+  background: #eef1f6;
+}
+.usage-dash .link-action {
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* 卡片视图 */
+.usage-dash .acct-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+.usage-dash .acct-card {
+  border: 1px solid var(--d-border);
+  border-radius: var(--d-radius-lg);
+  background: rgba(255, 255, 255, 0.7);
+  padding: 16px;
+}
+.usage-dash .acct-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.usage-dash .acct-card-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px 16px;
+  margin: 12px 0;
+}
+.usage-dash .acct-card-metrics dt {
+  color: var(--d-muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+.usage-dash .acct-card-metrics dd {
+  margin: 2px 0 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--d-text);
+}
+.usage-dash .acct-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--d-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+/* 分页 */
+.usage-dash .dash-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 4px;
+}
+.usage-dash .dash-pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.usage-dash .dash-page-btn {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--d-border);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #526179;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.usage-dash .dash-page-btn--active {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #3b86ff, #1f6af0);
+  box-shadow: 0 10px 22px rgba(46, 123, 255, 0.22);
+}
+.usage-dash .dash-page-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.usage-dash .dash-pagination-count {
+  color: var(--d-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.usage-dash .account-summary-empty {
+  padding: 40px 8px;
+  text-align: center;
+  color: var(--d-muted);
+}
+.usage-dash .account-summary-empty strong {
+  display: block;
+  color: var(--d-text);
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+/* 错误条 */
+.usage-dash .dash-error {
+  padding: 12px 16px;
+  border: 1px solid rgba(240, 82, 82, 0.3);
+  border-radius: var(--d-radius-md);
+  background: rgba(255, 240, 240, 0.9);
+  color: #b3261e;
+  font-weight: 650;
+  font-size: 13px;
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 1180px) {
+  .usage-dash .kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .usage-dash .kpis {
+    grid-template-columns: 1fr;
+  }
+  .usage-dash .panel-head,
+  .usage-dash .table-tools {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="icon-quota" viewBox="0 0 24 24">
+    <path d="M5 5.8C5 4.8 5.8 4 6.8 4h10.4C18.2 4 19 4.8 19 5.8v12.4c0 1-.8 1.8-1.8 1.8H6.8C5.8 20 5 19.2 5 18.2V5.8Z" fill="none" stroke="currentColor" stroke-width="2"/>
+    <path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="icon-dashboard" viewBox="0 0 24 24">
+    <path d="M4 13.2C4 8.7 7.6 5 12 5s8 3.7 8 8.2V18a1 1 0 0 1-1 1h-4.2a1 1 0 0 1-1-1v-3.2h-3.6V18a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4.8Z" fill="currentColor"/>
+  </symbol>
+  <symbol id="icon-refresh" viewBox="0 0 24 24">
+    <path d="M19 7v5h-5M5 17v-5h5M18.2 11A6.5 6.5 0 0 0 7.1 7.5L5 10m.8 3A6.5 6.5 0 0 0 16.9 16.5L19 14" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="icon-shield" viewBox="0 0 24 24">
+    <path d="M12 3.8 19 6.6v5.2c0 4.2-2.8 7.2-7 8.4-4.2-1.2-7-4.2-7-8.4V6.6l7-2.8Z" fill="none" stroke="currentColor" stroke-width="2"/>
+    <path d="m8.6 12 2.2 2.2 4.7-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="icon-alert" viewBox="0 0 24 24">
+    <path d="M12 4 21 20H3L12 4Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M12 9v5m0 3h.01" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="icon-clock" viewBox="0 0 24 24">
+    <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" fill="none" stroke="currentColor" stroke-width="2"/>
+    <path d="M12 7v5l3.5 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="icon-stack" viewBox="0 0 24 24">
+    <path d="m12 4 8 4-8 4-8-4 8-4Zm-6 8 6 3 6-3M6 16l6 3 6-3" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="icon-plus" viewBox="0 0 24 24">
+    <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="icon-list" viewBox="0 0 24 24">
+    <path d="M9 7h11M9 12h11M9 17h11M4 7h.01M4 12h.01M4 17h.01" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="icon-chart" viewBox="0 0 24 24">
+    <path d="M5 19V5M5 19h14M9 15l3-4 3 2 4-7" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+</svg>

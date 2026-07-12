@@ -80,3 +80,6 @@ lerna-debug.log*
 # 不能被上面的全局 dist/ 规则忽略,否则 CI 检出后编不过(Asset::get 缺失)。
 !vendor/kiro-rs/admin-ui/dist/
 !vendor/kiro-rs/admin-ui/dist/**
+
+# TypeScript 增量构建缓存
+*.tsbuildinfo

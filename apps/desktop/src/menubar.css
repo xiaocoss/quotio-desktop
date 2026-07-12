@@ -1,0 +1,489 @@
+/* Quotio 悬浮窗(托盘菜单栏面板)重设计样式。
+   严格对齐 设计图/悬浮窗/floating-window-reference.html 与 design-tokens.json。
+   作用域全部收敛在 .floating-window 下,避免影响主窗口共用的 App.css。
+   背景改用纯 CSS 径向柔光(不用 feTurbulence / card-noise / background fixed),
+   规避 WebView2 合成器卡顿(见记忆:大高斯模糊 SVG cover / background-attachment:fixed)。 */
+
+.floating-window {
+  --fw-page: #f6f3ec;
+  --fw-surface: #ffffff;
+  --fw-surface-muted: #f7f9fc;
+  --fw-text: #1f2937;
+  --fw-text-secondary: #667085;
+  --fw-text-muted: #98a2b3;
+  --fw-border: #dde3eb;
+  --fw-divider: #e7ebf1;
+  --fw-track: #e9edf3;
+  --fw-dot-idle: #d7dee8;
+  --fw-primary: #3978f6;
+  --fw-primary-soft: #edf3ff;
+  --fw-success: #35b96b;
+  --fw-warning: #f59e0b;
+  --fw-danger: #ef4444;
+  --fw-plan: #6d6bff;
+  --fw-focus-ring: rgba(57, 120, 246, 0.22);
+  --fw-sans: "HarmonyOS Sans SC", "MiSans", "PingFang SC", Inter, "Segoe UI", "Microsoft YaHei", sans-serif;
+  --fw-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+/* 悬浮窗是独立的 transparent 窗口:重置共用的 App.css body 约束(min-width:960 会撑爆),
+   并让 body 透明以便窗口圆角外露出桌面。 */
+body:has(.floating-window) {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+.floating-window {
+  position: fixed;
+  inset: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: 48px auto minmax(0, 1fr) 144px;
+  overflow: hidden;
+  isolation: isolate;
+  color: var(--fw-text);
+  font-family: var(--fw-sans);
+  font-size: 13px;
+  border: 1px solid var(--fw-border);
+  border-radius: 18px;
+  /* 不透明暖米白实底 + 克制的蓝 / 薄荷 / 暖白径向柔光(纯 CSS,无滤镜)。 */
+  background:
+    radial-gradient(430px 360px at 16% 11%, rgba(207, 224, 255, 0.55), rgba(207, 224, 255, 0) 62%),
+    radial-gradient(470px 390px at 86% 85%, rgba(205, 239, 224, 0.46), rgba(205, 239, 224, 0) 60%),
+    radial-gradient(620px 520px at 50% 44%, rgba(255, 253, 252, 0.7), rgba(255, 253, 252, 0) 72%),
+    var(--fw-page);
+  animation: fw-fade-in 0.15s ease-out;
+}
+
+@keyframes fw-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.floating-window--loading {
+  place-items: center;
+}
+
+.floating-window--loading .fw-pulse {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--fw-primary-soft);
+  animation: fw-pulse 1s ease-in-out infinite;
+}
+
+@keyframes fw-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+.floating-window button {
+  font: inherit;
+}
+
+/* ===== Header ===== */
+.window-header {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 10px;
+  border-bottom: 1px solid var(--fw-divider);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.window-header .brand {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+}
+
+.window-header .endpoint {
+  min-width: 0;
+  max-width: 156px;
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--fw-text-secondary);
+}
+
+.window-header .endpoint .status-icon {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  color: var(--fw-success);
+}
+
+.window-header .endpoint.is-stopped .status-icon {
+  color: var(--fw-text-muted);
+}
+
+.window-header .endpoint code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--fw-mono);
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.stop-button {
+  height: 28px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fw-danger);
+  box-shadow: 0 1px 2px rgba(31, 41, 55, 0.08);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.stop-button:hover { background: #dc3535; }
+.stop-button:active { transform: translateY(1px); }
+.stop-button:disabled { opacity: 0.55; cursor: default; }
+
+/* 已停止 → 按钮变主色「启动」。 */
+.stop-button.is-start {
+  background: var(--fw-primary);
+}
+.stop-button.is-start:hover { background: #2f6be0; }
+
+.floating-window .icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: currentColor;
+}
+
+.stop-button .icon {
+  width: 13px;
+  height: 13px;
+}
+
+/* ===== Provider tabs ===== */
+.provider-tabs {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  gap: 4px;
+  padding: 8px 10px 9px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--fw-divider);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.provider-tab {
+  height: 24px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: var(--fw-text-secondary);
+  border: 1px solid var(--fw-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 500;
+  transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+.provider-tab:hover {
+  color: var(--fw-primary);
+  border-color: #c8d8fb;
+}
+
+.provider-tab.active {
+  color: var(--fw-primary);
+  border-color: #bfd3fb;
+  background: var(--fw-primary-soft);
+  box-shadow: 0 1px 2px rgba(31, 41, 55, 0.08);
+  font-weight: 600;
+}
+
+/* ===== Account scroll list ===== */
+.account-scroll {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: #c6ced9 transparent;
+}
+
+.account-scroll::-webkit-scrollbar { width: 4px; }
+.account-scroll::-webkit-scrollbar-track { background: transparent; }
+.account-scroll::-webkit-scrollbar-thumb {
+  min-height: 40px;
+  border-radius: 999px;
+  background: #c6ced9;
+}
+.account-scroll::-webkit-scrollbar-thumb:hover { background: #aeb9c7; }
+
+.account-empty {
+  margin: 0;
+  padding: 24px 8px;
+  text-align: center;
+  color: var(--fw-text-muted);
+  font-size: 12px;
+}
+
+/* ===== Account card ===== */
+.account-card {
+  --state-color: var(--fw-success);
+  --state-soft: rgba(53, 185, 107, 0.075);
+  min-width: 0;
+  flex: 0 0 auto;
+  min-height: 156px;
+  padding: 12px;
+  display: grid;
+  grid-template-rows: 20px 18px 7px auto auto;
+  row-gap: 7px;
+  overflow: hidden;
+  border: 1px solid var(--fw-divider);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, var(--state-soft), rgba(255, 255, 255, 0) 44%),
+    var(--fw-surface);
+  box-shadow: 0 1px 3px rgba(31, 41, 55, 0.06);
+}
+
+.account-card.account-card--warn {
+  --state-color: var(--fw-warning);
+  --state-soft: rgba(245, 158, 11, 0.09);
+  border-color: #f7dfae;
+}
+
+.account-card.account-card--bad {
+  --state-color: var(--fw-danger);
+  --state-soft: rgba(239, 68, 68, 0.09);
+  border-color: #f7caca;
+}
+
+.account-title {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.account-email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.health-percent {
+  color: var(--state-color);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-badge {
+  height: 20px;
+  padding: 0 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #538bfa, var(--fw-plan));
+  box-shadow: 0 1px 2px rgba(31, 41, 55, 0.08);
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.account-meta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--fw-text-secondary);
+  font-size: 10px;
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+}
+
+.meta-item {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.meta-item:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 1 auto;
+}
+
+.meta-item .icon {
+  width: 13px;
+  height: 13px;
+}
+
+/* HealthDots 组件复用:悬浮窗内套设计尺寸(7px)与状态色。 */
+.floating-window .health-dots {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.floating-window .health-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 999px;
+  background: var(--fw-dot-idle);
+}
+
+.floating-window .health-dot--good { background: var(--fw-success); }
+.floating-window .health-dot--warn { background: var(--fw-warning); }
+.floating-window .health-dot--bad { background: var(--fw-danger); }
+.floating-window .health-dot--idle { background: var(--fw-dot-idle); }
+
+/* ===== Session / Weekly quota rows ===== */
+.quota-row {
+  --quota-color: var(--fw-success);
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: 17px 6px;
+  column-gap: 8px;
+  row-gap: 4px;
+  align-items: center;
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.quota-row.quota-row--warn { --quota-color: var(--fw-warning); }
+.quota-row.quota-row--bad { --quota-color: var(--fw-danger); }
+
+.quota-name,
+.quota-time {
+  color: var(--fw-text-secondary);
+}
+
+.quota-time {
+  min-width: 0;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quota-percent {
+  color: var(--fw-text);
+  font-weight: 700;
+}
+
+.progress-track {
+  grid-column: 1 / -1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--fw-track);
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--quota-color);
+}
+
+/* ===== Footer actions ===== */
+.window-actions {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: repeat(3, 48px);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: inset 0 1px 0 var(--fw-divider);
+}
+
+.window-action {
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--fw-text);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 600;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.window-action + .window-action {
+  border-top: 1px solid var(--fw-divider);
+}
+
+.window-action:hover { background: var(--fw-surface-muted); }
+.window-action:disabled { opacity: 0.55; cursor: default; }
+.window-action.action-open { color: var(--fw-primary); }
+.window-action.action-exit { color: var(--fw-danger); }
+
+.window-action .fw-action-icon--spin {
+  animation: fw-spin 0.9s linear infinite;
+  display: inline-flex;
+}
+
+@keyframes fw-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Focus ===== */
+.stop-button:focus-visible,
+.provider-tab:focus-visible,
+.window-action:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--fw-focus-ring);
+}

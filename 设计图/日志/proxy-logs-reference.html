@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quotio 代理日志页面设计参考</title>
+  <style>
+    :root {
+      --surface: rgba(255, 255, 255, 0.88);
+      --border: rgba(137, 151, 177, 0.24);
+      --border-strong: rgba(92, 110, 140, 0.32);
+      --text: #172033;
+      --muted: #66758f;
+      --soft: #9aa7ba;
+      --primary: #2e7bff;
+      --primary-strong: #1264e8;
+      --primary-soft: #e7f0ff;
+      --success: #20b86e;
+      --success-soft: #e9f9f1;
+      --warning: #ff9f1c;
+      --warning-soft: #fff4df;
+      --danger: #ef4444;
+      --danger-soft: #fff0f0;
+      --lavender: #8b5cf6;
+      --lavender-soft: #f2edff;
+      --shadow: 0 18px 44px rgba(28, 39, 68, 0.08), 0 2px 8px rgba(28, 39, 68, 0.05);
+      --font: "HarmonyOS Sans SC", "MiSans", "SF Pro Rounded", "PingFang SC", sans-serif;
+      --mono: "SFMono-Regular", "JetBrains Mono", "Cascadia Code", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-width: 320px;
+      min-height: 100%;
+      margin: 0;
+    }
+
+    body {
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      background:
+        linear-gradient(rgba(250, 251, 254, 0.46), rgba(250, 251, 254, 0.46)),
+        url("./assets/logs-bg.svg") center / cover fixed;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button,
+    input,
+    select {
+      color: inherit;
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .icon {
+      width: 19px;
+      height: 19px;
+      flex: 0 0 auto;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 228px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 20px 14px 18px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.91), rgba(249, 251, 255, 0.83)),
+        url("./assets/card-noise.svg");
+      border-right: 1px solid rgba(121, 138, 168, 0.16);
+      box-shadow: 12px 0 42px rgba(30, 42, 68, 0.06);
+      backdrop-filter: blur(24px);
+    }
+
+    .traffic-lights {
+      display: flex;
+      gap: 10px;
+      padding: 2px 8px 25px;
+    }
+
+    .traffic-lights span {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+    }
+
+    .traffic-lights span:nth-child(1) { background: #ff5f57; }
+    .traffic-lights span:nth-child(2) { background: #febc2e; }
+    .traffic-lights span:nth-child(3) { background: #28c840; }
+
+    .nav {
+      display: grid;
+      gap: 4px;
+    }
+
+    .nav-item {
+      height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 14px;
+      color: #344159;
+      font-weight: 720;
+      text-decoration: none;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      transition: 160ms ease;
+    }
+
+    .nav-item:hover {
+      color: var(--primary);
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .nav-item.active {
+      color: var(--primary-strong);
+      background: linear-gradient(120deg, rgba(232, 241, 255, 0.98), rgba(255, 255, 255, 0.92));
+      border-color: rgba(46, 123, 255, 0.18);
+      box-shadow: 0 10px 24px rgba(46, 123, 255, 0.1);
+    }
+
+    .sidebar-spacer {
+      flex: 1;
+      min-height: 24px;
+    }
+
+    .proxy-card {
+      min-height: 62px;
+      display: grid;
+      grid-template-columns: 36px 1fr auto;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 12px 28px rgba(28, 39, 68, 0.06);
+    }
+
+    .proxy-icon {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      color: var(--success);
+      background: var(--success-soft);
+      border-radius: 11px;
+    }
+
+    .proxy-card strong {
+      display: block;
+      font-size: 13px;
+    }
+
+    .proxy-card small {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-weight: 650;
+    }
+
+    .proxy-card .chevron {
+      color: var(--muted);
+      font-size: 20px;
+    }
+
+    .sidebar-status {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 13px;
+      padding: 0 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      display: inline-block;
+      margin-right: 7px;
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 0 5px rgba(32, 184, 110, 0.1);
+    }
+
+    .content {
+      width: 100%;
+      max-width: 1520px;
+      margin: 0 auto;
+      padding: 26px 28px 30px;
+    }
+
+    .header {
+      min-height: 54px;
+      display: grid;
+      grid-template-columns: auto auto 1fr auto;
+      align-items: start;
+      gap: 20px;
+      margin-bottom: 17px;
+    }
+
+    .page-title {
+      margin: 0;
+      font-size: 28px;
+      line-height: 34px;
+      font-weight: 850;
+      letter-spacing: -0.3px;
+    }
+
+    .page-subtitle {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .tabs {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      padding: 4px;
+      background: rgba(255, 255, 255, 0.68);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(28, 39, 68, 0.04);
+    }
+
+    .tab {
+      min-width: 86px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      color: var(--muted);
+      font-weight: 760;
+      text-decoration: none;
+      background: transparent;
+      border-radius: 9px;
+    }
+
+    .tab.active {
+      color: var(--primary);
+      background: #fff;
+      box-shadow: 0 8px 20px rgba(46, 123, 255, 0.13);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .search {
+      width: 252px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 13px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid var(--border-strong);
+      border-radius: 11px;
+      box-shadow: 0 4px 12px rgba(28, 39, 68, 0.04);
+    }
+
+    .search input {
+      min-width: 0;
+      width: 100%;
+      background: transparent;
+      border: 0;
+      outline: 0;
+    }
+
+    .search input::placeholder {
+      color: var(--soft);
+    }
+
+    .btn {
+      min-height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 15px;
+      color: #344159;
+      font-weight: 760;
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid var(--border-strong);
+      border-radius: 11px;
+      box-shadow: 0 4px 12px rgba(28, 39, 68, 0.04);
+    }
+
+    .btn.danger {
+      color: var(--danger);
+      border-color: rgba(239, 68, 68, 0.22);
+    }
+
+    .panel,
+    .metric {
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.93), rgba(255, 255, 255, 0.77)),
+        url("./assets/card-noise.svg");
+      border: 1px solid var(--border);
+      border-radius: 17px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(20px);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .metric {
+      min-height: 92px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 16px 20px;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 720;
+    }
+
+    .metric-value {
+      margin-top: 4px;
+      font-size: 29px;
+      line-height: 32px;
+      font-weight: 850;
+      letter-spacing: -0.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric-value.healthy {
+      color: var(--success);
+      font-size: 23px;
+    }
+
+    .metric-value.error {
+      color: var(--danger);
+    }
+
+    .metric-icon {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      color: var(--metric-color, var(--primary));
+      background: var(--metric-soft, var(--primary-soft));
+      border-radius: 14px;
+    }
+
+    .metric-icon .icon {
+      width: 23px;
+      height: 23px;
+    }
+
+    .metric.status {
+      --metric-color: var(--success);
+      --metric-soft: var(--success-soft);
+    }
+
+    .metric.errors {
+      --metric-color: var(--danger);
+      --metric-soft: var(--danger-soft);
+    }
+
+    .runtime-strip {
+      min-height: 64px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      align-items: center;
+      margin-bottom: 15px;
+      padding: 0 8px;
+    }
+
+    .runtime-item {
+      min-width: 0;
+      min-height: 42px;
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      align-items: center;
+      gap: 10px;
+      padding: 0 18px;
+      border-right: 1px solid var(--border);
+    }
+
+    .runtime-item:last-child {
+      border-right: 0;
+    }
+
+    .runtime-item > .icon,
+    .runtime-dot {
+      width: 28px;
+      height: 28px;
+      color: var(--primary);
+    }
+
+    .runtime-dot {
+      display: grid;
+      place-items: center;
+    }
+
+    .runtime-dot::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 0 8px rgba(32, 184, 110, 0.1);
+    }
+
+    .runtime-item strong {
+      display: block;
+      font-size: 12px;
+    }
+
+    .runtime-item small {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .switch {
+      justify-self: end;
+      width: 42px;
+      height: 24px;
+      position: relative;
+      background: var(--primary);
+      border-radius: 999px;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+    }
+
+    .switch::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      width: 18px;
+      height: 18px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 2px 6px rgba(18, 40, 78, 0.2);
+    }
+
+    .filters {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      overflow-x: auto;
+    }
+
+    .level {
+      min-width: 76px;
+      height: 38px;
+      font-size: 12px;
+      font-weight: 790;
+      background: rgba(255, 255, 255, 0.74);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .level.active {
+      color: var(--primary);
+      border-color: rgba(46, 123, 255, 0.32);
+      box-shadow: 0 8px 18px rgba(46, 123, 255, 0.1);
+    }
+
+    .level.info {
+      color: #11884f;
+      border-color: rgba(32, 184, 110, 0.22);
+    }
+
+    .level.warn {
+      color: #bd7300;
+      border-color: rgba(255, 159, 28, 0.25);
+    }
+
+    .level.error {
+      color: #d93636;
+      border-color: rgba(239, 68, 68, 0.22);
+    }
+
+    .select-wrap {
+      position: relative;
+    }
+
+    .select-wrap select {
+      min-width: 228px;
+      height: 38px;
+      padding: 0 38px 0 14px;
+      font-size: 12px;
+      font-weight: 720;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      appearance: none;
+    }
+
+    .select-wrap::after {
+      content: "⌄";
+      position: absolute;
+      top: 7px;
+      right: 14px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .reset {
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 12px;
+      color: var(--primary);
+      font-weight: 750;
+      background: transparent;
+      border: 0;
+      white-space: nowrap;
+    }
+
+    .stream {
+      box-shadow: 0 22px 54px rgba(28, 39, 68, 0.09), 0 3px 12px rgba(28, 39, 68, 0.05);
+    }
+
+    .stream-head {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 16px;
+      font-size: 14px;
+      font-weight: 840;
+      background: rgba(249, 251, 255, 0.86);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .live {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--success);
+      font-size: 11px;
+      font-weight: 820;
+      letter-spacing: 0.4px;
+    }
+
+    .live::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 0 5px rgba(32, 184, 110, 0.09);
+    }
+
+    .log-scroll {
+      overflow-x: auto;
+      background: rgba(251, 252, 254, 0.9);
+    }
+
+    .log-line {
+      min-width: 1240px;
+      min-height: 34px;
+      display: grid;
+      grid-template-columns: 52px 132px 70px 110px minmax(680px, 1fr);
+      align-items: center;
+      color: #42516c;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      font-variant-numeric: tabular-nums;
+      border-bottom: 1px solid rgba(137, 151, 177, 0.16);
+    }
+
+    .log-line:hover {
+      background: #f4f8ff;
+    }
+
+    .log-line.warn {
+      background: rgba(255, 249, 237, 0.86);
+    }
+
+    .log-line.error {
+      background: rgba(255, 242, 242, 0.92);
+    }
+
+    .line-no {
+      height: 100%;
+      display: grid;
+      place-items: center;
+      color: #8794a9;
+      background: rgba(244, 247, 251, 0.86);
+      border-right: 1px solid rgba(137, 151, 177, 0.18);
+    }
+
+    .time {
+      padding-left: 14px;
+      color: #60708b;
+    }
+
+    .level-pill {
+      width: 48px;
+      height: 22px;
+      display: inline-grid;
+      place-items: center;
+      font-family: var(--font);
+      font-size: 10px;
+      font-weight: 840;
+      border-radius: 7px;
+    }
+
+    .level-pill.info {
+      color: #11884f;
+      background: var(--success-soft);
+    }
+
+    .level-pill.warn {
+      color: #bd7300;
+      background: var(--warning-soft);
+    }
+
+    .level-pill.error {
+      color: #d93636;
+      background: var(--danger-soft);
+    }
+
+    .source {
+      color: #64718a;
+      font-weight: 780;
+    }
+
+    .message {
+      overflow: hidden;
+      padding-right: 18px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .stream-footer {
+      min-height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 0 16px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 690;
+      background: rgba(249, 251, 255, 0.82);
+      border-top: 1px solid var(--border);
+    }
+
+    .stream-footer-right {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+    }
+
+    .scrolling {
+      color: var(--success);
+    }
+
+    @media (max-width: 1240px) {
+      .app {
+        grid-template-columns: 210px minmax(0, 1fr);
+      }
+
+      .header {
+        grid-template-columns: auto auto 1fr;
+      }
+
+      .header-actions {
+        grid-column: 1 / -1;
+        justify-self: end;
+        margin-top: -48px;
+      }
+
+      .runtime-strip {
+        grid-template-columns: repeat(2, 1fr);
+        padding: 8px;
+      }
+
+      .runtime-item:nth-child(2) {
+        border-right: 0;
+      }
+
+      .runtime-item:nth-child(n+3) {
+        border-top: 1px solid var(--border);
+      }
+    }
+
+    @media (max-width: 980px) {
+      .metrics {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .header {
+        grid-template-columns: 1fr auto;
+      }
+
+      .header-actions {
+        grid-column: 1 / -1;
+        justify-self: stretch;
+        margin-top: 0;
+      }
+
+      .search {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 820px) {
+      .app {
+        display: block;
+      }
+
+      .sidebar {
+        position: relative;
+        width: 100%;
+        height: auto;
+        padding: 12px;
+      }
+
+      .traffic-lights,
+      .proxy-card,
+      .sidebar-status {
+        display: none;
+      }
+
+      .nav {
+        display: flex;
+        overflow-x: auto;
+      }
+
+      .nav-item {
+        flex: 0 0 auto;
+      }
+
+      .content {
+        padding: 20px 14px 26px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .header {
+        grid-template-columns: 1fr;
+      }
+
+      .header-actions {
+        flex-wrap: wrap;
+      }
+
+      .search {
+        flex-basis: 100%;
+      }
+
+      .metrics,
+      .runtime-strip {
+        grid-template-columns: 1fr;
+      }
+
+      .runtime-item {
+        border-right: 0;
+        border-top: 1px solid var(--border);
+      }
+
+      .runtime-item:first-child {
+        border-top: 0;
+      }
+
+      .stream-footer {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 12px 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="traffic-lights" aria-hidden="true"><span></span><span></span><span></span></div>
+      <nav class="nav" aria-label="主导航">
+        <a class="nav-item" href="#"><svg class="icon"><use href="./assets/log-icons.svg#home" /></svg>仪表盘</a>
+        <a class="nav-item" href="#"><svg class="icon"><use href="./assets/log-icons.svg#quota" /></svg>额度</a>
+        <a class="nav-item" href="#"><svg class="icon"><use href="./assets/log-icons.svg#provider" /></svg>服务商</a>
+        <a class="nav-item" href="#"><svg class="icon"><use href="./assets/log-icons.svg#shield" /></svg>2FA</a>
+        <a class="nav-item" href="#"><svg class="icon"><use href="./assets/log-icons.svg#bot" /></svg>智能体</a>
+        <a class="nav-item" href="#"><svg class="icon"><use href="./assets/log-icons.svg#key" /></svg>API 密钥</a>
+        <a class="nav-item active" href="#"><svg class="icon"><use href="./assets/log-icons.svg#log" /></svg>日志</a>
+        <a class="nav-item" href="#"><svg class="icon"><use href="./assets/log-icons.svg#settings" /></svg>设置</a>
+        <a class="nav-item" href="#"><svg class="icon"><use href="./assets/log-icons.svg#info" /></svg>关于</a>
+      </nav>
+      <div class="sidebar-spacer"></div>
+      <div class="proxy-card">
+        <div class="proxy-icon"><svg class="icon"><use href="./assets/log-icons.svg#play" /></svg></div>
+        <div><strong>本地代理</strong><small>28317 · 运行中</small></div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="sidebar-status">
+        <span><i class="status-dot"></i>运行中</span>
+        <span>:28317</span>
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="header">
+        <div>
+          <h1 class="page-title">日志</h1>
+          <p class="page-subtitle">追踪请求、代理事件与性能异常</p>
+        </div>
+        <div class="tabs">
+          <a class="tab" href="./logs-reference.html"><svg class="icon"><use href="./assets/log-icons.svg#request" /></svg>请求日志</a>
+          <a class="tab active" href="./proxy-logs-reference.html"><svg class="icon"><use href="./assets/log-icons.svg#proxy" /></svg>代理日志</a>
+        </div>
+        <div></div>
+        <div class="header-actions">
+          <label class="search">
+            <svg class="icon"><use href="./assets/log-icons.svg#search" /></svg>
+            <input type="search" placeholder="搜索代理日志" />
+          </label>
+          <button class="btn" type="button"><svg class="icon"><use href="./assets/log-icons.svg#refresh" /></svg>刷新</button>
+          <button class="btn danger" type="button"><svg class="icon"><use href="./assets/log-icons.svg#trash" /></svg>清空</button>
+        </div>
+      </header>
+
+      <section class="metrics" aria-label="代理日志概览">
+        <article class="metric">
+          <div><div class="metric-label">日志行数</div><div class="metric-value">1,248</div></div>
+          <div class="metric-icon"><svg class="icon"><use href="./assets/log-icons.svg#file" /></svg></div>
+        </article>
+        <article class="metric status">
+          <div><div class="metric-label">代理状态</div><div class="metric-value healthy">运行正常</div></div>
+          <div class="metric-icon"><svg class="icon"><use href="./assets/log-icons.svg#shield" /></svg></div>
+        </article>
+        <article class="metric errors">
+          <div><div class="metric-label">错误</div><div class="metric-value error">3</div></div>
+          <div class="metric-icon"><svg class="icon"><use href="./assets/log-icons.svg#alert" /></svg></div>
+        </article>
+        <article class="metric">
+          <div><div class="metric-label">最新日志</div><div class="metric-value">08:12:04</div></div>
+          <div class="metric-icon"><svg class="icon"><use href="./assets/log-icons.svg#clock" /></svg></div>
+        </article>
+      </section>
+
+      <section class="panel runtime-strip" aria-label="代理运行状态">
+        <div class="runtime-item">
+          <span class="runtime-dot"></span>
+          <div><strong>本地代理</strong><small>127.0.0.1:28317</small></div>
+        </div>
+        <div class="runtime-item">
+          <svg class="icon"><use href="./assets/log-icons.svg#file" /></svg>
+          <div><strong>文件日志</strong><small>已开启</small></div>
+        </div>
+        <div class="runtime-item">
+          <svg class="icon" style="color: var(--lavender)"><use href="./assets/log-icons.svg#bug" /></svg>
+          <div><strong>调试模式</strong><small>已关闭</small></div>
+        </div>
+        <div class="runtime-item" style="grid-template-columns: 34px 1fr auto">
+          <svg class="icon"><use href="./assets/log-icons.svg#pulse" /></svg>
+          <div><strong>自动滚动</strong><small>已开启</small></div>
+          <span class="switch" aria-label="自动滚动已开启"></span>
+        </div>
+      </section>
+
+      <section class="filters" aria-label="代理日志筛选">
+        <button class="level active" type="button">全部</button>
+        <button class="level info" type="button">INFO</button>
+        <button class="level warn" type="button">WARN</button>
+        <button class="level error" type="button">ERROR</button>
+        <label class="select-wrap"><select><option>全部来源</option><option>proxy</option><option>route</option><option>upstream</option><option>auth</option><option>retry</option></select></label>
+        <button class="reset" type="button"><svg class="icon"><use href="./assets/log-icons.svg#reset" /></svg>重置筛选</button>
+      </section>
+
+      <section class="panel stream">
+        <header class="stream-head">实时代理日志 <span class="live">LIVE</span></header>
+        <div class="log-scroll" role="log" aria-live="polite">
+          <div class="log-line"><span class="line-no">1</span><span class="time">08:00:39.127</span><span class="level-pill info">INFO</span><span class="source">proxy</span><span class="message">proxy started on 127.0.0.1:28317 (pid: 45231, version: 1.8.2)</span></div>
+          <div class="log-line"><span class="line-no">2</span><span class="time">08:00:39.132</span><span class="level-pill info">INFO</span><span class="source">proxy</span><span class="message">configuration loaded: agents=3, providers=5, models=12, max_concurrent=10</span></div>
+          <div class="log-line"><span class="line-no">3</span><span class="time">08:00:39.221</span><span class="level-pill info">INFO</span><span class="source">proxy</span><span class="message">management snapshot refreshed (tokens: 22.9M, success_rate: 69.0%)</span></div>
+          <div class="log-line"><span class="line-no">4</span><span class="time">08:01:09.008</span><span class="level-pill info">INFO</span><span class="source">route</span><span class="message">route selected: provider=codex model=gpt-5.6-sol health=200</span></div>
+          <div class="log-line"><span class="line-no">5</span><span class="time">08:01:09.009</span><span class="level-pill info">INFO</span><span class="source">upstream</span><span class="message">request started: POST /v1/chat/completions</span></div>
+          <div class="log-line"><span class="line-no">6</span><span class="time">08:01:09.132</span><span class="level-pill info">INFO</span><span class="source">upstream</span><span class="message">request headers forwarded (provider=codex, model=gpt-5.6-sol, stream=false)</span></div>
+          <div class="log-line"><span class="line-no">7</span><span class="time">08:01:58.933</span><span class="level-pill info">INFO</span><span class="source">upstream</span><span class="message">request completed: status=200 latency=49.80s tokens(in/out)=302.2K/175</span></div>
+          <div class="log-line"><span class="line-no">8</span><span class="time">08:02:10.237</span><span class="level-pill info">INFO</span><span class="source">auth</span><span class="message">credential switched: active_provider=codex tokens_remaining=291.2K</span></div>
+          <div class="log-line warn"><span class="line-no">9</span><span class="time">08:02:36.987</span><span class="level-pill warn">WARN</span><span class="source">upstream</span><span class="message">high upstream latency: 77.16s threshold=60s provider=codex model=gpt-5.6-sol</span></div>
+          <div class="log-line warn"><span class="line-no">10</span><span class="time">08:03:27.554</span><span class="level-pill warn">WARN</span><span class="source">upstream</span><span class="message">rate limit hit: status=429 retry-after=10s provider=codex model=gpt-5.6-sol</span></div>
+          <div class="log-line error"><span class="line-no">11</span><span class="time">08:04:38.112</span><span class="level-pill error">ERROR</span><span class="source">upstream</span><span class="message">upstream request failed: status=500 latency=107.03s provider=codex model=gpt-5.6-sol</span></div>
+          <div class="log-line"><span class="line-no">12</span><span class="time">08:04:38.113</span><span class="level-pill info">INFO</span><span class="source">retry</span><span class="message">retry scheduled in 2.00s (attempt 1/3)</span></div>
+          <div class="log-line"><span class="line-no">13</span><span class="time">08:04:40.117</span><span class="level-pill info">INFO</span><span class="source">upstream</span><span class="message">request started: POST /v1/chat/completions (retry attempt 1)</span></div>
+          <div class="log-line"><span class="line-no">14</span><span class="time">08:05:09.993</span><span class="level-pill info">INFO</span><span class="source">upstream</span><span class="message">request completed: status=200 latency=29.88s tokens(in/out)=283.9K/3.5K</span></div>
+          <div class="log-line"><span class="line-no">15</span><span class="time">08:05:20.201</span><span class="level-pill info">INFO</span><span class="source">proxy</span><span class="message">connection closed: 127.0.0.1:54322 duration=71.18s</span></div>
+          <div class="log-line"><span class="line-no">16</span><span class="time">08:12:04.002</span><span class="level-pill info">INFO</span><span class="source">proxy</span><span class="message">heartbeat: proxy alive, uptime=00:11:24, connections=2, requests=28</span></div>
+        </div>
+        <footer class="stream-footer">
+          <span>显示最近 200 / 1,248 行</span>
+          <span class="stream-footer-right"><span>最新 08:12:04</span><span class="scrolling"><i class="status-dot"></i>自动滚动中</span></span>
+        </footer>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

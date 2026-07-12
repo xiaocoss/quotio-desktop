@@ -269,6 +269,7 @@ export const mockAppState: AppState = {
     proxy_port: 28317,
     allow_remote: false,
     launch_at_login: true,
+    keep_proxy_on_exit: false,
     notifications_enabled: true,
     theme: "system",
     language: "zh-CN",

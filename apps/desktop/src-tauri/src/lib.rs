@@ -16,7 +16,7 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     utils::config::WindowEffectsConfig,
     window::Effect,
-    AppHandle, Emitter, Manager, State, WindowEvent,
+    AppHandle, Emitter, Manager, State,
 };
 use tauri_plugin_autostart::ManagerExt;
 
@@ -1535,7 +1535,7 @@ async fn refresh_snapshot_with_client(
 /// Position the menu-bar panel near the tray icon (like macOS NSMenu), then
 /// show + focus it.  Falls back to top-right if no tray rect is available.
 fn position_menubar(panel: &tauri::WebviewWindow, tray_rect: Option<tauri::Rect>) {
-    let panel_w = 280.0_f64;
+    let panel_w = 360.0_f64;
     if let Some(rect) = tray_rect {
         if let Ok(Some(monitor)) = panel.primary_monitor() {
             let scale = monitor.scale_factor();
@@ -1815,27 +1815,14 @@ pub fn run() {
             }
             tray_builder.build(app)?;
 
-            // Menu-bar panel: apply Mica blur + auto-hide on focus loss
+            // Menu-bar panel: apply Mica blur. This is a pinned always-on-top quota
+            // HUD toggled from the tray icon, so it deliberately does NOT auto-hide
+            // on focus loss — clicking another app must not make it vanish. Collapse
+            // it by clicking the tray icon again (toggle_menubar) or "打开 Quotio".
             if let Some(panel) = app.get_webview_window("menubar") {
                 let _ = panel.set_effects(WindowEffectsConfig {
                     effects: vec![Effect::Mica],
                     ..Default::default()
-                });
-                let panel_clone = panel.clone();
-                panel.on_window_event(move |event| {
-                    if let WindowEvent::Focused(false) = event {
-                        let w = panel_clone.clone();
-                        std::thread::spawn(move || {
-                            std::thread::sleep(std::time::Duration::from_millis(180));
-                            // 拖动悬浮窗会触发一次 Focused(false)(webview 进入系统移动
-                            // 循环、失去输入焦点),但拖动期间/结束后窗口在 OS 层仍是焦点
-                            // 窗口。延迟后复查:只有真正切到别的应用(仍未聚焦)才隐藏,
-                            // 避免拖动时被误隐藏;保留「点别处自动收起」的行为。
-                            if !w.is_focused().unwrap_or(false) {
-                                let _ = w.hide();
-                            }
-                        });
-                    }
                 });
             }
 

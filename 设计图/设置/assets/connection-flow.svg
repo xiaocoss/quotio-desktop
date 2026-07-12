@@ -1,0 +1,21 @@
+<svg width="760" height="108" viewBox="0 0 760 108" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="line" x1="118" y1="48" x2="642" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2E7BFF"/>
+      <stop offset="0.52" stop-color="#14B8A6"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+  </defs>
+  <path d="M126 48H634" stroke="url(#line)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="7 8"/>
+  <circle cx="126" cy="48" r="29" fill="#EDF3FF" stroke="#BBD2FF"/>
+  <circle cx="380" cy="48" r="29" fill="#E8FAF5" stroke="#B6EDDF"/>
+  <circle cx="634" cy="48" r="29" fill="#F2EDFF" stroke="#D7CAFF"/>
+  <rect x="116" y="38" width="20" height="20" rx="5" fill="#2E7BFF"/>
+  <rect x="370" y="38" width="20" height="20" rx="5" fill="#14B8A6"/>
+  <path d="M376 44h8M376 49h8M376 54h5" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+  <circle cx="634" cy="48" r="10" fill="#8B5CF6"/>
+  <path d="M626 48h16M634 40a12 12 0 0 1 0 16M634 40a12 12 0 0 0 0 16" stroke="white" stroke-width="1.4"/>
+  <text x="126" y="93" text-anchor="middle" fill="#4B5C78" font-family="PingFang SC, sans-serif" font-size="12" font-weight="600">Quotio 应用</text>
+  <text x="380" y="93" text-anchor="middle" fill="#4B5C78" font-family="PingFang SC, sans-serif" font-size="12" font-weight="600">127.0.0.1:28317</text>
+  <text x="634" y="93" text-anchor="middle" fill="#4B5C78" font-family="PingFang SC, sans-serif" font-size="12" font-weight="600">AI 服务</text>
+</svg>

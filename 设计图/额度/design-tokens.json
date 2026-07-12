@@ -1,0 +1,112 @@
+{
+  "meta": {
+    "name": "quotio-quota-redesign",
+    "target": "desktop-quota-page",
+    "canvas": {
+      "width": 2560,
+      "height": 1310,
+      "sidebarWidth": 256,
+      "contentMaxWidth": 2240
+    }
+  },
+  "colors": {
+    "page": "#F7F3EA",
+    "pageCool": "#F4F8FF",
+    "surface": "rgba(255, 255, 255, 0.84)",
+    "surfaceStrong": "#FFFFFF",
+    "surfaceSoft": "#F9FBFF",
+    "border": "rgba(137, 151, 177, 0.24)",
+    "borderStrong": "rgba(92, 110, 140, 0.32)",
+    "text": "#172033",
+    "textMuted": "#66758F",
+    "textSoft": "#9AA7BA",
+    "primary": "#5E67F2",
+    "primaryBlue": "#2E7BFF",
+    "primarySoft": "#ECEEFF",
+    "provider": "#16A085",
+    "providerSoft": "#E8FAF5",
+    "healthy": "#20B86E",
+    "healthySoft": "#E9F9F1",
+    "warning": "#FF9F1C",
+    "warningSoft": "#FFF4DF",
+    "danger": "#F05252",
+    "dangerSoft": "#FFF0F0",
+    "idle": "#8B97AA",
+    "idleSoft": "#F1F4F8",
+    "quotaTrack": "#E5E9F0",
+    "session": "#FF9F1C",
+    "weekly": "#22C55E"
+  },
+  "typography": {
+    "fontFamily": "\"HarmonyOS Sans SC\", \"MiSans\", \"SF Pro Rounded\", \"PingFang SC\", sans-serif",
+    "pageTitle": {
+      "fontSize": 24,
+      "lineHeight": 32,
+      "fontWeight": 850,
+      "letterSpacing": -0.2
+    },
+    "bannerTitle": {
+      "fontSize": 17,
+      "lineHeight": 24,
+      "fontWeight": 850
+    },
+    "cardTitle": {
+      "fontSize": 14,
+      "lineHeight": 20,
+      "fontWeight": 850
+    },
+    "metricValue": {
+      "fontSize": 28,
+      "lineHeight": 34,
+      "fontWeight": 850,
+      "letterSpacing": -0.6
+    },
+    "body": {
+      "fontSize": 13,
+      "lineHeight": 21,
+      "fontWeight": 600
+    },
+    "caption": {
+      "fontSize": 12,
+      "lineHeight": 18,
+      "fontWeight": 700
+    }
+  },
+  "spacing": {
+    "pagePadding": 32,
+    "panelGap": 18,
+    "cardGap": 18,
+    "cardPadding": 20,
+    "controlHeight": 40,
+    "sidebarItemHeight": 44,
+    "healthDot": 9,
+    "progressHeight": 6
+  },
+  "radii": {
+    "sm": 10,
+    "md": 14,
+    "lg": 20,
+    "xl": 26,
+    "round": 999
+  },
+  "shadows": {
+    "panel": "0 18px 44px rgba(28, 39, 68, 0.08), 0 2px 8px rgba(28, 39, 68, 0.05)",
+    "card": "0 16px 36px rgba(28, 39, 68, 0.08), 0 1px 6px rgba(28, 39, 68, 0.05)",
+    "cardHover": "0 24px 58px rgba(28, 39, 68, 0.13), 0 5px 14px rgba(28, 39, 68, 0.06)",
+    "sidebar": "12px 0 42px rgba(30, 42, 68, 0.08)",
+    "primaryButton": "0 12px 28px rgba(94, 103, 242, 0.28)"
+  },
+  "components": {
+    "quotaCard": {
+      "width": 344,
+      "minHeight": 320,
+      "rankSize": 28,
+      "planPillHeight": 24,
+      "progressTrackHeight": 6
+    },
+    "summaryMetric": {
+      "height": 104,
+      "iconSize": 56
+    }
+  }
+}

@@ -98,6 +98,19 @@ const navItems: NavItem[] = [
   { id: "about", label: "About", symbol: "ⓘ" },
 ];
 
+/** 导航项 id → 侧栏线性图标 symbol(素材 public/nav-icons.svg)。 */
+const NAV_ICON: Record<string, string> = {
+  dashboard: "nav-dashboard",
+  quota: "nav-quota",
+  providers: "nav-providers",
+  two_factor: "nav-2fa",
+  agents: "nav-agents",
+  api_keys: "nav-apikeys",
+  logs: "nav-logs",
+  settings: "nav-settings",
+  about: "nav-about",
+};
+
 async function toggleMaximize() {
   if (!("__TAURI_INTERNALS__" in window)) return;
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
@@ -162,6 +175,9 @@ function managementActionLabel(action: string | null): string | null {
 
 export function AppShell(props: AppShellProps) {
   const [activeSection, setActiveSection] = useState<AppSection>("dashboard");
+  // One-shot「聚焦账号」:从额度卡片点图表/列表跳转时带上该账号邮箱,目标页挂载时读取并
+  // 立即消费清空,避免下次手动进入该页时残留旧筛选。
+  const [focusAccount, setFocusAccount] = useState<string | null>(null);
   const [closeDialog, setCloseDialog] = useState(false);
   const [rememberClose, setRememberClose] = useState(false);
   const [minimizeDialog, setMinimizeDialog] = useState(false);
@@ -272,7 +288,7 @@ export function AppShell(props: AppShellProps) {
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell app-shell--v2">
       <aside className="sidebar">
         <div className="sidebar-titlebar">
           <div className="window-controls">
@@ -297,7 +313,11 @@ export function AppShell(props: AppShellProps) {
               type="button"
               onClick={() => setActiveSection(item.id)}
             >
-              <span className="nav-symbol" aria-hidden="true">{item.symbol}</span>
+              <span className="nav-symbol" aria-hidden="true">
+                <svg width="20" height="20">
+                  <use href={`/nav-icons.svg#${NAV_ICON[item.id] ?? "nav-dashboard"}`} />
+                </svg>
+              </span>
               <span className="nav-label">{t(`nav.${item.id}`, item.label)}</span>
               {item.experimental ? <span className="nav-badge">{t("common.experimental")}</span> : null}
             </button>
@@ -313,7 +333,14 @@ export function AppShell(props: AppShellProps) {
       </aside>
 
       <section className={activeSection === "dashboard" ? "content content--dashboard" : "content"}>
-        {renderSection(activeSection, props, updater)}
+        {renderSection(activeSection, props, updater, setActiveSection, {
+          account: focusAccount,
+          goToAccount: (section, account) => {
+            setFocusAccount(account);
+            setActiveSection(section);
+          },
+          consume: () => setFocusAccount(null),
+        })}
       </section>
 
       <ProxyInstabilityBanner appState={props.appState} />
@@ -436,7 +463,13 @@ export function AppShell(props: AppShellProps) {
   );
 }
 
-function renderSection(section: AppSection, props: AppShellProps, updater: ReturnType<typeof useUpdater>) {
+type NavFocus = {
+  account: string | null;
+  goToAccount: (section: AppSection, account: string) => void;
+  consume: () => void;
+};
+
+function renderSection(section: AppSection, props: AppShellProps, updater: ReturnType<typeof useUpdater>, navigate: (section: AppSection) => void, focus: NavFocus) {
   switch (section) {
     case "providers":
       return (
@@ -462,6 +495,9 @@ function renderSection(section: AppSection, props: AppShellProps, updater: Retur
           onRefreshQuotas={props.onRefreshQuotas}
           onRunManagementStateAction={props.onRunManagementStateAction}
           onSaveSettings={props.onSaveSettings}
+          onAddAccount={() => navigate("providers")}
+          onViewAccountChart={(account) => focus.goToAccount("dashboard", account)}
+          onViewAccountLogs={(account) => focus.goToAccount("logs", account)}
         />
       );
     case "agents":
@@ -505,6 +541,8 @@ function renderSection(section: AppSection, props: AppShellProps, updater: Retur
           onClearLogs={() => props.onRunManagementStateAction("clear_management_logs")}
           onClearRequests={() => props.onRunManagementStateAction("clear_request_logs")}
           onRunManagementStateAction={props.onRunManagementStateAction}
+          initialAccount={focus.account}
+          onFocusConsumed={focus.consume}
         />
       );
     case "settings":
@@ -539,7 +577,7 @@ function renderSection(section: AppSection, props: AppShellProps, updater: Retur
       );
     case "dashboard":
     default:
-      return <DashboardScreen appState={props.appState} />;
+      return <DashboardScreen initialAccount={focus.account} onFocusConsumed={focus.consume} />;
   }
 }
 
@@ -628,6 +666,17 @@ function ProxyStatusCard({ proxy, isProxyBusy, proxyAction, onRunProxyAction }: 
   );
 }
 
+function AboutIcon({ id }: { id: string }) {
+  return (
+    <svg width="20" height="20" aria-hidden="true">
+      <use href={`/about/about-icons.svg#${id}`} />
+    </svg>
+  );
+}
+
+const ABOUT_MODE_LABEL: Record<string, string> = { full: "本地代理", quota_only: "仅监控", remote: "远程代理" };
+const ABOUT_STRATEGY_LABEL: Record<string, string> = { full: "本地优先", quota_only: "仅监控", remote: "远程优先" };
+
 function AboutScreen({
   appState,
   onCheckUpdate,
@@ -639,6 +688,7 @@ function AboutScreen({
 }) {
   const t = useT();
   const [appVersion, setAppVersion] = useState("");
+  const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!("__TAURI_INTERNALS__" in window)) return;
     void import("@tauri-apps/api/app")
@@ -646,46 +696,169 @@ function AboutScreen({
       .then(setAppVersion)
       .catch(() => {});
   }, []);
+
+  const version = appVersion ? `v${appVersion}` : "—";
+  const mode = appState.settings.operating_mode;
+  const modeLabel = ABOUT_MODE_LABEL[mode] ?? mode;
+  const strategyLabel = ABOUT_STRATEGY_LABEL[mode] ?? mode;
+  const proxyRunning = appState.proxy.status === "running";
+  const proxyHealthy = proxyRunning && Boolean(appState.proxy.health.ok);
+
+  async function copyConfigRoot() {
+    try {
+      await navigator.clipboard.writeText(appState.config_root);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    } catch {
+      setCopied(false);
+    }
+  }
+
   return (
-    <section className="dashboard-content">
+    <section className="dashboard-content dashboard-content--fixed about-redesign">
       <header className="page-topbar" data-tauri-drag-region>
         <h1>{t("nav.about")}</h1>
+        <p className="about-subtitle">{t("about.pageSubtitle", "Quotio 产品信息与运行环境")}</p>
       </header>
-      <article className="panel about-panel">
-        <div className="about-brand">
+
+      <div className="about-scroll">
+        <article className="panel about-hero">
           <div className="about-mark">Q</div>
-          <div>
-            <strong>Quotio</strong>
-            <span>v{appVersion || "—"}</span>
+          <div className="about-hero-main">
+            <strong className="about-name">Quotio</strong>
+            <div className="about-version">{version}</div>
+            <p className="about-tagline">{t("about.tagline", "多服务商 AI 代理与额度管理工具")}</p>
+            <div className="about-pills">
+              <span className="about-pill about-pill--blue">{t("about.cap.proxy", "多服务商代理")}</span>
+              <span className="about-pill about-pill--green">{t("about.cap.quota", "额度监控")}</span>
+              <span className="about-pill about-pill--lav">{t("about.cap.local", "本地管理")}</span>
+            </div>
           </div>
-        </div>
-        <div className="about-update">
-          <button type="button" className="secondary-action" onClick={onCheckUpdate} disabled={checking}>
-            {checking ? t("update.checking", "检查中…") : t("update.check", "检查更新")}
-          </button>
-        </div>
-        <dl className="detail-list compact-details">
-          <div>
-            <dt>平台</dt>
-            <dd>
-              {appState.platform.os} / {appState.platform.arch}
-            </dd>
-          </div>
-          <div>
-            <dt>运行模式</dt>
-            <dd>{appState.settings.operating_mode}</dd>
-          </div>
-          <div>
-            <dt>代理地址</dt>
-            <dd>{appState.proxy.endpoint}</dd>
-          </div>
-          <div>
-            <dt>配置目录</dt>
-            <dd>{appState.config_root}</dd>
-          </div>
-        </dl>
-        <p className="about-copy">Quotio · 多服务商 AI 代理与额度管理工具。</p>
-      </article>
+          <div className="about-orbit" aria-hidden="true" />
+          <aside className="about-status">
+            <div className="about-status-title">{t("about.versionStatus", "版本状态")}</div>
+            <div className="about-status-ok">
+              {checking ? null : <AboutIcon id="check" />}
+              {checking ? t("update.checking", "检查中…") : t("about.upToDate", "当前已是最新版本")}
+            </div>
+            <button type="button" className="about-check-btn" onClick={onCheckUpdate} disabled={checking}>
+              {checking ? t("update.checking", "检查中…") : t("update.check", "检查更新")}
+            </button>
+            <div className="about-status-note">
+              {t("about.currentVersion", "当前版本")} {version}
+            </div>
+          </aside>
+        </article>
+
+        <section className="about-cards">
+          <article className="panel about-card">
+            <div className="about-card-head">
+              <span className="about-card-icon blue">
+                <AboutIcon id="monitor" />
+              </span>
+              <h2>{t("about.runtime", "运行环境")}</h2>
+            </div>
+            <dl className="about-rows">
+              <div>
+                <dt>{t("about.platform", "平台")}</dt>
+                <dd>{appState.platform.os}</dd>
+              </div>
+              <div>
+                <dt>{t("about.arch", "架构")}</dt>
+                <dd>{appState.platform.arch}</dd>
+              </div>
+              <div>
+                <dt>{t("about.mode", "运行模式")}</dt>
+                <dd>
+                  {modeLabel}
+                  <span className="about-tag">{mode}</span>
+                </dd>
+              </div>
+            </dl>
+          </article>
+
+          <article className="panel about-card">
+            <div className="about-card-head">
+              <span className="about-card-icon green">
+                <AboutIcon id="server" />
+              </span>
+              <h2>{t("about.localService", "本地服务")}</h2>
+              {proxyRunning ? <span className="about-badge">{t("about.running", "运行正常")}</span> : null}
+            </div>
+            <dl className="about-rows">
+              <div>
+                <dt>{t("about.endpoint", "端点")}</dt>
+                <dd className="link">{appState.proxy.endpoint}</dd>
+              </div>
+              <div>
+                <dt>{t("about.proxyService", "代理服务")}</dt>
+                <dd className={proxyHealthy ? "ok" : undefined}>
+                  {proxyHealthy ? "healthy" : appState.proxy.status}
+                </dd>
+              </div>
+              <div>
+                <dt>{t("about.strategy", "策略")}</dt>
+                <dd className="link">{strategyLabel}</dd>
+              </div>
+            </dl>
+          </article>
+
+          <article className="panel about-card">
+            <div className="about-card-head">
+              <span className="about-card-icon lav">
+                <AboutIcon id="folder" />
+              </span>
+              <h2>{t("about.configData", "配置与数据")}</h2>
+            </div>
+            <div className="about-config-label">{t("about.configDir", "配置目录")}</div>
+            <div className="about-config-row">
+              <code>{appState.config_root}</code>
+              <button
+                type="button"
+                className="about-copy"
+                onClick={() => void copyConfigRoot()}
+                title={t("common.copy", "复制")}
+                aria-label={t("common.copy", "复制")}
+              >
+                <AboutIcon id={copied ? "check" : "copy"} />
+              </button>
+            </div>
+            <p className="about-config-note">{t("about.configLocal", "配置保存在本机")}</p>
+          </article>
+        </section>
+
+        <section className="panel about-features">
+          <article className="about-feature">
+            <span className="about-feature-icon blue">
+              <AboutIcon id="users" />
+            </span>
+            <div>
+              <strong>{t("about.feat.providers.title", "统一管理服务商")}</strong>
+              <p>{t("about.feat.providers.desc", "集中管理多个 AI 服务商的代理配置。")}</p>
+            </div>
+          </article>
+          <article className="about-feature">
+            <span className="about-feature-icon green">
+              <AboutIcon id="chart" />
+            </span>
+            <div>
+              <strong>{t("about.feat.quota.title", "查看额度与使用")}</strong>
+              <p>{t("about.feat.quota.desc", "实时查看各服务商额度与使用情况。")}</p>
+            </div>
+          </article>
+          <article className="about-feature">
+            <span className="about-feature-icon lav">
+              <AboutIcon id="send" />
+            </span>
+            <div>
+              <strong>{t("about.feat.forward.title", "本地代理转发")}</strong>
+              <p>{t("about.feat.forward.desc", "通过本地代理安全转发 API 请求。")}</p>
+            </div>
+          </article>
+        </section>
+
+        <p className="about-foot">Quotio · {t("about.tagline", "多服务商 AI 代理与额度管理工具")}。</p>
+      </div>
     </section>
   );
 }

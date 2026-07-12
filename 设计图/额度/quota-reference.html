@@ -1,0 +1,962 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quotio 额度页重设计参考</title>
+    <style>
+      :root {
+        --page: #f7f3ea;
+        --surface: rgba(255, 255, 255, 0.84);
+        --surface-strong: #fff;
+        --surface-soft: #f9fbff;
+        --border: rgba(137, 151, 177, 0.24);
+        --border-strong: rgba(92, 110, 140, 0.32);
+        --text: #172033;
+        --muted: #66758f;
+        --soft: #9aa7ba;
+        --primary: #5e67f2;
+        --primary-blue: #2e7bff;
+        --primary-soft: #eceeff;
+        --provider: #16a085;
+        --provider-soft: #e8faf5;
+        --healthy: #20b86e;
+        --warning: #ff9f1c;
+        --danger: #f05252;
+        --idle: #8b97aa;
+        --track: #e5e9f0;
+        --radius-sm: 10px;
+        --radius-md: 14px;
+        --radius-lg: 20px;
+        --radius-xl: 26px;
+        --shadow-panel: 0 18px 44px rgba(28, 39, 68, 0.08), 0 2px 8px rgba(28, 39, 68, 0.05);
+        --shadow-card: 0 16px 36px rgba(28, 39, 68, 0.08), 0 1px 6px rgba(28, 39, 68, 0.05);
+        --font: "HarmonyOS Sans SC", "MiSans", "SF Pro Rounded", "PingFang SC", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        font-family: var(--font);
+        background:
+          linear-gradient(rgba(247, 243, 234, 0.78), rgba(247, 243, 234, 0.9)),
+          url("assets/quota-bg.svg") center / cover fixed;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 256px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px;
+        background: rgba(255, 255, 255, 0.72);
+        border-right: 1px solid rgba(214, 222, 236, 0.8);
+        box-shadow: 12px 0 42px rgba(30, 42, 68, 0.08);
+        backdrop-filter: blur(22px);
+      }
+
+      .window-dots {
+        display: flex;
+        gap: 10px;
+        margin: 4px 0 28px 6px;
+      }
+
+      .window-dots span {
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+      }
+
+      .red {
+        background: #ff5f57;
+      }
+
+      .yellow {
+        background: #febc2e;
+      }
+
+      .green {
+        background: #28c840;
+      }
+
+      .nav {
+        display: grid;
+        gap: 8px;
+      }
+
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 44px;
+        padding: 0 13px;
+        color: #45546d;
+        font-size: 14px;
+        font-weight: 760;
+        border-radius: 14px;
+      }
+
+      .nav-item.active {
+        color: var(--primary);
+        background: linear-gradient(135deg, rgba(94, 103, 242, 0.14), rgba(46, 123, 255, 0.06));
+        box-shadow: inset 0 0 0 1px rgba(94, 103, 242, 0.12);
+      }
+
+      .icon {
+        width: 20px;
+        height: 20px;
+        color: currentColor;
+      }
+
+      .proxy {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 64px;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.86);
+        box-shadow: var(--shadow-card);
+      }
+
+      .proxy-light {
+        width: 28px;
+        height: 28px;
+        border-radius: 10px;
+        background: #e8fbef;
+        color: var(--healthy);
+        display: grid;
+        place-items: center;
+      }
+
+      .proxy strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .proxy span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      main {
+        padding: 28px 32px 40px;
+      }
+
+      .topline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        line-height: 32px;
+        font-weight: 850;
+        letter-spacing: -0.2px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        height: 40px;
+        padding: 0 16px;
+        border: 1px solid var(--border);
+        border-radius: 13px;
+        background: rgba(255, 255, 255, 0.84);
+        color: #526179;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .button.primary {
+        color: white;
+        border-color: transparent;
+        background: linear-gradient(135deg, #6d73ff, #515be8);
+        box-shadow: 0 12px 28px rgba(94, 103, 242, 0.28);
+      }
+
+      .panel {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.78)),
+          url("assets/card-noise.svg");
+        box-shadow: var(--shadow-panel);
+        backdrop-filter: blur(18px);
+      }
+
+      .strategy {
+        display: grid;
+        grid-template-columns: 54px minmax(0, 1fr) auto;
+        gap: 16px;
+        align-items: center;
+        min-height: 142px;
+        padding: 22px 24px;
+        margin-bottom: 18px;
+        border-color: rgba(94, 103, 242, 0.28);
+        background:
+          radial-gradient(circle at 18% 0%, rgba(94, 103, 242, 0.12), transparent 36%),
+          linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(246, 247, 255, 0.86));
+      }
+
+      .strategy-icon,
+      .summary-icon {
+        width: 54px;
+        height: 54px;
+        display: grid;
+        place-items: center;
+        border-radius: 20px;
+        background: var(--primary-soft);
+        color: var(--primary);
+      }
+
+      .strategy h2 {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0;
+        font-size: 17px;
+        line-height: 24px;
+      }
+
+      .strategy p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .strategy small {
+        display: block;
+        margin-top: 16px;
+        color: #75849a;
+        font-size: 12px;
+        font-weight: 680;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 24px;
+        padding: 0 10px;
+        border-radius: 999px;
+        color: var(--primary);
+        background: var(--primary-soft);
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .strategy-actions {
+        display: flex;
+        gap: 10px;
+      }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0;
+        margin-bottom: 28px;
+        overflow: hidden;
+      }
+
+      .summary-item {
+        display: grid;
+        grid-template-columns: 68px 1fr;
+        align-items: center;
+        min-height: 118px;
+        padding: 22px;
+        border-right: 1px solid var(--border);
+      }
+
+      .summary-item:last-child {
+        border-right: 0;
+      }
+
+      .summary-icon.healthy {
+        color: var(--healthy);
+        background: #e9f9f1;
+      }
+
+      .summary-icon.warning {
+        color: var(--warning);
+        background: #fff4df;
+      }
+
+      .summary-icon.idle {
+        color: var(--idle);
+        background: #f1f4f8;
+      }
+
+      .summary-label {
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 760;
+      }
+
+      .summary-value {
+        margin-top: 3px;
+        font-size: 28px;
+        line-height: 34px;
+        font-weight: 850;
+      }
+
+      .summary-note {
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .provider-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 18px;
+      }
+
+      .provider-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 17px;
+        font-weight: 850;
+      }
+
+      .provider-mark {
+        width: 48px;
+        height: 40px;
+        display: grid;
+        place-items: center;
+        color: var(--provider);
+        border: 1px solid rgba(22, 160, 133, 0.2);
+        border-radius: 14px;
+        background: var(--provider-soft);
+      }
+
+      .count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        color: #64748b;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.9);
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(280px, 1fr));
+        gap: 18px;
+        align-items: start;
+      }
+
+      .quota-card {
+        min-height: 320px;
+        padding: 20px;
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.8)),
+          url("assets/card-noise.svg");
+        box-shadow: var(--shadow-card);
+      }
+
+      .quota-card.warning-card {
+        box-shadow: 0 16px 38px rgba(255, 159, 28, 0.12), var(--shadow-card);
+      }
+
+      .card-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .rank-plan {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .rank {
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        color: white;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #17b890, #0c9b7c);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .plan {
+        height: 24px;
+        padding: 0 10px;
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        color: white;
+        background: linear-gradient(135deg, #3b86ff, #6b5cff);
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .expiry {
+        color: var(--soft);
+        font-size: 12px;
+        font-weight: 760;
+      }
+
+      .email {
+        margin-top: 20px;
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 850;
+      }
+
+      .health-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 16px;
+      }
+
+      .health-label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 760;
+      }
+
+      .counts {
+        display: flex;
+        gap: 10px;
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .ok {
+        color: var(--healthy);
+      }
+
+      .bad {
+        color: var(--danger);
+      }
+
+      .dots {
+        width: 100%;
+        height: 18px;
+        margin: 6px 0 16px;
+        background: url("assets/health-dots.svg") left center / 230px 18px no-repeat;
+      }
+
+      .reset-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 720;
+      }
+
+      .mini-button {
+        height: 26px;
+        padding: 0 10px;
+        color: #718096;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.8);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .quota-line {
+        margin-top: 12px;
+      }
+
+      .line-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 6px;
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .remaining {
+        color: var(--healthy);
+      }
+
+      .remaining.warn {
+        color: var(--warning);
+      }
+
+      .track {
+        height: 6px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: var(--track);
+      }
+
+      .bar {
+        height: 100%;
+        border-radius: inherit;
+      }
+
+      .bar.session {
+        width: 28%;
+        background: var(--warning);
+      }
+
+      .bar.weekly {
+        width: 74%;
+        background: var(--healthy);
+      }
+
+      .bar.session.good {
+        width: 95%;
+        background: var(--healthy);
+      }
+
+      .bar.weekly.good {
+        width: 93%;
+        background: var(--healthy);
+      }
+
+      .card-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 18px;
+      }
+
+      .icon-buttons {
+        display: flex;
+        gap: 8px;
+      }
+
+      .icon-button {
+        width: 30px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        color: #64748b;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: white;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 28px;
+        padding: 0 12px;
+        color: var(--healthy);
+        border-radius: 999px;
+        background: #e9f9f1;
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .status-pill.idle {
+        color: var(--idle);
+        background: #f1f4f8;
+      }
+
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: currentColor;
+      }
+
+      @media (max-width: 1500px) {
+        .cards {
+          grid-template-columns: repeat(3, minmax(280px, 1fr));
+        }
+      }
+
+      @media (max-width: 1100px) {
+        .app {
+          grid-template-columns: 88px minmax(0, 1fr);
+        }
+
+        .nav-item span,
+        .proxy div {
+          display: none;
+        }
+
+        .nav-item {
+          justify-content: center;
+        }
+
+        .summary-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .summary-item:nth-child(2) {
+          border-right: 0;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .app {
+          display: block;
+        }
+
+        .sidebar {
+          display: none;
+        }
+
+        main {
+          padding: 18px;
+        }
+
+        .strategy {
+          grid-template-columns: 1fr;
+        }
+
+        .strategy-actions,
+        .provider-head {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .summary-grid,
+        .cards {
+          grid-template-columns: 1fr;
+        }
+
+        .summary-item {
+          border-right: 0;
+          border-bottom: 1px solid var(--border);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="window-dots">
+          <span class="red"></span>
+          <span class="yellow"></span>
+          <span class="green"></span>
+        </div>
+        <nav class="nav">
+          <div class="nav-item"><svg class="icon"><use href="assets/quota-icons.svg#icon-dashboard"></use></svg><span>仪表盘</span></div>
+          <div class="nav-item active"><svg class="icon"><use href="assets/quota-icons.svg#icon-quota"></use></svg><span>额度</span></div>
+          <div class="nav-item"><svg class="icon"><use href="assets/quota-icons.svg#icon-stack"></use></svg><span>服务商</span></div>
+          <div class="nav-item"><svg class="icon"><use href="assets/quota-icons.svg#icon-shield"></use></svg><span>2FA</span></div>
+          <div class="nav-item"><svg class="icon"><use href="assets/quota-icons.svg#icon-list"></use></svg><span>智能体</span></div>
+          <div class="nav-item"><svg class="icon"><use href="assets/quota-icons.svg#icon-quota"></use></svg><span>API 密钥</span></div>
+          <div class="nav-item"><svg class="icon"><use href="assets/quota-icons.svg#icon-list"></use></svg><span>日志</span></div>
+        </nav>
+        <div class="proxy">
+          <div class="proxy-light">●</div>
+          <div>
+            <strong>本地代理</strong>
+            <span>运行中 · :28317</span>
+          </div>
+        </div>
+      </aside>
+
+      <main>
+        <div class="topline">
+          <h1>额度</h1>
+          <button class="button">
+            <svg class="icon"><use href="assets/quota-icons.svg#icon-refresh"></use></svg>
+            刷新
+          </button>
+        </div>
+
+        <section class="panel strategy">
+          <div class="strategy-icon">
+            <svg class="icon"><use href="assets/quota-icons.svg#icon-refresh"></use></svg>
+          </div>
+          <div>
+            <h2>账号调度 <span class="pill">顺序故障转移</span></h2>
+            <p>按顺序使用账号，发生配额 / 错误时自动切换到下一个可用账号。</p>
+            <small>主用：undu••••70.poet@icloud.com · 共 5 个按序待命，1 个待命账号不参与调度</small>
+          </div>
+          <div class="strategy-actions">
+            <button class="button">关闭</button>
+            <button class="button">智能调度</button>
+            <button class="button primary">顺序故障转移</button>
+          </div>
+        </section>
+
+        <section class="panel summary-grid">
+          <article class="summary-item">
+            <div class="summary-icon healthy"><svg class="icon"><use href="assets/quota-icons.svg#icon-shield"></use></svg></div>
+            <div>
+              <div class="summary-label">健康账号</div>
+              <div class="summary-value">5</div>
+              <div class="summary-note">可正常使用</div>
+            </div>
+          </article>
+          <article class="summary-item">
+            <div class="summary-icon warning"><svg class="icon"><use href="assets/quota-icons.svg#icon-alert"></use></svg></div>
+            <div>
+              <div class="summary-label">风险账号</div>
+              <div class="summary-value">0</div>
+              <div class="summary-note">额度即将耗尽</div>
+            </div>
+          </article>
+          <article class="summary-item">
+            <div class="summary-icon idle"><svg class="icon"><use href="assets/quota-icons.svg#icon-clock"></use></svg></div>
+            <div>
+              <div class="summary-label">待命账号</div>
+              <div class="summary-value">1</div>
+              <div class="summary-note">不参与调度</div>
+            </div>
+          </article>
+          <article class="summary-item">
+            <div class="summary-icon"><svg class="icon"><use href="assets/quota-icons.svg#icon-stack"></use></svg></div>
+            <div>
+              <div class="summary-label">全部账号</div>
+              <div class="summary-value">6</div>
+              <div class="summary-note">已配置</div>
+            </div>
+          </article>
+        </section>
+
+        <section>
+          <div class="provider-head">
+            <div class="provider-title">
+              <div class="provider-mark">◎</div>
+              Codex (OpenAI)
+              <span class="count">6</span>
+            </div>
+            <button class="button">
+              <svg class="icon"><use href="assets/quota-icons.svg#icon-plus"></use></svg>
+              添加账号
+            </button>
+          </div>
+
+          <div class="cards">
+            <article class="quota-card warning-card">
+              <div class="card-top">
+                <div class="rank-plan"><span class="rank">1</span><span class="plan">PLUS</span></div>
+                <span class="expiry">到期 2026-08-11</span>
+              </div>
+              <div class="email">undue••••@•••••.com</div>
+              <div class="health-row">
+                <span class="health-label">健康状态</span>
+                <span class="counts"><span class="ok">✓ 276</span><span class="bad">× 67</span></span>
+              </div>
+              <div class="dots"></div>
+              <div class="reset-row">
+                <span>主动重置次数 0</span>
+                <button class="mini-button">重置</button>
+              </div>
+              <div class="quota-line">
+                <div class="line-meta"><span>Session</span><span class="remaining warn">28% 剩余　4h 0m</span></div>
+                <div class="track"><div class="bar session"></div></div>
+              </div>
+              <div class="quota-line">
+                <div class="line-meta"><span>Weekly</span><span class="remaining">74% 剩余　6d 15h</span></div>
+                <div class="track"><div class="bar weekly"></div></div>
+              </div>
+              <div class="card-actions">
+                <div class="icon-buttons">
+                  <button class="icon-button"><svg class="icon"><use href="assets/quota-icons.svg#icon-chart"></use></svg></button>
+                  <button class="icon-button"><svg class="icon"><use href="assets/quota-icons.svg#icon-list"></use></svg></button>
+                </div>
+                <span class="status-pill"><i class="dot"></i>运行中</span>
+              </div>
+            </article>
+
+            <article class="quota-card">
+              <div class="card-top">
+                <div class="rank-plan"><span class="rank">2</span><span class="plan">PLUS</span></div>
+                <span class="expiry">到期 2026-07-09</span>
+              </div>
+              <div class="email">jello••••@•••••.com</div>
+              <div class="health-row">
+                <span class="health-label">健康状态</span>
+                <span class="counts"><span class="ok">✓ 7</span><span class="bad">× 22</span></span>
+              </div>
+              <div class="dots"></div>
+              <div class="reset-row">
+                <span>主动重置次数 0</span>
+                <button class="mini-button">重置</button>
+              </div>
+              <div class="quota-line">
+                <div class="line-meta"><span>Session</span><span class="remaining">95% 剩余　3h 54m</span></div>
+                <div class="track"><div class="bar session good"></div></div>
+              </div>
+              <div class="quota-line">
+                <div class="line-meta"><span>Weekly</span><span class="remaining">93% 剩余　6d 6h</span></div>
+                <div class="track"><div class="bar weekly good"></div></div>
+              </div>
+              <div class="card-actions">
+                <div class="icon-buttons">
+                  <button class="icon-button"><svg class="icon"><use href="assets/quota-icons.svg#icon-chart"></use></svg></button>
+                  <button class="icon-button"><svg class="icon"><use href="assets/quota-icons.svg#icon-list"></use></svg></button>
+                </div>
+                <span class="status-pill"><i class="dot"></i>运行中</span>
+              </div>
+            </article>
+
+            <article class="quota-card">
+              <div class="card-top">
+                <div class="rank-plan"><span class="rank">3</span><span class="plan">PLUS</span></div>
+                <span class="expiry">到期 2026-07-23</span>
+              </div>
+              <div class="email">locks3•••@•••••.com</div>
+              <div class="health-row">
+                <span class="health-label">健康状态</span>
+                <span class="counts"><span class="ok">✓ 1</span><span class="bad">× 15</span></span>
+              </div>
+              <div class="dots"></div>
+              <div class="reset-row">
+                <span>主动重置次数 0</span>
+                <button class="mini-button">重置</button>
+              </div>
+              <div class="quota-line">
+                <div class="line-meta"><span>Session</span><span class="remaining">98% 剩余　3h 59m</span></div>
+                <div class="track"><div class="bar session good"></div></div>
+              </div>
+              <div class="quota-line">
+                <div class="line-meta"><span>Weekly</span><span class="remaining">91% 剩余　6d 6h</span></div>
+                <div class="track"><div class="bar weekly good"></div></div>
+              </div>
+              <div class="card-actions">
+                <div class="icon-buttons">
+                  <button class="icon-button"><svg class="icon"><use href="assets/quota-icons.svg#icon-chart"></use></svg></button>
+                  <button class="icon-button"><svg class="icon"><use href="assets/quota-icons.svg#icon-list"></use></svg></button>
+                </div>
+                <span class="status-pill"><i class="dot"></i>运行中</span>
+              </div>
+            </article>
+
+            <article class="quota-card">
+              <div class="card-top">
+                <div class="rank-plan"><span class="rank">4</span><span class="plan">PLUS</span></div>
+                <span class="expiry">到期 2026-08-01</span>
+              </div>
+              <div class="email">subnet•••@•••••.com</div>
+              <div class="health-row">
+                <span class="health-label">健康状态</span>
+                <span class="counts"><span class="ok">✓ 0</span><span class="bad">× 11</span></span>
+              </div>
+              <div class="dots"></div>
+              <div class="reset-row">
+                <span>主动重置次数 0</span>
+                <button class="mini-button">重置</button>
+              </div>
+              <div class="quota-line">
+                <div class="line-meta"><span>Session</span><span class="remaining">99% 剩余　4h 59m</span></div>
+                <div class="track"><div class="bar session good"></div></div>
+              </div>
+              <div class="quota-line">
+                <div class="line-meta"><span>Weekly</span><span class="remaining">100% 剩余　6d 23h</span></div>
+                <div class="track"><div class="bar weekly good" style="width: 100%"></div></div>
+              </div>
+              <div class="card-actions">
+                <div class="icon-buttons">
+                  <button class="icon-button"><svg class="icon"><use href="assets/quota-icons.svg#icon-chart"></use></svg></button>
+                  <button class="icon-button"><svg class="icon"><use href="assets/quota-icons.svg#icon-list"></use></svg></button>
+                </div>
+                <span class="status-pill"><i class="dot"></i>运行中</span>
+              </div>
+            </article>
+
+            <article class="quota-card">
+              <div class="card-top">
+                <div class="rank-plan"><span class="rank">5</span><span class="plan">PLUS</span></div>
+                <span class="expiry">到期 2026-07-23</span>
+              </div>
+              <div class="email">43.cas•••@•••••.com</div>
+              <div class="health-row">
+                <span class="health-label">健康状态</span>
+                <span class="counts"><span class="ok">✓ 0</span><span class="bad">× 9</span></span>
+              </div>
+              <div class="dots"></div>
+              <div class="reset-row">
+                <span>主动重置次数 0</span>
+                <button class="mini-button">重置</button>
+              </div>
+              <div class="quota-line">
+                <div class="line-meta"><span>Session</span><span class="remaining">99% 剩余　5h 0m</span></div>
+                <div class="track"><div class="bar session good"></div></div>
+              </div>
+              <div class="quota-line">
+                <div class="line-meta"><span>Weekly</span><span class="remaining">92% 剩余　6d 7h</span></div>
+                <div class="track"><div class="bar weekly good" style="width: 92%"></div></div>
+              </div>
+              <div class="card-actions">
+                <div class="icon-buttons">
+                  <button class="icon-button"><svg class="icon"><use href="assets/quota-icons.svg#icon-chart"></use></svg></button>
+                  <button class="icon-button"><svg class="icon"><use href="assets/quota-icons.svg#icon-list"></use></svg></button>
+                </div>
+                <span class="status-pill"><i class="dot"></i>运行中</span>
+              </div>
+            </article>
+
+            <article class="quota-card">
+              <div class="card-top">
+                <div class="rank-plan"><span class="rank" style="background: #8b97aa">6</span><span class="plan">PLUS</span></div>
+                <span class="expiry">到期 2026-06-22</span>
+              </div>
+              <div class="email">tease••••@•••••.com</div>
+              <div class="health-row">
+                <span class="health-label">健康状态</span>
+                <span class="counts"><span class="ok">✓ 0</span><span class="bad">× 0</span></span>
+              </div>
+              <div class="dots" style="filter: grayscale(1); opacity: .55"></div>
+              <div class="reset-row">
+                <span>主动重置次数 0</span>
+                <button class="mini-button">重置</button>
+              </div>
+              <div class="quota-line">
+                <div class="line-meta"><span>Session</span><span class="remaining">99% 剩余　4h 59m</span></div>
+                <div class="track"><div class="bar session good"></div></div>
+              </div>
+              <div class="quota-line">
+                <div class="line-meta"><span>Weekly</span><span class="remaining">70% 剩余　6d 6h</span></div>
+                <div class="track"><div class="bar weekly" style="width: 70%"></div></div>
+              </div>
+              <div class="card-actions">
+                <div class="icon-buttons">
+                  <button class="icon-button"><svg class="icon"><use href="assets/quota-icons.svg#icon-chart"></use></svg></button>
+                  <button class="icon-button"><svg class="icon"><use href="assets/quota-icons.svg#icon-list"></use></svg></button>
+                </div>
+                <span class="status-pill idle"><i class="dot"></i>待命中</span>
+              </div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

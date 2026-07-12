@@ -27,14 +27,25 @@ const EMPTY: UsageAggregate = {
   prices_configured: false,
 };
 
+type Tone = "blue" | "green" | "purple" | "orange" | "red";
+
 type Card = {
   key: string;
   title: string;
   value: string;
   caption: string;
-  tone: "blue" | "green" | "purple" | "orange" | "red";
-  emphasis?: boolean;
+  tone: Tone;
+  icon: string;
 };
+
+/** SVG symbol 图标(素材在 public/dashboard/ui-icons.svg)。 */
+function OrbIcon({ id }: { id: string }) {
+  return (
+    <svg width="24" height="24" aria-hidden="true">
+      <use href={`/dashboard/ui-icons.svg#${id}`} />
+    </svg>
+  );
+}
 
 export function UsageKpiGrid({ stats }: UsageKpiGridProps) {
   const t = useT();
@@ -48,6 +59,7 @@ export function UsageKpiGrid({ stats }: UsageKpiGridProps) {
       value: formatCompactNumber(s.total_requests),
       caption: `${s.account_count} ${t("dash.accounts")}`,
       tone: "blue",
+      icon: "icon-pulse",
     },
     {
       key: "success",
@@ -55,7 +67,7 @@ export function UsageKpiGrid({ stats }: UsageKpiGridProps) {
       value: `${s.success_rate.toFixed(1)}%`,
       caption: noTraffic ? "--" : `${s.success_requests} ${t("dash.successful")}`,
       tone: noTraffic || s.success_rate >= 90 ? "green" : "orange",
-      emphasis: true,
+      icon: "icon-check-circle",
     },
     {
       key: "failed",
@@ -63,6 +75,7 @@ export function UsageKpiGrid({ stats }: UsageKpiGridProps) {
       value: formatCompactNumber(s.failed_requests),
       caption: noTraffic ? "--" : `${t("dash.failRate")} ${(100 - s.success_rate).toFixed(1)}%`,
       tone: s.failed_requests > 0 ? "red" : "green",
+      icon: "icon-x-circle",
     },
     {
       key: "cost",
@@ -70,6 +83,7 @@ export function UsageKpiGrid({ stats }: UsageKpiGridProps) {
       value: formatCost(s.estimated_cost),
       caption: s.prices_configured ? t("dash.cost.configured") : t("dash.cost.unset"),
       tone: "orange",
+      icon: "icon-dollar",
     },
     {
       key: "totalTokens",
@@ -77,6 +91,7 @@ export function UsageKpiGrid({ stats }: UsageKpiGridProps) {
       value: formatCompactNumber(s.total_tokens),
       caption: `${t("dash.reasoning")} ${formatCompactNumber(s.reasoning_tokens)}`,
       tone: "purple",
+      icon: "icon-stack",
     },
     {
       key: "inputTokens",
@@ -84,6 +99,7 @@ export function UsageKpiGrid({ stats }: UsageKpiGridProps) {
       value: formatCompactNumber(s.input_tokens),
       caption: `${t("dash.ratio")} ${s.input_token_ratio.toFixed(1)}%`,
       tone: "blue",
+      icon: "icon-arrow-down",
     },
     {
       key: "outputTokens",
@@ -91,6 +107,7 @@ export function UsageKpiGrid({ stats }: UsageKpiGridProps) {
       value: formatCompactNumber(s.output_tokens),
       caption: `${t("dash.ratio")} ${s.output_token_ratio.toFixed(1)}%`,
       tone: "green",
+      icon: "icon-arrow-up",
     },
     {
       key: "cacheTokens",
@@ -98,21 +115,22 @@ export function UsageKpiGrid({ stats }: UsageKpiGridProps) {
       value: formatCompactNumber(s.cached_tokens),
       caption: `${t("dash.hitRate")} ${s.cache_hit_rate.toFixed(1)}%`,
       tone: "purple",
+      icon: "icon-bolt",
     },
   ];
 
   return (
-    <section className="kpi-grid kpi-grid--usage">
+    <section className="kpis">
       {cards.map((card) => (
-        <article
-          key={card.key}
-          className={`kpi-card kpi-card--${card.tone}${card.emphasis ? " kpi-card--emphasis" : ""}`}
-        >
-          <div className="kpi-card-head">
-            <span>{card.title}</span>
+        <article key={card.key} className="panel kpi">
+          <div className={`orb ${card.tone}`}>
+            <OrbIcon id={card.icon} />
           </div>
-          <strong>{card.value}</strong>
-          <p>{card.caption}</p>
+          <div>
+            <div className="kpi-label">{card.title}</div>
+            <div className={`kpi-value ${card.tone}-text`}>{card.value}</div>
+            <div className="kpi-note">{card.caption}</div>
+          </div>
         </article>
       ))}
     </section>

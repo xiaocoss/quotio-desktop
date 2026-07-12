@@ -1,0 +1,138 @@
+{
+  "meta": {
+    "name": "quotio-logs-redesign",
+    "target": "desktop-request-logs-page",
+    "canvas": {
+      "width": 1752,
+      "height": 898,
+      "sidebarWidth": 228,
+      "contentMaxWidth": 1480
+    }
+  },
+  "colors": {
+    "page": "#F7F3EA",
+    "pageCool": "#F5F8FF",
+    "surface": "rgba(255, 255, 255, 0.88)",
+    "surfaceStrong": "#FFFFFF",
+    "surfaceSoft": "#F8FAFE",
+    "border": "rgba(137, 151, 177, 0.24)",
+    "borderStrong": "rgba(92, 110, 140, 0.32)",
+    "text": "#172033",
+    "textMuted": "#66758F",
+    "textSoft": "#9AA7BA",
+    "primary": "#2E7BFF",
+    "primaryStrong": "#1264E8",
+    "primarySoft": "#E7F0FF",
+    "success": "#20B86E",
+    "successSoft": "#E9F9F1",
+    "warning": "#FF9F1C",
+    "warningSoft": "#FFF4DF",
+    "danger": "#EF4444",
+    "dangerSoft": "#FFF0F0",
+    "token": "#16A7C9",
+    "tokenSoft": "#E8F8FC",
+    "lavender": "#8B5CF6",
+    "lavenderSoft": "#F2EDFF",
+    "rowHover": "#F6F9FF",
+    "slowRow": "#FFFBF1",
+    "logSurface": "#FBFCFE",
+    "logGutter": "#F4F7FB",
+    "warnRow": "#FFF9ED",
+    "errorRow": "#FFF2F2"
+  },
+  "typography": {
+    "fontFamily": "\"HarmonyOS Sans SC\", \"MiSans\", \"SF Pro Rounded\", \"PingFang SC\", sans-serif",
+    "monoFamily": "\"SFMono-Regular\", \"JetBrains Mono\", \"Cascadia Code\", monospace",
+    "pageTitle": {
+      "fontSize": 28,
+      "lineHeight": 36,
+      "fontWeight": 850,
+      "letterSpacing": -0.3
+    },
+    "sectionTitle": {
+      "fontSize": 17,
+      "lineHeight": 25,
+      "fontWeight": 850
+    },
+    "metricValue": {
+      "fontSize": 30,
+      "lineHeight": 36,
+      "fontWeight": 850,
+      "letterSpacing": -0.6
+    },
+    "body": {
+      "fontSize": 13,
+      "lineHeight": 20,
+      "fontWeight": 600
+    },
+    "table": {
+      "fontSize": 12,
+      "lineHeight": 18,
+      "fontWeight": 650
+    },
+    "caption": {
+      "fontSize": 11,
+      "lineHeight": 17,
+      "fontWeight": 700
+    }
+  },
+  "spacing": {
+    "pagePadding": 28,
+    "panelGap": 16,
+    "cardPadding": 20,
+    "controlHeight": 40,
+    "sidebarItemHeight": 44,
+    "metricHeight": 94,
+    "healthStripHeight": 64,
+    "tableHeaderHeight": 42,
+    "tableRowHeight": 42
+  },
+  "radii": {
+    "sm": 9,
+    "md": 12,
+    "lg": 18,
+    "xl": 24,
+    "round": 999
+  },
+  "shadows": {
+    "panel": "0 18px 44px rgba(28, 39, 68, 0.08), 0 2px 8px rgba(28, 39, 68, 0.05)",
+    "table": "0 22px 54px rgba(28, 39, 68, 0.09), 0 3px 12px rgba(28, 39, 68, 0.05)",
+    "activeTab": "0 8px 20px rgba(46, 123, 255, 0.16)",
+    "sidebar": "12px 0 42px rgba(30, 42, 68, 0.08)",
+    "primaryButton": "0 12px 28px rgba(46, 123, 255, 0.26)"
+  },
+  "components": {
+    "summaryMetric": {
+      "height": 94,
+      "iconSize": 42
+    },
+    "healthStrip": {
+      "height": 64,
+      "distributionBarHeight": 6
+    },
+    "filterToolbar": {
+      "height": 42,
+      "controlMinWidth": 150
+    },
+    "requestTable": {
+      "headerHeight": 42,
+      "rowHeight": 42,
+      "statusPillHeight": 24,
+      "visibleRows": 12
+    },
+    "proxySummaryMetric": {
+      "height": 94,
+      "iconSize": 42
+    },
+    "proxyStatusStrip": {
+      "height": 64,
+      "itemMinWidth": 220
+    },
+    "proxyLogStream": {
+      "headerHeight": 42,
+      "rowHeight": 34,
+      "lineNumberWidth": 52,
+      "visibleRows": 16
+    }
+  }
+}

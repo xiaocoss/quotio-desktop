@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   AgentBackupFile,
   AgentConfigMode,
@@ -15,11 +15,20 @@ import type {
   ModelSlot,
   SavedAgentConfiguration,
 } from "../../types";
-import { RefreshIcon } from "../icons";
 import { Select } from "../Select";
 import { useT } from "../../i18n";
 import { normalizeCodexReasoningLevels } from "../../lib/codexReasoning";
 import { invoke } from "../../lib/tauri";
+import "./agents.css";
+
+// 内联 SVG symbol 图标(素材见 public/agents/agent-icons.svg;id 无 icon- 前缀)。
+function Icon({ name }: { name: string }) {
+  return (
+    <svg className="icon" aria-hidden="true">
+      <use href={`/agents/agent-icons.svg#${name}`} />
+    </svg>
+  );
+}
 
 type AgentsScreenProps = {
   appState: AppState;
@@ -475,133 +484,155 @@ export function AgentsScreen({
     });
   }
 
-  // Codex 卡片下的「启动方案」区：一行一套,运行中的高亮,其余可启动。
+  // 「当前启动方案」区:一行一套 scheme-card,运行中的高亮,其余可启动。保留全部逻辑
+  // (启动/停止/编辑/删除/切换确认/密钥未绑警告/新建·编辑表单/应用路径探测/状态提示)。
   function codexLaunchPanel() {
     const running = (id: string) => id === activeProfileId;
     return (
-      <div className="codex-launch">
-        <div className="codex-launch-bar">
-          <span className="codex-launch-label">{t("agents.launch.profiles", "启动方案")}</span>
-          <span className="codex-launch-note">{t("agents.launch.onlyOne", "同一时刻只能启动一套")}</span>
-          <button className="codex-profile-add" type="button" onClick={openNewProfile}>
-            ＋ {t("agents.launch.newProfile", "新建方案")}
-          </button>
-        </div>
-
-        <div className="codex-launch-apppath">
-          <span>
-            {t("agents.launch.appPath", "应用路径")}：
-            <code>
-              {appState.settings.codex_app_path ||
-                t("agents.launch.appPathAuto", "未设置（启动时自动探测）")}
-            </code>
-          </span>
-          <button className="ghost-action" type="button" onClick={() => void detectCodexApp()} disabled={launchBusy}>
-            {t("agents.launch.detect", "探测")}
+      <section className="panel scheme-panel">
+        <div className="scheme-head">
+          <div>
+            <h2 className="panel-title">{t("agents.launch.currentScheme", "当前启动方案")}</h2>
+            <div className="app-path">
+              {t("agents.launch.appPath", "应用路径")}：
+              <code>
+                {appState.settings.codex_app_path ||
+                  t("agents.launch.appPathAuto", "未设置（启动时自动探测）")}
+              </code>
+              <button className="detect-link" type="button" onClick={() => void detectCodexApp()} disabled={launchBusy}>
+                {t("agents.launch.detect", "探测")}
+              </button>
+            </div>
+            <span className="scheme-note">{t("agents.launch.onlyOne", "同一时刻只能启动一套")}</span>
+          </div>
+          <button className="btn primary" type="button" onClick={openNewProfile}>
+            <Icon name="plus" />
+            {t("agents.launch.newProfile", "新建方案")}
           </button>
         </div>
 
         {codexProfiles.length === 0 && !profileDraft ? (
-          <p className="codex-launch-empty">
+          <p className="scheme-empty">
             {t("agents.launch.emptyProfiles", "还没有启动方案。点「新建方案」，选好账号 / 模型 / 思考程度，就能一键拉起 Codex。")}
           </p>
         ) : null}
 
         {codexProfiles.length > 0 ? (
-          <ul className="codex-profile-list">
+          <div className="scheme-list">
             {codexProfiles.map((profile) => {
               const isRunning = running(profile.id);
               const isStarting = startingId === profile.id;
               const keyIssue = codexKeyIssue(profile);
               const pending = pendingStart?.profile.id === profile.id ? pendingStart : null;
               return (
-                <li key={profile.id} className={`codex-profile-row${isRunning ? " is-running" : ""}`}>
-                  <span className={`codex-profile-dot${isRunning ? " on" : ""}`} aria-hidden="true" />
-                  <div className="codex-profile-main">
-                    <div className="codex-profile-name-line">
-                      <span className="codex-profile-name">{profile.name}</span>
-                      {isRunning ? (
-                        <span className="codex-profile-running">{t("agents.launch.running", "运行中")}</span>
-                      ) : null}
-                      {!isRunning && keyIssue ? (
-                        <span className="codex-profile-warn" title={keyIssue}>
-                          {t("agents.launch.keyWarnBadge", "⚠ 密钥未绑 Codex")}
-                        </span>
-                      ) : null}
-                    </div>
-                    <span className="codex-profile-summary">
-                      {accountEmail(profile.bound_account)} · {profile.model || t("agents.launch.defaultModel", "默认模型")} ·{" "}
-                      {reasoningLabel(profile.reasoning)} · {profile.launch_mode === "cli" ? t("agents.launch.modeCli", "终端") : t("agents.launch.modeApp", "应用")}
+                <div key={profile.id} className={`scheme-card${isRunning ? "" : " scheme-card--idle"}`}>
+                  <div className="scheme-identity">
+                    <span className={`play-orb${isRunning ? "" : " play-orb--idle"}`} aria-hidden="true">
+                      <Icon name="play" />
                     </span>
-                    {profile.proxy_url || profile.api_key ? (
-                      <span className="codex-profile-route">
-                        {profile.proxy_url || t("agents.launch.localProxy", "本机代理")}
-                        {profile.api_key ? ` · 🔑 ${maskKey(profile.api_key)}` : ""}
-                      </span>
-                    ) : null}
+                    <div>
+                      <div className="agent-name-line">
+                        <span className="scheme-name">{profile.name}</span>
+                        {isRunning ? (
+                          <span className="badge running">
+                            <i className="tiny-dot" />
+                            {t("agents.launch.running", "运行中")}
+                          </span>
+                        ) : null}
+                        {!isRunning && keyIssue ? (
+                          <span className="badge warning" title={keyIssue}>
+                            {t("agents.launch.keyWarnBadge", "⚠ 密钥未绑 Codex")}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="scheme-sub">
+                        {reasoningLabel(profile.reasoning)} ·{" "}
+                        {profile.launch_mode === "cli" ? t("agents.launch.modeCli", "终端") : t("agents.launch.modeApp", "应用")}
+                      </div>
+                    </div>
                   </div>
-                  <div className="codex-profile-actions">
+                  <div className="scheme-field">
+                    <div className="field-label"><Icon name="user" />{t("agents.launch.account", "账号")}</div>
+                    <div className="field-value">{accountEmail(profile.bound_account)}</div>
+                  </div>
+                  <div className="scheme-field">
+                    <div className="field-label"><Icon name="cube" />{t("agents.codexModel", "模型")}</div>
+                    <div className="field-value">{profile.model || t("agents.launch.defaultModel", "默认模型")}</div>
+                  </div>
+                  <div className="scheme-field">
+                    <div className="field-label"><Icon name="globe" />{t("agents.launch.localEndpoint", "本地端点")}</div>
+                    <div className="field-value">{profile.proxy_url || t("agents.launch.localProxy", "本机代理")}</div>
+                  </div>
+                  <div className="scheme-field">
+                    <div className="field-label"><Icon name="key" />{t("agents.apiKey")}</div>
+                    <div className="field-value">{profile.api_key ? maskKey(profile.api_key) : t("agents.launch.autoKey", "自动")}</div>
+                  </div>
+                  <div className="scheme-actions">
                     {isRunning ? (
                       <button
-                        className="agent-launch-btn agent-launch-btn--stop"
+                        className="btn danger small"
                         type="button"
                         onClick={() => void stopActiveProfile()}
                         disabled={launchBusy}
                       >
+                        <Icon name="stop" />
                         {launchBusy ? t("agents.launch.working", "处理中…") : t("agents.launch.stop", "停止")}
                       </button>
                     ) : (
                       <button
-                        className="agent-launch-btn agent-launch-btn--start"
+                        className="btn primary small"
                         type="button"
                         onClick={() => requestStartProfile(profile)}
                         disabled={isStarting || launchBusy}
                       >
+                        <Icon name="play" />
                         {isStarting ? t("agents.launch.launching", "启动中…") : t("agents.launch.start", "启动")}
                       </button>
                     )}
                     <button
-                      className="codex-profile-edit"
+                      className="btn small"
                       type="button"
                       onClick={() => openEditProfile(profile)}
                       disabled={isRunning}
                     >
+                      <Icon name="edit" />
                       {t("common.edit", "编辑")}
                     </button>
                     <button
-                      className="codex-profile-del"
+                      className="btn ghost-danger small"
                       type="button"
                       onClick={() => deleteProfile(profile)}
                       disabled={isRunning}
                     >
+                      <Icon name="trash" />
                       {t("common.delete", "删除")}
                     </button>
                   </div>
                   {pending ? (
-                    <div className="codex-switch-confirm">
-                      <div className="codex-warn-list">
+                    <div className="scheme-confirm">
+                      <div className="scheme-warn-list">
                         {pending.warnings.map((warning, index) => (
                           <span key={index}>• {warning}</span>
                         ))}
                       </div>
-                      <div className="codex-switch-actions">
-                        <button className="primary-action" type="button" onClick={() => void doStartProfile(profile)}>
+                      <div className="scheme-confirm-actions">
+                        <button className="btn primary small" type="button" onClick={() => void doStartProfile(profile)}>
                           {t("agents.launch.startAnyway", "确认启动")}
                         </button>
-                        <button className="secondary-action" type="button" onClick={() => setPendingStart(null)}>
+                        <button className="btn small" type="button" onClick={() => setPendingStart(null)}>
                           {t("common.cancel", "取消")}
                         </button>
                       </div>
                     </div>
                   ) : null}
-                </li>
+                </div>
               );
             })}
-          </ul>
+          </div>
         ) : null}
 
         {profileDraft ? (
-          <div className="codex-profile-form">
+          <div className="scheme-form">
             <div className="settings-form-grid">
               <label>
                 {t("agents.launch.profileName", "方案名称")}
@@ -703,9 +734,9 @@ export function AgentsScreen({
         ) : null}
 
         {launchMsg ? (
-          <div className={`codex-launch-status ${launchMsg.ok ? "ok" : "err"}`}>{launchMsg.text}</div>
+          <div className={`scheme-status ${launchMsg.ok ? "ok" : "err"}`}>{launchMsg.text}</div>
         ) : null}
-      </div>
+      </section>
     );
   }
 
@@ -849,65 +880,212 @@ export function AgentsScreen({
     );
   }
 
+  // ---- 顶部指标 + 运行概览的派生数据(全部来自现有状态,不新增后端接口)----
+  const detectedCount = sortedAgents.length;
+  const runningCount = activeProfileId ? 1 : 0;
+  const codexInstalled = installedAgents.some((status) => status.agent.id === "codex");
+  const expandedConfigStatus =
+    installedAgents.find((status) => status.agent.id !== "codex" && status.agent.id === expandedId) ?? null;
+  const proxyRunning = appState.proxy.status === "running";
+  const endpointHost = (appState.proxy.endpoint || "").replace(/^https?:\/\//, "");
+  const activeProfile = codexProfiles.find((profile) => profile.id === activeProfileId) ?? null;
+
   return (
-    <section className="section-page agents-page">
+    <section className="section-page agents-page agents-redesign">
       <header className="page-topbar" data-tauri-drag-region>
-        <h1>{t("title.agents")}</h1>
-        <button className="icon-button" type="button" onClick={onRefreshAgents} disabled={isBusy} title="重新检测" aria-label="重新检测">
-          <RefreshIcon />
+        <h1>{t("nav.agents")}</h1>
+        <button
+          className={`btn${isBusy ? " is-busy" : ""}`}
+          type="button"
+          onClick={onRefreshAgents}
+          disabled={isBusy}
+          title={t("agents.refresh", "重新检测")}
+          aria-label={t("agents.refresh", "重新检测")}
+        >
+          <Icon name="refresh" />
+          {t("agents.refreshShort", "刷新")}
         </button>
       </header>
 
-      <p className="page-subtitle">{t("agents.subtitle")}</p>
+      <p className="page-subtitle">{t("agents.pageSubtitle", "管理 CLI 智能体与本地代理启动方案")}</p>
 
-      <div className="agent-summary">
-        <span className="agent-summary-item">
-          <span className="agent-summary-dot agent-summary-dot--good" />
-          <strong>{installedAgents.length}</strong> {t("agents.installed")}
-        </span>
-        <span className="agent-summary-item">
-          <span className="agent-summary-dot agent-summary-dot--blue" />
-          <strong>{configuredAgents.length}</strong> {t("agents.configured")}
-        </span>
-      </div>
-
-      <section className="agent-section">
-        <h2 className="agent-section-title">{t("agents.installed")}</h2>
-        <div className="agent-list">
-          {installedAgents.map((status) => (
-            <Fragment key={status.agent.id}>
-              <AgentCard
-                status={status}
-                accent={agentAccent(status.agent.id)}
-                expanded={expandedId === status.agent.id}
-                isBusy={isBusy}
-                onConfigure={
-                  status.agent.id === "codex"
-                    ? undefined // Codex 改用「启动方案」配置 + 启动,不再需要单独的「配置」面板
-                    : () => setExpandedId((current) => (current === status.agent.id ? null : status.agent.id))
-                }
-                onRepairVisibility={status.agent.id === "codex" ? () => void repairCodexVisibility() : undefined}
-                repairBusy={repairVisibilityBusy}
-              />
-              {status.agent.id === "codex" ? codexLaunchPanel() : null}
-              {status.agent.id !== "codex" && expandedId === status.agent.id ? configForm(status) : null}
-            </Fragment>
-          ))}
-        </div>
+      <section className="metrics" aria-label={t("agents.overview", "智能体概览")}>
+        <article className="metric">
+          <div className="metric-icon"><Icon name="layers" /></div>
+          <div>
+            <div className="metric-label">{t("agents.metricDetected", "已检测")}</div>
+            <div className="metric-value">{detectedCount}</div>
+          </div>
+        </article>
+        <article className="metric installed">
+          <div className="metric-icon"><Icon name="package" /></div>
+          <div>
+            <div className="metric-label">{t("agents.installed")}</div>
+            <div className="metric-value">{installedAgents.length}</div>
+          </div>
+        </article>
+        <article className="metric configured">
+          <div className="metric-icon"><Icon name="check" /></div>
+          <div>
+            <div className="metric-label">{t("agents.configured")}</div>
+            <div className="metric-value">{configuredAgents.length}</div>
+          </div>
+        </article>
+        <article className="metric running">
+          <div className="metric-icon"><Icon name="play" /></div>
+          <div>
+            <div className="metric-label">{t("agents.launch.running", "运行中")}</div>
+            <div className="metric-value">{runningCount}</div>
+          </div>
+        </article>
       </section>
 
-      {notInstalledAgents.length > 0 ? (
-        <section className="agent-section">
-          <h2 className="agent-section-title">{t("agents.notInstalled")}</h2>
+      <section className="top-grid">
+        <article className="panel">
+          <div className="panel-head">
+            <h2 className="panel-title">{t("agents.connectedTitle", "已接入智能体")}</h2>
+            <span className="panel-note">
+              {installedAgents.length} {t("agents.installedToolsUnit", "个已安装工具")}
+            </span>
+          </div>
           <div className="agent-list">
-            {notInstalledAgents.map((status) => (
-              <AgentCard key={status.agent.id} status={status} accent={agentAccent(status.agent.id)} muted isBusy={isBusy} />
-            ))}
+            {installedAgents.length === 0 ? (
+              <p className="agent-empty">{t("agents.noneInstalled", "尚未检测到已安装的 CLI 智能体。")}</p>
+            ) : (
+              installedAgents.map((status) => (
+                <AgentCard
+                  key={status.agent.id}
+                  status={status}
+                  accent={agentAccent(status.agent.id)}
+                  expanded={expandedId === status.agent.id}
+                  isBusy={isBusy}
+                  onConfigure={
+                    status.agent.id === "codex"
+                      ? undefined // Codex 改用「启动方案」配置 + 启动,不再需要单独的「配置」面板
+                      : () => setExpandedId((current) => (current === status.agent.id ? null : status.agent.id))
+                  }
+                  onRepairVisibility={status.agent.id === "codex" ? () => void repairCodexVisibility() : undefined}
+                  repairBusy={repairVisibilityBusy}
+                />
+              ))
+            )}
+          </div>
+          {installedAgents.length > 0 ? (
+            <div className="panel-footer-link">
+              <span>{t("agents.viewAllConnected", "查看全部已接入")}</span>
+              <span aria-hidden="true">›</span>
+            </div>
+          ) : null}
+        </article>
+
+        <article className="panel runtime-panel">
+          <div className="panel-head">
+            <h2 className="panel-title">{t("agents.runtimeTitle", "运行概览")}</h2>
+            <span className="badge running">
+              <i className="tiny-dot" />
+              {t("agents.live", "实时")}
+            </span>
+          </div>
+          <div className="runtime-list">
+            <div className="runtime-row">
+              <Icon name="server" />
+              <span className="runtime-label">{t("agents.runtime.proxy", "本地代理")}</span>
+              <span className={`runtime-value${proxyRunning ? " healthy" : ""}`}>
+                <i className="tiny-dot" />
+                {proxyRunning
+                  ? `${t("agents.runtime.proxyOk", "运行正常")}${endpointHost ? ` · ${endpointHost}` : ""}`
+                  : t("agents.runtime.proxyDown", "未运行")}
+              </span>
+            </div>
+            <div className="runtime-row">
+              <Icon name="cube" />
+              <span className="runtime-label">{t("agents.runtime.currentAgent", "当前智能体")}</span>
+              <span className="runtime-value">
+                <i className="tiny-dot" />
+                {activeProfileId ? "Codex" : t("agents.runtime.none", "—")}
+              </span>
+            </div>
+            <div className="runtime-row">
+              <Icon name="play" />
+              <span className="runtime-label">{t("agents.runtime.currentScheme", "当前方案")}</span>
+              <span className="runtime-value">
+                <i className="tiny-dot" />
+                {activeProfile?.name ?? t("agents.runtime.none", "—")}
+              </span>
+            </div>
+            <div className="runtime-row">
+              <Icon name="route" />
+              <span className="runtime-label">{t("agents.runtime.route", "路由状态")}</span>
+              <span className={`runtime-value${proxyRunning ? " healthy" : ""}`}>
+                {proxyRunning ? t("agents.runtime.ready", "就绪") : t("agents.runtime.notReady", "未就绪")}
+              </span>
+            </div>
+          </div>
+          <img
+            className="route-asset"
+            src="/agents/route-flow.svg"
+            alt={t("agents.runtime.routeAlt", "Codex 到启动方案与本地代理的路由关系")}
+          />
+        </article>
+      </section>
+
+      {expandedConfigStatus ? (
+        <section className="panel config-panel">
+          <div className="panel-head">
+            <h2 className="panel-title">
+              {expandedConfigStatus.agent.display_name} · {t("agents.configure")}
+            </h2>
+            <button className="btn small" type="button" onClick={() => setExpandedId(null)}>
+              {t("common.collapse")}
+            </button>
+          </div>
+          {configForm(expandedConfigStatus)}
+        </section>
+      ) : null}
+
+      {codexInstalled ? codexLaunchPanel() : null}
+
+      {notInstalledAgents.length > 0 ? (
+        <section className="panel discovery-panel">
+          <div className="panel-head">
+            <h2 className="panel-title">{t("agents.discoverTitle", "发现更多智能体")}</h2>
+            <span className="panel-note">{t("agents.discoverNote", "自动扫描 PATH 与常见安装路径")}</span>
+          </div>
+          <div className="discovery-grid">
+            {notInstalledAgents.map((status) => {
+              const accent = agentAccent(status.agent.id);
+              const initial = status.agent.display_name.trim().charAt(0).toUpperCase() || "?";
+              return (
+                <article className="discovery-card" key={status.agent.id}>
+                  <span
+                    className="discovery-mark"
+                    style={{ color: `#${accent}`, background: `#${accent}14` }}
+                    aria-hidden="true"
+                  >
+                    {initial}
+                  </span>
+                  <div className="discovery-info">
+                    <strong>{status.agent.display_name}</strong>
+                    <span>{t("agents.discoverDesc", "自动检测系统中的安装")}</span>
+                  </div>
+                  <button className="detect-btn" type="button" onClick={onRefreshAgents} disabled={isBusy}>
+                    {t("agents.autoDetect", "自动检测")}
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+          <div className="discovery-footer">
+            <span>
+              <Icon name="info" />
+              {t("agents.discoverFooter", "自动检测基于环境变量 PATH 与常见安装路径进行扫描，未找到时可按工具文档完成安装。")}
+            </span>
+            <span className="install-link">{t("agents.installGuide", "查看安装指南")}　›</span>
           </div>
         </section>
       ) : null}
 
-      {action === "detect_agents" ? <p className="page-subtitle">{t("agents.detecting")}</p> : null}
+      {action === "detect_agents" ? <p className="detecting-note">{t("agents.detecting")}</p> : null}
     </section>
   );
 }
@@ -916,7 +1094,6 @@ function AgentCard({
   status,
   accent,
   expanded = false,
-  muted = false,
   isBusy,
   onConfigure,
   onRepairVisibility,
@@ -925,7 +1102,6 @@ function AgentCard({
   status: AgentStatus;
   accent: string;
   expanded?: boolean;
-  muted?: boolean;
   isBusy: boolean;
   onConfigure?: () => void;
   onRepairVisibility?: () => void;
@@ -933,41 +1109,43 @@ function AgentCard({
 }) {
   const t = useT();
   const initial = status.agent.display_name.trim().charAt(0).toUpperCase() || "?";
-  const statusLabel = !status.installed ? t("agents.statusNotInstalled") : status.configured ? t("agents.configured") : t("agents.installed");
-  const tone = !status.installed ? "neutral" : status.configured ? "good" : "warn";
 
   return (
-    <article className={muted ? "agent-card agent-card--muted" : "agent-card"}>
-      <span className="agent-icon" style={{ color: `#${accent}`, background: `#${accent}1f` }} aria-hidden="true">
+    <div className="agent-row">
+      <span
+        className="agent-mark"
+        style={{ color: `#${accent}`, background: `#${accent}14`, borderColor: `#${accent}29` }}
+        aria-hidden="true"
+      >
         {initial}
       </span>
-      <div className="agent-card-info">
-        <div className="agent-card-title">
-          <strong>{status.agent.display_name}</strong>
-          {!muted ? <span className={`agent-status-pill agent-status-pill--${tone}`}>{statusLabel}</span> : null}
+      <div className="agent-row-info">
+        <div className="agent-name-line">
+          <span className="agent-name">{status.agent.display_name}</span>
+          {status.configured ? (
+            <span className="badge success">{t("agents.configured")}</span>
+          ) : (
+            <>
+              <span className="badge warning">{t("agents.installed")}</span>
+              <span className="badge warning">{t("agents.needConfig", "需要配置")}</span>
+            </>
+          )}
         </div>
-        {status.binary_path ? <p className="agent-card-path">{status.binary_path}</p> : null}
+        {status.binary_path ? <div className="path">{status.binary_path}</div> : null}
       </div>
-      <div className="agent-card-actions">
+      <div className="agent-row-actions">
         {onRepairVisibility ? (
-          <button className="ghost-action" type="button" onClick={onRepairVisibility} disabled={repairBusy}>
+          <button className="btn small" type="button" onClick={onRepairVisibility} disabled={repairBusy}>
             {repairBusy ? t("agents.launch.repairingVisibility", "修复中…") : t("agents.launch.repairVisibility", "修复可见性")}
           </button>
         ) : null}
-        {!muted && onConfigure ? (
-          <button
-            className="agent-configure-btn"
-            type="button"
-            onClick={onConfigure}
-            disabled={isBusy}
-            style={{ color: `#${accent}`, background: `#${accent}1f` }}
-          >
+        {onConfigure ? (
+          <button className="btn small" type="button" onClick={onConfigure} disabled={isBusy}>
             {expanded ? t("common.collapse") : status.configured ? t("agents.reconfigure") : t("agents.configure")}
           </button>
         ) : null}
-        {muted ? <span className="agent-muted-tag">{t("agents.autoDetected")}</span> : null}
       </div>
-    </article>
+    </div>
   );
 }
 

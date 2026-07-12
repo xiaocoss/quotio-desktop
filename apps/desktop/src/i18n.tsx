@@ -71,6 +71,8 @@ const en: Record<string, string> = {
   "settings.remoteProxy.desc": "Connect to a remote CLIProxyAPI server",
   // Settings rows
   "settings.launchAtLogin": "Launch at login",
+  "settings.keepProxyOnExit": "Keep proxy running on exit",
+  "settings.keepProxyOnExitDesc": "Leave the proxy running after Quotio closes, so clients that rely on it (like Codex) don't crash from a dropped connection; the next launch re-adopts it.",
   "settings.notifications": "Notifications",
   "settings.notifications.desc": "Desktop notification toggle.",
   "settings.notifications.unavailable": "Notifications are not available on this platform.",
@@ -511,6 +513,8 @@ const zh: Record<string, string> = {
   "settings.remoteProxy.desc": "连接到远程 CLIProxyAPI 服务",
   // Settings rows
   "settings.launchAtLogin": "开机自启",
+  "settings.keepProxyOnExit": "退出时保留代理运行",
+  "settings.keepProxyOnExitDesc": "关闭 Quotio 后代理继续在后台运行,依赖它的 Codex 等客户端不会因断连崩溃;下次启动 Quotio 会自动接管",
   "settings.notifications": "通知",
   "settings.notifications.desc": "桌面通知开关。",
   "settings.notifications.unavailable": "当前平台通知能力不可用。",

@@ -1,0 +1,96 @@
+{
+  "meta": {
+    "name": "quotio-dashboard-redesign",
+    "target": "desktop-dashboard",
+    "canvas": {
+      "width": 2560,
+      "height": 1306,
+      "sidebarWidth": 256,
+      "contentMaxWidth": 2240
+    }
+  },
+  "colors": {
+    "page": "#F7F3EA",
+    "pageAlt": "#EEF4FF",
+    "surface": "rgba(255, 255, 255, 0.82)",
+    "surfaceStrong": "#FFFFFF",
+    "surfaceSoft": "#F9FBFF",
+    "border": "rgba(137, 151, 177, 0.24)",
+    "borderStrong": "rgba(92, 110, 140, 0.28)",
+    "text": "#172033",
+    "textMuted": "#65758F",
+    "textSoft": "#96A3B8",
+    "primary": "#2E7BFF",
+    "primarySoft": "#E7F0FF",
+    "navy": "#13213A",
+    "cost": "#FF8A00",
+    "costSoft": "#FFF2DD",
+    "success": "#20B86E",
+    "successSoft": "#E9F9F1",
+    "danger": "#F05252",
+    "dangerSoft": "#FFF0F0",
+    "cached": "#8B5CF6",
+    "cachedSoft": "#F2EDFF",
+    "warning": "#F59E0B",
+    "warningSoft": "#FFF7E8"
+  },
+  "typography": {
+    "fontFamily": "\"HarmonyOS Sans SC\", \"MiSans\", \"SF Pro Rounded\", \"PingFang SC\", sans-serif",
+    "pageTitle": {
+      "fontSize": 24,
+      "lineHeight": 32,
+      "fontWeight": 800,
+      "letterSpacing": -0.2
+    },
+    "sectionTitle": {
+      "fontSize": 18,
+      "lineHeight": 26,
+      "fontWeight": 800
+    },
+    "metricValue": {
+      "fontSize": 32,
+      "lineHeight": 38,
+      "fontWeight": 850,
+      "letterSpacing": -0.8
+    },
+    "body": {
+      "fontSize": 14,
+      "lineHeight": 22,
+      "fontWeight": 500
+    },
+    "caption": {
+      "fontSize": 12,
+      "lineHeight": 18,
+      "fontWeight": 650
+    }
+  },
+  "spacing": {
+    "pagePadding": 32,
+    "panelGap": 18,
+    "cardPadding": 22,
+    "controlHeight": 40,
+    "pillHeight": 38,
+    "sidebarItemHeight": 44
+  },
+  "radii": {
+    "sm": 10,
+    "md": 14,
+    "lg": 20,
+    "xl": 26,
+    "round": 999
+  },
+  "shadows": {
+    "card": "0 18px 44px rgba(28, 39, 68, 0.08), 0 2px 8px rgba(28, 39, 68, 0.05)",
+    "cardHover": "0 22px 58px rgba(28, 39, 68, 0.12), 0 4px 14px rgba(28, 39, 68, 0.06)",
+    "sidebar": "12px 0 42px rgba(30, 42, 68, 0.08)",
+    "control": "0 8px 20px rgba(46, 123, 255, 0.08)"
+  },
+  "chart": {
+    "height": 282,
+    "grid": "#E4EAF4",
+    "axis": "#8FA0B8",
+    "lineWidth": 3,
+    "dotRadius": 5,
+    "costGradient": ["rgba(255, 138, 0, 0.24)", "rgba(255, 138, 0, 0.03)"]
+  }
+}

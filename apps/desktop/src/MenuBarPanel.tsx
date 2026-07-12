@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
+import "./menubar.css";
 import { invoke } from "./lib/tauri";
 import { I18nProvider, resolveLocale, useT } from "./i18n";
 import { useAppState } from "./state/useAppState";
-import { quotaTone, parsePlan, planTier, matchAuthFile, parseResetCredits } from "./lib/format";
+import { quotaTone, parsePlan, matchAuthFile, parseResetCredits } from "./lib/format";
 import { HealthDots } from "./components/HealthDots";
-import type { AccountQuota, AuthFile } from "./types";
+import type { AccountQuota, AuthFile, QuotaModelUsage } from "./types";
 
 function accountOverallRemaining(account: AccountQuota): number | null {
   if (account.models.length === 0) return null;
@@ -19,9 +20,9 @@ function formatResetCountdown(resetAtUnix: number): string | null {
   if (secs <= 0) return null;
   const hours = Math.floor(secs / 3600);
   const mins = Math.floor((secs % 3600) / 60);
-  if (hours >= 24) return `${Math.floor(hours / 24)}天后重置`;
-  if (hours > 0) return `${hours}小时${mins > 0 ? mins + "分" : ""}后重置`;
-  return `${mins}分钟后重置`;
+  if (hours >= 24) return `${Math.floor(hours / 24)} 天后重置`;
+  if (hours > 0) return `${hours} 小时${mins > 0 ? " " + mins + " 分" : ""}后重置`;
+  return `${mins} 分钟后重置`;
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -34,26 +35,35 @@ const PROVIDER_LABELS: Record<string, string> = {
   trae: "Trae",
 };
 
-const MAX_MENUBAR_ACCOUNTS = 6;
 const SUPPORTED_PROVIDERS = ["codex", "claude", "copilot", "antigravity", "kiro", "glm", "trae"];
 
 function providerLabel(id: string) {
   return PROVIDER_LABELS[id] ?? id;
 }
 
-// Bar color reuses the Quota page thresholds (quotaTone): >50% green,
-// 10–50% amber, ≤10% red — so the menu-bar matches the main view.
-const BAR_COLORS: Record<"good" | "warn" | "bad", string> = {
-  good: "#34c759",
-  warn: "#f59e0b",
-  bad: "#ef4444",
-};
-function barTone(remaining: number) {
-  return BAR_COLORS[quotaTone(remaining)];
+// Session / Weekly 两个主窗口(与「额度」页口径一致):Session 优先按名字匹配,匹配不到就取
+// 「非 Weekly 的那个」当作 Session。悬浮窗只呈现这两行,与设计稿固定的两条进度条对应。
+function splitSessionWeekly(models: QuotaModelUsage[]): { model: QuotaModelUsage; label: string }[] {
+  const weekly = models.find((m) => /weekly/i.test(m.model)) ?? null;
+  let session = models.find((m) => /session|5h|5\s*hour/i.test(m.model)) ?? null;
+  if (!session) session = models.find((m) => m !== weekly) ?? null;
+  const rows: { model: QuotaModelUsage; label: string }[] = [];
+  if (session) rows.push({ model: session, label: "Session" });
+  if (weekly) rows.push({ model: weekly, label: "Weekly" });
+  return rows;
 }
 
-/// The tray "menu bar" floating quota panel (see ui/menu_bar.png). Rendered in a
-/// separate always-on-top frameless window; toggled from the tray icon.
+// 本地 SVG sprite 图标(素材见 public/floating/floating-window-icons.svg),以 currentColor 继承状态色。
+function Icon({ id }: { id: string }) {
+  return (
+    <svg className="icon" aria-hidden="true">
+      <use href={`/floating/floating-window-icons.svg#${id}`} />
+    </svg>
+  );
+}
+
+/// The tray "menu bar" floating quota panel (see 设计图/悬浮窗). Rendered in a
+/// separate always-on-top frameless transparent window; toggled from the tray icon.
 export default function MenuBarPanel() {
   const app = useAppState();
   const theme = app.appState?.settings.theme ?? "system";
@@ -97,8 +107,8 @@ export default function MenuBarPanel() {
 
   if (!app.appState) {
     return (
-      <div className="menubar-root menubar-root--loading">
-        <span className="pulse" />
+      <div className="floating-window floating-window--loading">
+        <span className="fw-pulse" />
       </div>
     );
   }
@@ -127,13 +137,11 @@ function MenuBarBody({ app }: { app: ReturnType<typeof useAppState> }) {
   const defaultTab = providerIds.find((id) => providersWithData.has(id)) ?? providerIds[0] ?? "";
   const tab = activeTab && providerIds.includes(activeTab) ? activeTab : defaultTab;
   const accounts = quotas.filter((q) => q.provider_id === tab);
-  const visibleAccounts = accounts.slice(0, MAX_MENUBAR_ACCOUNTS);
-  const hiddenCount = accounts.length - visibleAccounts.length;
   const running = proxy.status === "running";
 
-  // Guard the footer actions (open / quit / show-all) against rapid repeat
-  // clicks, so a double-click doesn't fire the command twice. Re-enables after a
-  // short delay (the window only hides, it isn't destroyed, so state persists).
+  // Guard the footer actions (open / quit) against rapid repeat clicks, so a
+  // double-click doesn't fire the command twice. Re-enables after a short delay
+  // (the window only hides, it isn't destroyed, so state persists).
   const [acting, setActing] = useState(false);
   function runOnce(command: string) {
     if (acting) return;
@@ -142,38 +150,33 @@ function MenuBarBody({ app }: { app: ReturnType<typeof useAppState> }) {
     window.setTimeout(() => setActing(false), 1500);
   }
 
-  // Resize the window to fit the (capped) content so the panel grows with the
-  // number of accounts instead of leaving empty space.
+  // Resize the window to fit the content so the panel grows with the number of
+  // accounts, but caps to the screen height (or 960px logical) and lets the
+  // middle account list scroll. Header 48 + tabs + list + footer 144.
   useEffect(() => {
     if (!("__TAURI_INTERNALS__" in window)) return;
-    const tabsHeight = providerIds.length > 0 ? Math.ceil(providerIds.length / 3) * 30 + 12 : 0;
+    const tabsHeight = providerIds.length > 0 ? Math.ceil(providerIds.length / 4) * 28 + 17 : 0;
     const listHeight =
-      accounts.length === 0
-        ? 56
-        : visibleAccounts.reduce((sum, acc) => sum + 22 + 18 + acc.models.length * 28, 0) +
-          Math.max(0, visibleAccounts.length - 1) * 10;
-    const moreHeight = hiddenCount > 0 ? 38 : 0;
-    const desired = Math.max(200, 38 + tabsHeight + 16 + listHeight + moreHeight + 116);
+      accounts.length === 0 ? 56 : accounts.length * 156 + Math.max(0, accounts.length - 1) * 10 + 22;
+    const desired = Math.max(220, 48 + tabsHeight + listHeight + 144);
     void import("@tauri-apps/api/window").then(async ({ getCurrentWindow, LogicalSize, currentMonitor }) => {
       const win = getCurrentWindow();
-      // Cap to the screen height so the panel grows to fit all accounts instead
-      // of scrolling at a fixed 720px — but never taller than the monitor.
-      let cap = 900;
+      let cap = 960;
       try {
         const monitor = await currentMonitor();
-        if (monitor) cap = Math.floor(monitor.size.height / monitor.scaleFactor) - 80;
+        if (monitor) cap = Math.min(960, Math.floor(monitor.size.height / monitor.scaleFactor) - 80);
       } catch {
-        /* keep the 900px fallback */
+        /* keep the 960px fallback */
       }
-      void win.setSize(new LogicalSize(280, Math.min(desired, cap)));
+      void win.setSize(new LogicalSize(360, Math.min(desired, cap)));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appState.quotas, tab]);
 
   return (
-    <div className="menubar-root">
+    <main className="floating-window">
       <header
-        className="menubar-head"
+        className="window-header"
         onMouseDown={(event) => {
           // Drag the frameless panel by its header (skip clicks on the button).
           if ((event.target as HTMLElement).closest("button")) return;
@@ -183,130 +186,145 @@ function MenuBarBody({ app }: { app: ReturnType<typeof useAppState> }) {
           });
         }}
       >
-        <strong>Quotio</strong>
-        <div className="menubar-proxy">
-          <span className="menubar-endpoint">{proxy.endpoint}</span>
-          <button
-            className={running ? "menubar-proxy-toggle menubar-proxy-toggle--on" : "menubar-proxy-toggle"}
-            type="button"
-            onClick={() => void app.runProxyAction(running ? "stop_proxy" : "start_proxy")}
-            disabled={app.isProxyBusy}
-          >
-            {running ? t("menubar.stop") : t("menubar.start")}
-          </button>
+        <div className="brand">Quotio</div>
+        <div
+          className={running ? "endpoint" : "endpoint is-stopped"}
+          title={running ? `${t("menubar.running", "本地服务运行中")}：${proxy.endpoint}` : proxy.endpoint}
+        >
+          <svg className="status-icon" aria-hidden="true">
+            <use href="/floating/floating-window-icons.svg#icon-status" />
+          </svg>
+          <code>{proxy.endpoint}</code>
         </div>
+        <button
+          className={running ? "stop-button" : "stop-button is-start"}
+          type="button"
+          onClick={() => void app.runProxyAction(running ? "stop_proxy" : "start_proxy")}
+          disabled={app.isProxyBusy}
+        >
+          {running ? <Icon id="icon-stop" /> : null}
+          {running ? t("menubar.stop") : t("menubar.start")}
+        </button>
       </header>
 
       {providerIds.length > 0 ? (
-        <nav className="menubar-tabs">
+        <nav className="provider-tabs" aria-label={t("menubar.tabsLabel", "智能体筛选")}>
           {providerIds.map((id) => (
-            <button key={id} className={id === tab ? "active" : ""} type="button" onClick={() => setActiveTab(id)}>
+            <button
+              key={id}
+              className={id === tab ? "provider-tab active" : "provider-tab"}
+              type="button"
+              aria-pressed={id === tab}
+              onClick={() => setActiveTab(id)}
+            >
               {providerLabel(id)}
             </button>
           ))}
         </nav>
       ) : null}
 
-      <div className="menubar-list">
+      <section className="account-scroll" aria-label={t("menubar.listLabel", "账号额度列表")}>
         {accounts.length === 0 ? (
-          <p className="menubar-empty">{t("menubar.empty")}</p>
+          <p className="account-empty">{t("menubar.empty")}</p>
         ) : (
-          <>
-            {visibleAccounts.map((account) => (
-              <MenuBarAccount key={account.account_key} account={account} authFiles={authFiles} />
-            ))}
-            {hiddenCount > 0 ? (
-              <button className="menubar-more" type="button" disabled={acting} onClick={() => runOnce("show_main_window")}>
-                {t("menubar.more").replace("{n}", String(accounts.length))}
-              </button>
-            ) : null}
-          </>
+          accounts.map((account) => (
+            <MenuBarAccount key={account.account_key} account={account} authFiles={authFiles} />
+          ))
         )}
-      </div>
+      </section>
 
-      <footer className="menubar-foot">
-        <button type="button" onClick={() => void app.refreshQuotas()} disabled={app.isQuotaBusy}>
-          <span className={app.isQuotaBusy ? "menubar-foot-icon menubar-foot-icon--spin" : "menubar-foot-icon"}>↻</span>
-          {app.isQuotaBusy ? t("menubar.refreshing") : t("menubar.refresh")}
+      <footer className="window-actions">
+        <button
+          className="window-action action-refresh"
+          type="button"
+          onClick={() => void app.refreshQuotas()}
+          disabled={app.isQuotaBusy}
+        >
+          <span className={app.isQuotaBusy ? "fw-action-icon--spin" : ""}>
+            <Icon id="icon-refresh" />
+          </span>
+          <span>{app.isQuotaBusy ? t("menubar.refreshing") : t("menubar.refresh")}</span>
         </button>
-        <button type="button" disabled={acting} onClick={() => runOnce("show_main_window")}>
-          <span className="menubar-foot-icon">⤢</span>
-          {t("menubar.open")}
+        <button className="window-action action-open" type="button" disabled={acting} onClick={() => runOnce("show_main_window")}>
+          <Icon id="icon-open" />
+          <span>{t("menubar.open")}</span>
         </button>
-        <button type="button" disabled={acting} onClick={() => runOnce("quit_app")}>
-          <span className="menubar-foot-icon">⏻</span>
-          {t("menubar.quit")}
+        <button className="window-action action-exit" type="button" disabled={acting} onClick={() => runOnce("quit_app")}>
+          <Icon id="icon-exit" />
+          <span>{t("menubar.quit")}</span>
         </button>
       </footer>
-    </div>
+    </main>
   );
 }
 
 function MenuBarAccount({ account, authFiles }: { account: AccountQuota; authFiles: AuthFile[] }) {
   const statusMessage = account.status_message ?? "";
   const plan = parsePlan(statusMessage);
-  const tier = plan ? planTier(plan) : null;
   const expiry = statusMessage.match(/until:\s*([^|]+)/i)?.[1]?.trim();
   const isCodex = account.provider_id === "codex";
   const resetCredits = isCodex ? parseResetCredits(statusMessage) : null;
-  const authFailed = statusMessage === "auth_failed";
-  const weeklyUsedUp =
-    !account.is_forbidden && account.models.some((m) => /weekly/i.test(m.model) && m.remaining_percent <= 0);
   const file = matchAuthFile(account, authFiles);
   const recent = file?.recent_requests ?? [];
-  const successCount = file?.success ?? 0;
-  const failedCount = file?.failed ?? 0;
   const overall = accountOverallRemaining(account);
+  const overallTone = overall != null ? quotaTone(overall) : "good";
   const nearestReset = account.models
     .filter((m) => m.reset_at_unix)
     .sort((a, b) => (a.reset_at_unix ?? 0) - (b.reset_at_unix ?? 0))[0];
   const countdown = nearestReset?.reset_at_unix ? formatResetCountdown(nearestReset.reset_at_unix) : null;
+  const rows = splitSessionWeekly(account.models);
 
   return (
-    <div className="menubar-account">
-      <div className="menubar-account-head">
-        <span className="menubar-account-name">{account.account_label}</span>
+    <article className={`account-card account-card--${overallTone}`}>
+      <div className="account-title">
+        <span className="account-email" title={account.account_label}>
+          {account.account_label}
+        </span>
         {overall != null ? (
-          <span className={`menubar-overall menubar-overall--${quotaTone(overall)}`}>{overall}%</span>
+          <span className="health-percent" title={`健康 ${overall}%`}>
+            {overall}%
+          </span>
         ) : null}
-        {plan ? <span className={`menubar-plan-pill menubar-plan-pill--${tier}`}>{plan.toUpperCase()}</span> : null}
+        {plan ? <span className="plan-badge">{plan.toUpperCase()}</span> : null}
       </div>
 
-      <div className="menubar-account-meta">
-        {account.is_forbidden ? <span className="menubar-tag menubar-tag--bad">已禁用</span> : null}
-        {authFailed ? <span className="menubar-tag menubar-tag--bad">需重新授权</span> : null}
-        {weeklyUsedUp ? <span className="menubar-tag menubar-tag--warn">本周已用尽</span> : null}
-        {account.warming_up ? <span className="menubar-tag menubar-tag--warn">预热中</span> : null}
-        {account.in_use ? <span className="menubar-tag menubar-tag--blue">使用中</span> : null}
-        {file?.quotio_scheduler_standby && file?.disabled ? (
-          <span className="menubar-tag menubar-tag--blue">调度待命</span>
+      <div className="account-meta">
+        {resetCredits != null ? (
+          <span className="meta-item">
+            <Icon id="icon-calendar" />
+            重置 ×{resetCredits}
+          </span>
         ) : null}
-        {resetCredits != null ? <span className="menubar-tag">重置×{resetCredits}</span> : null}
-        {expiry ? <span className="menubar-meta-text">到期 {expiry}</span> : null}
-        {countdown ? <span className="menubar-meta-text">{countdown}</span> : null}
-        {(successCount > 0 || failedCount > 0) ? (
-          <span className="menubar-meta-text">
-            ✓{successCount}{failedCount > 0 ? <span className="menubar-fail"> ✗{failedCount}</span> : null}
+        {expiry ? (
+          <span className="meta-item">
+            <Icon id="icon-calendar" />
+            到期 {expiry}
+          </span>
+        ) : null}
+        {countdown ? (
+          <span className="meta-item">
+            <Icon id="icon-clock" />
+            {countdown}
           </span>
         ) : null}
       </div>
 
-      {account.models.map((model) => {
+      {recent.length > 0 ? <HealthDots recent={recent} /> : <div className="health-dots" aria-hidden="true" />}
+
+      {rows.map(({ model, label }) => {
         const remaining = Math.max(0, Math.min(100, model.remaining_percent));
+        const tone = quotaTone(model.remaining_percent);
         return (
-          <div className="menubar-model" key={model.model}>
-            <div className="menubar-model-top">
-              <span className="menubar-model-name">{model.model}</span>
-              {model.reset_at ? <span className="menubar-model-reset">{model.reset_at}</span> : null}
-              <span className="menubar-model-pct">{Math.round(remaining)}%</span>
-            </div>
-            <div className="menubar-bar">
-              <div className="menubar-bar-fill" style={{ width: `${remaining}%`, background: barTone(remaining) }} />
+          <div className={`quota-row quota-row--${tone}`} key={model.model}>
+            <span className="quota-name">{label}</span>
+            <span className="quota-time">{model.reset_at ?? ""}</span>
+            <strong className="quota-percent">{Math.round(remaining)}%</strong>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${remaining}%` }} />
             </div>
           </div>
         );
       })}
-      {recent.length > 0 ? <HealthDots recent={recent} compact /> : null}
-    </div>
+    </article>
   );
 }

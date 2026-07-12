@@ -2,7 +2,7 @@ import { type ClipboardEvent, useEffect, useRef, useState } from "react";
 import { confirm, open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import jsQR from "jsqr";
-import { CheckIcon, CopyIcon, KeyIcon, PencilIcon, RefreshIcon, TrashIcon } from "../icons";
+import { CheckIcon, CopyIcon, PencilIcon, RefreshIcon, TrashIcon } from "../icons";
 import { useT } from "../../i18n";
 import {
   MFA_STORAGE_KEY_HISTORY,
@@ -19,11 +19,26 @@ import {
   type MfaRecord,
   type ParsedMfaCredential,
 } from "../../lib/mfaVault";
-import "./TwoFactorAuthScreen.css";
+import "./twofa.css";
 
 type ListTab = "saved" | "history";
 
 const MAX_HISTORY = 50;
+
+// TOTP 周期(秒)。getMfaTimeRemaining() 返回 1..30,倒计时圆环据此计算弧长。
+const TOTP_PERIOD = 30;
+// 圆环几何(对齐 /twofa/countdown-ring.svg):r=43 → 周长 2πr。
+const RING_RADIUS = 43;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+// 内联的 SVG 精灵图标(素材见 public/twofa/twofa-icons.svg)。
+function Icon({ id }: { id: string }) {
+  return (
+    <svg className="tf-icon" aria-hidden="true">
+      <use href={`/twofa/twofa-icons.svg#${id}`} />
+    </svg>
+  );
+}
 
 /** Keep `head` + `tail` chars, replace the middle with a fixed `****` (fixed so the
  *  hidden length isn't leaked). Display-only — the full value is still used to
@@ -41,6 +56,14 @@ function maskAccountName(value: string): string {
   const at = v.indexOf("@");
   if (at > 0) return `${maskMiddle(v.slice(0, at), 3, 2)}${v.slice(at)}`;
   return maskMiddle(v, 3, 2);
+}
+
+/** Display-only grouping of an all-digit code into two halves (e.g. `428916` →
+ *  `428 916`), matching the design. Copy/verify always use the raw token. */
+function formatCode(code: string): string {
+  if (!code || !/^\d+$/.test(code)) return code;
+  const mid = Math.ceil(code.length / 2);
+  return `${code.slice(0, mid)} ${code.slice(mid)}`;
 }
 
 async function decodeQrTextFromImage(file: Blob): Promise<string | null> {
@@ -85,7 +108,9 @@ export function TwoFactorAuthScreen() {
   const [editingName, setEditingName] = useState("");
   const [recognizingImage, setRecognizingImage] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(() => getMfaTimeRemaining());
+  const [searchQuery, setSearchQuery] = useState("");
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const secretInputRef = useRef<HTMLInputElement | null>(null);
   // 跳过首挂载的回写:records/historyRecords 初值来自 load*(已去重/规范化),首挂载
   // 就写回会用规范化结果静默覆盖磁盘上的原始数据;只在用户真正改动后才持久化。
   const savedHydrated = useRef(false);
@@ -114,6 +139,22 @@ export function TwoFactorAuthScreen() {
 
   const activeToken = activeQuery ? getMfaOtpToken(activeQuery.secret) : "";
   const visibleRecords = activeTab === "saved" ? records : historyRecords;
+  // 仅用于列表展示的客户端过滤(不落盘、不改数据层)。
+  const search = searchQuery.trim().toLowerCase();
+  const filteredRecords = search
+    ? visibleRecords.filter(
+        (record) => (record.accountName || "").toLowerCase().includes(search) || record.secret.toLowerCase().includes(search),
+      )
+    : visibleRecords;
+  // 倒计时圆环弧长:剩余时间越少,弧越短(30s 满环,0s 空环)。
+  const ringOffset = RING_CIRCUMFERENCE * (1 - timeRemaining / TOTP_PERIOD);
+
+  function focusSecretInput() {
+    const el = secretInputRef.current;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.focus();
+  }
 
   function applyQueryResult(parsed: ParsedMfaCredential) {
     setActiveQuery(parsed);
@@ -269,135 +310,282 @@ export function TwoFactorAuthScreen() {
   }
 
   return (
-    <section className="section-page two-factor-page">
+    <section className="section-page twofa-redesign">
       <header className="page-topbar" data-tauri-drag-region>
-        <h1>{t("title.two_factor")}</h1>
+        <div className="tf-topline">
+          <h1>{t("title.two_factor")}</h1>
+          <span className="tf-status-pill">
+            <Icon id="icon-shield" />
+            {t("twoFactor.statusPill", "本地 TOTP")}
+          </span>
+        </div>
       </header>
 
-      <article className="panel two-factor-intro">
-        <KeyIcon />
+      <article className="panel tf-notice">
+        <Icon id="icon-2fa" />
         <span>{t("twoFactor.desc")}</span>
       </article>
 
-      <article className="panel two-factor-query-panel">
-        <div className="two-factor-input-row">
-          <input
-            className="two-factor-name-input"
-            value={nameValue}
-            onChange={(event) => setNameValue(event.target.value)}
-            placeholder={t("twoFactor.namePlaceholder")}
-          />
-          <input value={inputValue} onChange={(event) => setInputValue(event.target.value)} onPaste={handlePasteImage} placeholder={t("twoFactor.inputPlaceholder")} />
-          <button className="secondary-action" type="button" onClick={() => parseAndQuery(inputValue)}>
-            {t("twoFactor.query")}
-          </button>
-          <button className="secondary-action" type="button" onClick={saveCurrentInput}>
-            {t("twoFactor.save")}
-          </button>
-          <button className="ghost-action" type="button" onClick={() => uploadInputRef.current?.click()} disabled={recognizingImage}>
-            {recognizingImage ? "..." : "QR"}
-          </button>
-          <input
-            ref={uploadInputRef}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(event) => {
-              const file = event.currentTarget.files?.[0];
-              event.currentTarget.value = "";
-              if (file) void decodeAndQueryImage(file);
-            }}
-          />
-        </div>
-        {inputError ? <p className="two-factor-error">{inputError}</p> : null}
-        <div className="two-factor-current-code">
-          <span>{t("twoFactor.currentCode")}</span>
-          <strong className={activeToken ? "two-factor-code-value" : "two-factor-code-placeholder"}>{activeToken || t("twoFactor.noCode")}</strong>
-          <small>{timeRemaining}s</small>
-          <button className="row-icon-btn" type="button" disabled={!activeToken} onClick={() => void copyText("active", activeToken)}>
-            {copiedId === "active" ? <CheckIcon /> : <CopyIcon />}
-          </button>
-        </div>
-      </article>
+      <section className="tf-grid">
+        <article className="panel tf-generator">
+          <h2>{t("twoFactor.generateTitle", "生成 TOTP 验证码")}</h2>
 
-      <article className="panel two-factor-list-panel">
-        <div className="two-factor-list-head">
-          <div className="two-factor-tabs">
-            <button className={activeTab === "saved" ? "active" : ""} type="button" onClick={() => setActiveTab("saved")}>
+          <div className="tf-input">
+            <Icon id="icon-search" />
+            <input value={nameValue} onChange={(event) => setNameValue(event.target.value)} placeholder={t("twoFactor.namePlaceholder")} />
+          </div>
+
+          <div className="tf-input-row">
+            <div className="tf-input">
+              <Icon id="icon-key" />
+              <input
+                ref={secretInputRef}
+                value={inputValue}
+                onChange={(event) => setInputValue(event.target.value)}
+                onPaste={handlePasteImage}
+                placeholder={t("twoFactor.inputPlaceholder")}
+              />
+            </div>
+            <button className="button" type="button" onClick={() => parseAndQuery(inputValue)}>
+              {t("twoFactor.query")}
+            </button>
+            <button className="button primary" type="button" onClick={saveCurrentInput}>
+              {t("twoFactor.save")}
+            </button>
+            <button className="button" type="button" onClick={() => uploadInputRef.current?.click()} disabled={recognizingImage}>
+              <Icon id="icon-qr" />
+              {recognizingImage ? "…" : "QR"}
+            </button>
+            <input
+              ref={uploadInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                event.currentTarget.value = "";
+                if (file) void decodeAndQueryImage(file);
+              }}
+            />
+          </div>
+
+          <div className="tf-code-panel">
+            <div className="tf-code-main">
+              <div className="tf-code-label">
+                {t("twoFactor.currentCode")}
+                <button className="tf-code-copy" type="button" disabled={!activeToken} onClick={() => void copyText("active", activeToken)} aria-label={t("twoFactor.copy")}>
+                  {copiedId === "active" ? <CheckIcon /> : <CopyIcon />}
+                </button>
+              </div>
+              {activeToken ? (
+                <div className="tf-code">{formatCode(activeToken)}</div>
+              ) : (
+                <div className="tf-code-empty">{t("twoFactor.noCode")}</div>
+              )}
+              {inputError ? <p className="tf-error">{inputError}</p> : null}
+            </div>
+            {/* 倒计时的彩弧和秒数只在有活跃验证码时显示;没输密钥时环保持静态、显示「--」,
+                不再空转倒数。 */}
+            <svg
+              className={activeToken ? "tf-countdown" : "tf-countdown tf-countdown--idle"}
+              viewBox="0 0 112 112"
+              fill="none"
+              role="img"
+              aria-label={activeToken ? `${timeRemaining}s` : t("twoFactor.noCode")}
+            >
+              <circle className="tf-countdown-track" cx="56" cy="56" r={RING_RADIUS} strokeWidth="12" />
+              {activeToken ? (
+                <circle
+                  className="tf-countdown-arc"
+                  cx="56"
+                  cy="56"
+                  r={RING_RADIUS}
+                  strokeWidth="12"
+                  strokeLinecap="round"
+                  transform="rotate(-90 56 56)"
+                  strokeDasharray={RING_CIRCUMFERENCE}
+                  strokeDashoffset={ringOffset}
+                />
+              ) : null}
+              <circle cx="56" cy="56" r="32" fill="#FFF8EC" />
+              <text className="tf-countdown-text" x="56" y="63" textAnchor="middle">
+                {activeToken ? `${timeRemaining}s` : "--"}
+              </text>
+            </svg>
+          </div>
+
+          <div className="tf-hint">
+            <Icon id="icon-shield" />
+            {t("twoFactor.codeHint", "验证码每 30 秒更新一次，请及时使用。")}
+          </div>
+        </article>
+
+        <aside className="panel tf-vault">
+          <div className="tf-vault-head">
+            <h2>{t("twoFactor.vaultTitle", "本地保险箱")}</h2>
+            <span className="tf-vault-sub">{t("twoFactor.vaultSubtitle", "完全本地 · 安全隐私")}</span>
+          </div>
+          <div className="tf-secure-list">
+            <div className="tf-secure-row">
+              <div className="tf-secure-icon">
+                <Icon id="icon-2fa" />
+              </div>
+              <div className="tf-secure-text">
+                <strong>{t("twoFactor.vaultLocalTitle", "本地保存")}</strong>
+                <span>{t("twoFactor.vaultLocalDesc", "所有密钥与数据仅存储在本机，不会上传到云端。")}</span>
+              </div>
+              <svg className="tf-icon tf-secure-flag" aria-hidden="true">
+                <use href="/twofa/twofa-icons.svg#icon-shield" />
+              </svg>
+            </div>
+            <div className="tf-secure-row">
+              <div className="tf-secure-icon purple">
+                <Icon id="icon-shield" />
+              </div>
+              <div className="tf-secure-text">
+                <strong>{t("twoFactor.vaultEncryptTitle", "加密保险箱")}</strong>
+                <span>{t("twoFactor.vaultEncryptDesc", "密钥使用本地加密存储，应用重启后仍安全可用。")}</span>
+              </div>
+              <svg className="tf-icon tf-secure-flag" aria-hidden="true">
+                <use href="/twofa/twofa-icons.svg#icon-shield" />
+              </svg>
+            </div>
+            <div className="tf-secure-row">
+              <div className="tf-secure-icon blue">
+                <Icon id="icon-download" />
+              </div>
+              <div className="tf-secure-text">
+                <strong>{t("twoFactor.vaultBackupTitle", "定期备份")}</strong>
+                <span>{t("twoFactor.vaultBackupDesc", "导出备份文件，防止误删或重装导致数据丢失。")}</span>
+              </div>
+              <span className="tf-secure-chev">›</span>
+            </div>
+          </div>
+          <div className="tf-vault-actions">
+            <button className="button" type="button" onClick={() => void importRecords()}>
+              <Icon id="icon-upload" />
+              {t("twoFactor.importKeys", "导入密钥")}
+            </button>
+            <button className="button" type="button" onClick={() => void exportRecords()} disabled={records.length === 0}>
+              <Icon id="icon-download" />
+              {t("twoFactor.exportBackup", "导出备份")}
+            </button>
+          </div>
+        </aside>
+      </section>
+
+      <section className="panel tf-saved">
+        <div className="tf-saved-top">
+          <div className="tf-tabs">
+            <button className={activeTab === "saved" ? "tf-tab active" : "tf-tab"} type="button" onClick={() => setActiveTab("saved")}>
               {t("twoFactor.saved")}
             </button>
-            <button className={activeTab === "history" ? "active" : ""} type="button" onClick={() => setActiveTab("history")}>
+            <button className={activeTab === "history" ? "tf-tab active" : "tf-tab"} type="button" onClick={() => setActiveTab("history")}>
               {t("twoFactor.history")}
             </button>
           </div>
-          <div className="two-factor-actions">
-            <button className="ghost-action" type="button" onClick={() => void importRecords()}>
+          <div className="tf-saved-actions">
+            <button className="button" type="button" onClick={() => void importRecords()}>
+              <Icon id="icon-upload" />
               {t("twoFactor.import")}
             </button>
-            <button className="ghost-action" type="button" onClick={() => void exportRecords()} disabled={records.length === 0}>
+            <button className="button" type="button" onClick={() => void exportRecords()} disabled={records.length === 0}>
+              <Icon id="icon-download" />
               {t("twoFactor.export")}
             </button>
             {activeTab === "history" ? (
-              <button className="ghost-action" type="button" onClick={() => setHistoryRecords([])}>
+              <button className="button" type="button" onClick={() => setHistoryRecords([])}>
                 {t("twoFactor.clearHistory")}
               </button>
             ) : null}
           </div>
         </div>
-        <div className="two-factor-records">
-          {visibleRecords.length === 0 ? <p className="empty-copy">{t("twoFactor.noCode")}</p> : null}
-          {visibleRecords.map((record) => {
-            const token = getMfaOtpToken(record.secret);
-            return (
-              <div className="two-factor-record" key={record.id}>
-                <div className="two-factor-record-main">
-                  {editingId === record.id ? (
-                    <input
-                      value={editingName}
-                      onChange={(event) => setEditingName(event.target.value)}
-                      onBlur={saveEdit}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") saveEdit();
-                      }}
-                      autoFocus
-                    />
-                  ) : (
-                    <strong>{record.accountName ? maskAccountName(record.accountName) : t("twoFactor.unnamed")}</strong>
-                  )}
-                  <code>{maskMiddle(record.secret, 4, 4)}</code>
+        <div className="tf-saved-body">
+          <div className="tf-input tf-search">
+            <Icon id="icon-search" />
+            <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("twoFactor.searchPlaceholder", "搜索名称或邮箱")} />
+          </div>
+
+          {visibleRecords.length === 0 ? (
+            activeTab === "history" ? (
+              <div className="tf-nomatch">{t("twoFactor.historyEmpty", "暂无历史记录")}</div>
+            ) : (
+              <div className="tf-empty">
+                <div>
+                  <img src="/twofa/vault-empty.svg" alt="" />
+                  <strong>{t("twoFactor.emptyTitle", "尚未保存任何密钥")}</strong>
+                  <p>{t("twoFactor.emptyDesc", "通过上方输入区保存第一个 TOTP 密钥，或导入已有备份。")}</p>
+                  <div className="tf-empty-buttons">
+                    <button className="button primary" type="button" onClick={focusSecretInput}>
+                      {t("twoFactor.emptyCreate", "新建并保存密钥")}
+                    </button>
+                    <button className="button" type="button" onClick={() => void importRecords()}>
+                      {t("twoFactor.emptyImport", "导入备份文件")}
+                    </button>
+                  </div>
                 </div>
-                <div className="two-factor-record-code">
-                  <span>{token || "------"}</span>
-                  <small>{timeRemaining}s</small>
-                </div>
-                <button className="row-icon-btn" type="button" onClick={() => void copyText(record.id, token)} disabled={!token}>
-                  {copiedId === record.id ? <CheckIcon /> : <CopyIcon />}
-                </button>
-                {activeTab === "saved" ? (
-                  <button className="row-icon-btn" type="button" onClick={() => startEdit(record)} aria-label={t("twoFactor.editName")}>
-                    <PencilIcon />
-                  </button>
-                ) : (
-                  <button
-                    className="row-icon-btn"
-                    type="button"
-                    onClick={() => {
-                      setInputValue(record.secret);
-                      setActiveQuery({ accountName: record.accountName, secret: record.secret });
-                    }}
-                    aria-label={t("common.refresh")}
-                  >
-                    <RefreshIcon />
-                  </button>
-                )}
-                <button className="row-icon-btn row-icon-btn--danger" type="button" onClick={() => void deleteRecord(record, activeTab)} aria-label={t("twoFactor.delete")}>
-                  <TrashIcon />
-                </button>
               </div>
-            );
-          })}
+            )
+          ) : filteredRecords.length === 0 ? (
+            <div className="tf-nomatch">{t("twoFactor.noMatch", "未找到匹配的密钥")}</div>
+          ) : (
+            <div className="tf-records">
+              {filteredRecords.map((record) => {
+                const token = getMfaOtpToken(record.secret);
+                return (
+                  <div className="tf-record" key={record.id}>
+                    <div className="tf-record-main">
+                      {editingId === record.id ? (
+                        <input
+                          value={editingName}
+                          onChange={(event) => setEditingName(event.target.value)}
+                          onBlur={saveEdit}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") saveEdit();
+                          }}
+                          autoFocus
+                        />
+                      ) : (
+                        <strong>{record.accountName ? maskAccountName(record.accountName) : t("twoFactor.unnamed")}</strong>
+                      )}
+                      <code>{maskMiddle(record.secret, 4, 4)}</code>
+                    </div>
+                    <div className="tf-record-code">
+                      <span>{token ? formatCode(token) : "------"}</span>
+                      <small>{timeRemaining}s</small>
+                    </div>
+                    <div className="tf-record-actions">
+                      <button className="tf-icon-btn" type="button" onClick={() => void copyText(record.id, token)} disabled={!token} aria-label={t("twoFactor.copy")}>
+                        {copiedId === record.id ? <CheckIcon /> : <CopyIcon />}
+                      </button>
+                      {activeTab === "saved" ? (
+                        <button className="tf-icon-btn" type="button" onClick={() => startEdit(record)} aria-label={t("twoFactor.editName")}>
+                          <PencilIcon />
+                        </button>
+                      ) : (
+                        <button
+                          className="tf-icon-btn"
+                          type="button"
+                          onClick={() => {
+                            setInputValue(record.secret);
+                            setActiveQuery({ accountName: record.accountName, secret: record.secret });
+                          }}
+                          aria-label={t("common.refresh")}
+                        >
+                          <RefreshIcon />
+                        </button>
+                      )}
+                      <button className="tf-icon-btn tf-icon-btn--danger" type="button" onClick={() => void deleteRecord(record, activeTab)} aria-label={t("twoFactor.delete")}>
+                        <TrashIcon />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
-      </article>
+      </section>
     </section>
   );
 }

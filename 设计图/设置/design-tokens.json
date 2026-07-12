@@ -1,0 +1,122 @@
+{
+  "meta": {
+    "name": "quotio-settings-redesign",
+    "target": "desktop-settings-control-center",
+    "canvas": {
+      "width": 1663,
+      "height": 946,
+      "sidebarWidth": 216,
+      "contentMaxWidth": 1420
+    }
+  },
+  "colors": {
+    "page": "#F7F3EA",
+    "pageCool": "#F5F8FF",
+    "surface": "rgba(255, 255, 255, 0.88)",
+    "surfaceStrong": "#FFFFFF",
+    "surfaceSoft": "#F8FAFE",
+    "border": "rgba(137, 151, 177, 0.24)",
+    "borderStrong": "rgba(92, 110, 140, 0.32)",
+    "text": "#172033",
+    "textMuted": "#66758F",
+    "textSoft": "#9AA7BA",
+    "primary": "#2E7BFF",
+    "primaryStrong": "#1264E8",
+    "primarySoft": "#E7F0FF",
+    "success": "#20B86E",
+    "successSoft": "#E9F9F1",
+    "warning": "#FF9F1C",
+    "warningSoft": "#FFF4DF",
+    "danger": "#EF4444",
+    "dangerSoft": "#FFF0F0",
+    "lavender": "#8B5CF6",
+    "lavenderSoft": "#F2EDFF",
+    "monitor": "#22B66B",
+    "monitorSoft": "#E9F9F1",
+    "local": "#2E7BFF",
+    "localSoft": "#E7F0FF",
+    "remote": "#9B5DE5",
+    "remoteSoft": "#F3ECFF",
+    "rowHover": "#F7FAFF"
+  },
+  "typography": {
+    "fontFamily": "\"HarmonyOS Sans SC\", \"MiSans\", \"SF Pro Rounded\", \"PingFang SC\", sans-serif",
+    "monoFamily": "\"SFMono-Regular\", \"JetBrains Mono\", \"Cascadia Code\", monospace",
+    "pageTitle": {
+      "fontSize": 28,
+      "lineHeight": 36,
+      "fontWeight": 850,
+      "letterSpacing": -0.3
+    },
+    "sectionTitle": {
+      "fontSize": 17,
+      "lineHeight": 25,
+      "fontWeight": 850
+    },
+    "body": {
+      "fontSize": 13,
+      "lineHeight": 20,
+      "fontWeight": 600
+    },
+    "rowLabel": {
+      "fontSize": 12,
+      "lineHeight": 18,
+      "fontWeight": 760
+    },
+    "caption": {
+      "fontSize": 10,
+      "lineHeight": 16,
+      "fontWeight": 650
+    }
+  },
+  "spacing": {
+    "pagePadding": 26,
+    "panelGap": 14,
+    "cardPadding": 16,
+    "controlHeight": 36,
+    "sidebarItemHeight": 44,
+    "settingsRowHeight": 42,
+    "compactRowHeight": 38
+  },
+  "radii": {
+    "sm": 9,
+    "md": 12,
+    "lg": 17,
+    "xl": 24,
+    "round": 999
+  },
+  "shadows": {
+    "panel": "0 18px 44px rgba(28, 39, 68, 0.08), 0 2px 8px rgba(28, 39, 68, 0.05)",
+    "selectedMode": "0 18px 42px rgba(46, 123, 255, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.8)",
+    "connection": "0 20px 48px rgba(20, 184, 166, 0.09), 0 2px 8px rgba(28, 39, 68, 0.05)",
+    "sidebar": "12px 0 42px rgba(30, 42, 68, 0.08)",
+    "primaryButton": "0 12px 28px rgba(46, 123, 255, 0.26)"
+  },
+  "components": {
+    "modeSelector": {
+      "height": 132,
+      "modeCardHeight": 76,
+      "iconSize": 46
+    },
+    "baseSettingsCard": {
+      "minHeight": 252,
+      "rowHeight": 42
+    },
+    "proxyConnectionCard": {
+      "minHeight": 252,
+      "inputHeight": 34
+    },
+    "managementApiCard": {
+      "minHeight": 302,
+      "rowHeight": 42
+    },
+    "advancedCard": {
+      "minHeight": 302,
+      "columnGap": 14
+    },
+    "toolsStrip": {
+      "height": 104,
+      "toolCardHeight": 66
+    }
+  }
+}

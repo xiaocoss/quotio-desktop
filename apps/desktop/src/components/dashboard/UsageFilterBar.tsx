@@ -1,7 +1,6 @@
 import type { UsageFilterOptions, UsageStatusFilter } from "../../types";
 import type { TimeRangeKey, UsageFilters } from "../../state/usageDashboard";
 import { Select, type SelectOption } from "../Select";
-import { RefreshIcon } from "../icons";
 import { maskEmail } from "../../lib/format";
 import { useT } from "../../i18n";
 
@@ -15,16 +14,11 @@ type UsageFilterBarProps = {
   filters: UsageFilters;
   onFiltersChange: (filters: UsageFilters) => void;
   options: UsageFilterOptions;
-  autoRefreshSec: number;
-  onAutoRefreshChange: (seconds: number) => void;
-  onRefresh: () => void;
-  loading: boolean;
   hasActiveFilters: boolean;
   onReset: () => void;
 };
 
 const RANGE_KEYS: TimeRangeKey[] = ["today", "7d", "14d", "30d", "all", "custom"];
-const AUTO_REFRESH_SECONDS = [0, 5, 10, 30, 60];
 
 export function UsageFilterBar({
   range,
@@ -36,10 +30,6 @@ export function UsageFilterBar({
   filters,
   onFiltersChange,
   options,
-  autoRefreshSec,
-  onAutoRefreshChange,
-  onRefresh,
-  loading,
   hasActiveFilters,
   onReset,
 }: UsageFilterBarProps) {
@@ -66,47 +56,21 @@ export function UsageFilterBar({
     { value: "failed", label: t("dash.status.failed") },
   ];
 
-  const autoRefreshOptions: SelectOption[] = AUTO_REFRESH_SECONDS.map((seconds) => ({
-    value: String(seconds),
-    label: seconds === 0 ? t("dash.autoRefresh.off") : `${seconds}${t("dash.seconds")}`,
-  }));
-
   return (
     <article className="panel usage-filter-bar">
-      <div className="usage-filter-top">
-        <div className="range-tabs" role="tablist" aria-label={t("dash.timeRange")}>
-          {RANGE_KEYS.map((key) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={range === key}
-              className={range === key ? "range-tab range-tab--active" : "range-tab"}
-              onClick={() => onRangeChange(key)}
-            >
-              {t(`dash.range.${key}`)}
-            </button>
-          ))}
-        </div>
-        <div className="usage-filter-actions">
-          <span className="auto-refresh">
-            <span className="auto-refresh-label">{t("dash.autoRefresh")}</span>
-            <Select
-              value={String(autoRefreshSec)}
-              options={autoRefreshOptions}
-              onChange={(value) => onAutoRefreshChange(Number(value))}
-              minWidth="92px"
-            />
-          </span>
+      <div className="range-tabs" role="tablist" aria-label={t("dash.timeRange")}>
+        {RANGE_KEYS.map((key) => (
           <button
+            key={key}
             type="button"
-            className={loading ? "secondary-action secondary-action--busy" : "secondary-action"}
-            onClick={onRefresh}
+            role="tab"
+            aria-selected={range === key}
+            className={range === key ? "range-tab range-tab--active" : "range-tab"}
+            onClick={() => onRangeChange(key)}
           >
-            <RefreshIcon />
-            <span>{t("common.refresh")}</span>
+            {t(`dash.range.${key}`)}
           </button>
-        </div>
+        ))}
       </div>
 
       {range === "custom" ? (
@@ -150,13 +114,13 @@ export function UsageFilterBar({
           value={filters.channel}
           options={withAll(t("dash.filter.allChannels"), options.channels)}
           onChange={(value) => setFilter({ channel: value })}
-          minWidth="140px"
+          minWidth="150px"
         />
         <Select
           value={filters.apiKeyHash}
           options={apiKeyOptions}
           onChange={(value) => setFilter({ apiKeyHash: value })}
-          minWidth="160px"
+          minWidth="170px"
         />
         <Select
           value={filters.status}
@@ -168,7 +132,7 @@ export function UsageFilterBar({
 
       <div className="usage-search-row">
         <div className="usage-search">
-          <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
             <circle cx="7" cy="7" r="4.5" />
             <path d="M10.5 10.5L14 14" />
           </svg>
@@ -179,12 +143,7 @@ export function UsageFilterBar({
             onChange={(event) => setFilter({ search: event.target.value })}
           />
         </div>
-        <button
-          type="button"
-          className="ghost-action"
-          onClick={onReset}
-          disabled={!hasActiveFilters}
-        >
+        <button type="button" className="ghost-action" onClick={onReset} disabled={!hasActiveFilters}>
           {t("dash.clearFilters")}
         </button>
       </div>

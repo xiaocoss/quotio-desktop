@@ -1,0 +1,24 @@
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="base" x1="80" y1="26" x2="1510" y2="968" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8F3E9"/>
+      <stop offset="0.45" stop-color="#FCFCFE"/>
+      <stop offset="1" stop-color="#F3F8FF"/>
+    </linearGradient>
+    <radialGradient id="blue" cx="0" cy="0" r="1" gradientTransform="translate(1280 144) rotate(145) scale(520 340)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D4E5FF" stop-opacity="0.52"/>
+      <stop offset="1" stop-color="#D4E5FF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="amber" cx="0" cy="0" r="1" gradientTransform="translate(820 820) rotate(-34) scale(470 270)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE9BE" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="#FFE9BE" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" stroke="#7183A3" stroke-opacity="0.05"/>
+    </pattern>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#base)"/>
+  <rect width="1600" height="1000" fill="url(#blue)"/>
+  <rect width="1600" height="1000" fill="url(#amber)"/>
+  <rect width="1600" height="1000" fill="url(#grid)"/>
+</svg>

@@ -1,11 +1,22 @@
 import { useState, useEffect, useRef, useMemo, useCallback, memo, type ChangeEvent } from "react";
 import type { AccountAuthHealth, AppState, AuthFile, OAuthStatusResponse, OAuthUrlResponse, ProviderSummary, SchedulerOrderItem } from "../../types";
 import { maskEmail, matchAuthFile, servingFile } from "../../lib/format";
+import { ProviderLogo } from "../../lib/providerLogos";
 import { EyeIcon, EyeOffIcon, PlusIcon, RefreshIcon, TrashIcon } from "../icons";
 import { useT } from "../../i18n";
 import { invoke } from "../../lib/tauri";
 import { Select } from "../Select";
 import { AddAccountModal } from "../AddAccountModal";
+import "./providers.css";
+
+// 内联的 SVG 符号图标(素材见 public/providers/provider-icons.svg)。
+function Icon({ id }: { id: string }) {
+  return (
+    <svg className="pv-ico" aria-hidden="true">
+      <use href={`/providers/provider-icons.svg#${id}`} />
+    </svg>
+  );
+}
 
 type ProviderKey = { id: string; label: string; api_key: string; enabled: boolean; weight: number };
 type CustomProvider = { id: string; name: string; base_url: string; api_key: string; kind: string; prefix?: string; keys: ProviderKey[]; default_model?: string; models?: string[]; proxy_mode?: string };
@@ -367,6 +378,23 @@ export function ProvidersScreen({
   }, [appState.management.auth_files, appState.quotas]);
   const oauthProviders = appState.providers.filter((provider) => provider.native_oauth || provider.oauth_endpoint || provider.supports_manual_auth);
 
+  // 概览 / 洞察用的聚合:把所有分组里的账号跑一遍 accountState,分出「正常」与「需重新登录」。
+  // 复用页面已有的 authFailedNames / authHealth,不额外拉数据。
+  const accountStates = useMemo(
+    () =>
+      groups.flatMap((group) =>
+        group.accounts.map((account) => ({
+          account,
+          state: accountState(account, authFailedNames.has(account.name), healthFor(account, authHealth)),
+        })),
+      ),
+    [groups, authFailedNames, authHealth],
+  );
+  const activeAccountCount = accountStates.filter((entry) => !entry.state.needsReauth && entry.state.tone === "good").length;
+  const expiredAccountCount = accountStates.filter((entry) => entry.state.needsReauth).length;
+  const firstExpiredAccount = accountStates.find((entry) => entry.state.needsReauth)?.account ?? null;
+  const routingReady = orderByFile.size > 0;
+
   const [addAccountProvider, setAddAccountProvider] = useState<ProviderSummary | null>(null);
   // 正在「重新授权」的账号(为空 = 新增账号);供弹窗显示该账号、给用户复制。
   const [reauthTarget, setReauthTarget] = useState<AuthFile | null>(null);
@@ -397,6 +425,15 @@ export function ProvidersScreen({
     setEditingCustomId(null);
     setShowAddCustom(false);
     setCustomFormError(null);
+  }
+
+  // 快捷模板:打开「新增接口」表单并预设兼容类型(openai/gemini/claude),不改动既有提交逻辑。
+  function startAddCustomWithKind(kind: string) {
+    setEditingCustomId(null);
+    setCustomForm({ name: "", base_url: "", api_key: "", kind, prefix: "", models: "", proxy_mode: "inherit" });
+    setFormKeys([{ label: "", api_key: "" }]);
+    setCustomFormError(null);
+    setShowAddCustom(true);
   }
 
   function startEditCustom(provider: CustomProvider) {
@@ -530,10 +567,10 @@ export function ProvidersScreen({
   }
 
   return (
-    <section className="section-page providers-page">
+    <section className="section-page providers-page providers-redesign">
       <header className="page-topbar" data-tauri-drag-region>
-        <h1>{t("nav.providers")}</h1>
-        <div className="topbar-actions">
+        <div className="pv-title-row">
+          <h1>{t("nav.providers")}</h1>
           <button
             className="icon-button"
             type="button"
@@ -544,6 +581,16 @@ export function ProvidersScreen({
           >
             <RefreshIcon />
           </button>
+        </div>
+        <div className="pv-title-row">
+          <span className="pv-topbar-count">共 {groups.length} 个服务商</span>
+          <GlobalActionsMenu
+            oauthProviders={oauthProviders.filter(
+              // 只列「还没连接」(没卡片)的服务商——加首个账号的唯一入口;已连接的卡片上有 +。
+              (p) => !groups.some((g) => g.id === p.id || p.id.includes(g.id) || g.id.includes(p.id)),
+            )}
+            onSelectProvider={(provider) => { setReauthTarget(null); setAddAccountProvider(provider); }}
+          />
         </div>
       </header>
 
@@ -564,73 +611,168 @@ export function ProvidersScreen({
         />
       ) : null}
 
-      {/* ── Connected providers: card grid ── */}
-      <div className="pv-section-header">
-        <h2 className="pv-section-title">已连接服务商</h2>
-        <span className="pv-section-actions">
-          <span className="pv-count-badge">共 {groups.length} 个服务商</span>
-          <GlobalActionsMenu
-            oauthProviders={oauthProviders.filter(
-              // 只列「还没连接」(没卡片)的服务商——加首个账号的唯一入口;已连接的卡片上有 +。
-              (p) => !groups.some((g) => g.id === p.id || p.id.includes(g.id) || g.id.includes(p.id)),
-            )}
-            onSelectProvider={(provider) => { setReauthTarget(null); setAddAccountProvider(provider); }}
-          />
-        </span>
+      {/* ── 概览四格:已连接服务商 / 活跃账户 / 登录过期 / 自定义接口 ── */}
+      <section className="panel overview">
+        <article className="overview-item">
+          <div className="overview-icon"><Icon id="icon-provider" /></div>
+          <div>
+            <div className="overview-label">{t("providers.ovConnected", "已连接服务商")}</div>
+            <div className="overview-value">{groups.length} <span className="overview-note">{t("providers.ovUnit", "个")}</span></div>
+          </div>
+        </article>
+        <article className="overview-item">
+          <div className="overview-icon blue"><Icon id="icon-check" /></div>
+          <div>
+            <div className="overview-label">{t("providers.ovActive", "活跃账户")}</div>
+            <div className="overview-value">{activeAccountCount} <span className="overview-note">{t("providers.ovActiveNote", "个正常")}</span></div>
+          </div>
+        </article>
+        <article className="overview-item">
+          <div className="overview-icon warn"><Icon id="icon-alert" /></div>
+          <div>
+            <div className="overview-label">{t("providers.ovExpired", "登录过期")}</div>
+            <div className="overview-value">{expiredAccountCount} <span className="overview-note">{t("providers.ovExpiredNote", "个账户")}</span></div>
+          </div>
+        </article>
+        <article className="overview-item">
+          <div className="overview-icon purple"><Icon id="icon-code" /></div>
+          <div>
+            <div className="overview-label">{t("providers.ovCustom", "自定义接口")}</div>
+            <div className="overview-value">{customProviders.length} <span className="overview-note">{t("providers.ovUnit", "个")}</span></div>
+          </div>
+        </article>
+      </section>
+
+      {/* ── 已连接服务商:服务商卡 | 服务商洞察 ── */}
+      <div className="section-head">
+        <h2>{t("providers.connectedTitle", "已连接服务商")}</h2>
       </div>
 
       {groups.length === 0 ? (
-        <p className="empty-copy" style={{ padding: "24px 0" }}>暂无账号。点击卡片上的 + 授权或通过右上角 ⋯ 导入。</p>
+        <p className="empty-copy" style={{ padding: "24px 0" }}>暂无账号。点击右上角 ⋯ 授权或导入。</p>
       ) : (
-        <div className="pv-card-grid">
-          {groups.map((group) => (
-            <ProviderCard
-              key={group.id}
-              group={group}
-              isBusy={isManagementBusy}
-              authFailedNames={authFailedNames}
-              authHealth={authHealth}
-              order={orderByFile}
-              onReorder={onReorderAccount}
-              onReorderMove={onReorderMove}
-              onDelete={(account) => onRunManagementStateAction("delete_management_auth_file", { name: account.name })}
-              onReauth={reauthAccount}
-              onAddAccount={() => {
-                const provider = appState.providers.find((p) => p.id === group.id || p.id.includes(group.id) || group.id.includes(p.id));
-                if (provider) { setReauthTarget(null); setAddAccountProvider(provider); }
-              }}
-              onExport={() => void onExportProvider(group)}
-              onDeleteAll={() => {
-                for (const account of group.accounts) {
-                  onRunManagementStateAction("delete_management_auth_file", { name: account.name });
-                }
-              }}
-              onToggleDisableAll={() => {
-                const allDisabled = group.accounts.every((a) => a.disabled);
-                for (const account of group.accounts) {
-                  if (allDisabled && account.disabled) {
-                    onRunManagementStateAction("set_management_auth_file_disabled", { name: account.name, disabled: false });
-                  } else if (!allDisabled && !account.disabled) {
-                    onRunManagementStateAction("set_management_auth_file_disabled", { name: account.name, disabled: true });
+        <section className="connected-grid">
+          <div className="provider-column">
+            {groups.map((group) => (
+              <ProviderCard
+                key={group.id}
+                group={group}
+                isBusy={isManagementBusy}
+                authFailedNames={authFailedNames}
+                authHealth={authHealth}
+                order={orderByFile}
+                onReorder={onReorderAccount}
+                onReorderMove={onReorderMove}
+                onDelete={(account) => onRunManagementStateAction("delete_management_auth_file", { name: account.name })}
+                onReauth={reauthAccount}
+                onAddAccount={() => {
+                  const provider = appState.providers.find((p) => p.id === group.id || p.id.includes(group.id) || group.id.includes(p.id));
+                  if (provider) { setReauthTarget(null); setAddAccountProvider(provider); }
+                }}
+                onExport={() => void onExportProvider(group)}
+                onDeleteAll={() => {
+                  for (const account of group.accounts) {
+                    onRunManagementStateAction("delete_management_auth_file", { name: account.name });
                   }
-                }
-              }}
-            />
-          ))}
-        </div>
+                }}
+                onToggleDisableAll={() => {
+                  const allDisabled = group.accounts.every((a) => a.disabled);
+                  for (const account of group.accounts) {
+                    if (allDisabled && account.disabled) {
+                      onRunManagementStateAction("set_management_auth_file_disabled", { name: account.name, disabled: false });
+                    } else if (!allDisabled && !account.disabled) {
+                      onRunManagementStateAction("set_management_auth_file_disabled", { name: account.name, disabled: true });
+                    }
+                  }
+                }}
+              />
+            ))}
+          </div>
+
+          <aside className="panel insights">
+            <h2>{t("providers.insightsTitle", "服务商洞察")}</h2>
+            <div className="insight-list">
+              <div className="insight">
+                <div className={`insight-icon${routingReady ? "" : " blue"}`}>
+                  <Icon id={routingReady ? "icon-check" : "icon-spark"} />
+                </div>
+                <div className="insight-text">
+                  <strong>{t("providers.insightRouting", "路由就绪")}</strong>
+                  <span>
+                    {routingReady
+                      ? t("providers.insightRoutingReady", "路由与账户排序已就绪，系统将按顺序智能选路。")
+                      : t("providers.insightRoutingOff", "开启智能调度后将按顺序智能选路。")}
+                  </span>
+                </div>
+                <span className={`pill ${routingReady ? "ok" : "muted"}`}>
+                  {routingReady ? t("providers.insightReady", "已就绪") : t("providers.insightOff", "未启用")}
+                </span>
+              </div>
+              <div className="insight">
+                <div className={`insight-icon${expiredAccountCount > 0 ? " warn" : ""}`}>
+                  <Icon id={expiredAccountCount > 0 ? "icon-alert" : "icon-check"} />
+                </div>
+                <div className="insight-text">
+                  <strong>{t("providers.insightHealth", "账户健康")}</strong>
+                  <span>
+                    {activeAccountCount} {t("providers.insightHealthActive", "个账户正常")}，
+                    {expiredAccountCount} {t("providers.insightHealthExpired", "个账户登录已过期")}。
+                  </span>
+                </div>
+                <span className={`pill ${expiredAccountCount > 0 ? "warn" : "ok"}`}>
+                  {expiredAccountCount > 0 ? t("providers.insightNeedFix", "需处理") : t("providers.insightHealthy", "健康")}
+                </span>
+              </div>
+              <div className="insight">
+                <div className="insight-icon blue"><Icon id="icon-spark" /></div>
+                <div className="insight-text">
+                  <strong>{t("providers.insightNext", "下一步建议")}</strong>
+                  <span>
+                    {expiredAccountCount > 0
+                      ? t("providers.insightNextReauth", "重新登录过期账户以提升稳定性与可用性。")
+                      : t("providers.insightNextOk", "账户状态良好，无需额外操作。")}
+                  </span>
+                </div>
+                {expiredAccountCount > 0 && firstExpiredAccount ? (
+                  <button className="button" type="button" onClick={() => { if (firstExpiredAccount) reauthAccount(firstExpiredAccount); }}>
+                    {t("providers.insightGoFix", "去处理")}
+                  </button>
+                ) : (
+                  <button className="button" type="button" onClick={onRefreshQuotas} disabled={isManagementBusy}>
+                    {t("providers.insightRefresh", "刷新")}
+                  </button>
+                )}
+              </div>
+            </div>
+          </aside>
+        </section>
       )}
 
-      {/* ── Custom API management: table ── */}
-      <div className="pv-section-header" style={{ marginTop: 28 }}>
-        <h2 className="pv-section-title">自定义接口管理</h2>
-        <button className="pv-add-btn" type="button" onClick={() => (showAddCustom ? resetCustomForm() : setShowAddCustom(true))}>
-          <PlusIcon /> 添加接口
-        </button>
-      </div>
+      {/* ── 自定义接口管理 ── */}
+      <section className="panel custom">
+        <div className="section-head">
+          <div>
+            <h2>{t("providers.customTitle", "自定义接口管理")}</h2>
+            <div className="pv-muted">{t("providers.customSubtitle", "添加与管理自定义接口，支持 OpenAI / Gemini / Claude 兼容端点。")}</div>
+          </div>
+          <button
+            className={showAddCustom ? "button" : "button primary"}
+            type="button"
+            onClick={() => (showAddCustom ? resetCustomForm() : setShowAddCustom(true))}
+          >
+            {showAddCustom ? (
+              t("providers.customCancel", "取消")
+            ) : (
+              <>
+                <Icon id="icon-plus" /> {t("providers.customAdd", "添加接口")}
+              </>
+            )}
+          </button>
+        </div>
 
-      {showAddCustom ? (
-        <article className="panel" style={{ marginBottom: 12 }}>
-          <div className="stacked-form custom-provider-form">
+        {showAddCustom ? (
+          <div className="pv-custom-form">
+            <div className="stacked-form custom-provider-form">
             <label>
               {t("providers.cpName")}
               <input value={customForm.name} onChange={(e) => setCustomForm({ ...customForm, name: e.target.value })} placeholder="My Provider" />
@@ -724,37 +866,71 @@ export function ProvidersScreen({
               {editingCustomId ? t("providers.cpSave") : t("providers.cpAdd")}
             </button>
           </div>
-        </article>
-      ) : null}
+          </div>
+        ) : null}
 
-      {customProviders.length === 0 ? (
-        <p className="empty-copy" style={{ padding: "16px 0" }}>暂无自定义接口。点击「添加接口」导入 OpenAI / Gemini / Claude 兼容端点。</p>
-      ) : (
-        <div className="pv-card-grid">
-          {customProviders.map((cp) => {
-            const bindings = appState.api_key_bindings ?? [];
-            const apiKeys = appState.api_keys;
-            const boundKeys = bindings
-              .filter((b) => b.provider_id === cp.id)
-              .map((b) => {
-                const entry = apiKeys.find((k) => k.value === b.api_key);
-                return { masked: entry?.masked_value ?? maskKey(b.api_key) };
-              });
-            return (
-              <CustomProviderCard
-                key={cp.id}
-                provider={cp}
-                boundKeys={boundKeys}
-                onEdit={() => startEditCustom(cp)}
-                onDelete={() => void removeCustomProvider(cp.id)}
-                onAddKey={(label, apiKey) => void addKeyToProvider(cp.id, label, apiKey)}
-                onRemoveKey={(keyId) => void removeKeyFromProvider(cp.id, keyId)}
-                onToggleKey={(keyId) => void toggleKeyInProvider(cp.id, keyId)}
-              />
-            );
-          })}
+        <div className="templates">
+          <article className="template">
+            <div className="template-icon"><Icon id="icon-provider" /></div>
+            <h3>{t("providers.tplOpenAITitle", "OpenAI 兼容")}</h3>
+            <p>{t("providers.tplOpenAIDesc", "导入 OpenAI 兼容的接口地址，如 vLLM、OneAPI 等。")}</p>
+            <button className="button" type="button" onClick={() => startAddCustomWithKind("openai")}>
+              {t("providers.tplOpenAIBtn", "添加 OpenAI 兼容接口")}
+            </button>
+          </article>
+          <article className="template">
+            <div className="template-icon blue"><Icon id="icon-spark" /></div>
+            <h3>{t("providers.tplGeminiTitle", "Gemini 兼容")}</h3>
+            <p>{t("providers.tplGeminiDesc", "导入 Gemini 兼容的接口地址，如 Vertex AI Gemini 等。")}</p>
+            <button className="button" type="button" onClick={() => startAddCustomWithKind("gemini")}>
+              {t("providers.tplGeminiBtn", "添加 Gemini 兼容接口")}
+            </button>
+          </article>
+          <article className="template">
+            <div className="template-icon orange"><Icon id="icon-code" /></div>
+            <h3>{t("providers.tplClaudeTitle", "Claude 兼容")}</h3>
+            <p>{t("providers.tplClaudeDesc", "导入 Claude 兼容的接口地址，如 Anthropic 兼容服务等。")}</p>
+            <button className="button" type="button" onClick={() => startAddCustomWithKind("claude")}>
+              {t("providers.tplClaudeBtn", "添加 Claude 兼容接口")}
+            </button>
+          </article>
+          {customProviders.length === 0 ? (
+            <article className="empty-state">
+              <div>
+                <strong>{t("providers.customEmptyTitle", "暂无自定义接口")}</strong>
+                <span>{t("providers.customEmptyDesc", "添加接口以扩展更多模型接入能力。")}</span>
+              </div>
+            </article>
+          ) : null}
         </div>
-      )}
+
+        {customProviders.length > 0 ? (
+          <div className="custom-cards">
+            {customProviders.map((cp) => {
+              const bindings = appState.api_key_bindings ?? [];
+              const apiKeys = appState.api_keys;
+              const boundKeys = bindings
+                .filter((b) => b.provider_id === cp.id)
+                .map((b) => {
+                  const entry = apiKeys.find((k) => k.value === b.api_key);
+                  return { masked: entry?.masked_value ?? maskKey(b.api_key) };
+                });
+              return (
+                <CustomProviderCard
+                  key={cp.id}
+                  provider={cp}
+                  boundKeys={boundKeys}
+                  onEdit={() => startEditCustom(cp)}
+                  onDelete={() => void removeCustomProvider(cp.id)}
+                  onAddKey={(label, apiKey) => void addKeyToProvider(cp.id, label, apiKey)}
+                  onRemoveKey={(keyId) => void removeKeyFromProvider(cp.id, keyId)}
+                  onToggleKey={(keyId) => void toggleKeyInProvider(cp.id, keyId)}
+                />
+              );
+            })}
+          </div>
+        ) : null}
+      </section>
     </section>
   );
 }
@@ -954,7 +1130,7 @@ function ProviderCard({
     setDraggingFile(null);
     setDragOverFile(null);
   };
-  const initial = group.label.trim().charAt(0).toUpperCase() || "?";
+  // provider 卡头图标已由品牌 logo(ProviderLogo)取代,不再用首字母。
   const accounts =
     order.size > 0
       ? // 智能调度:按生效请求顺序排(无序号的绑定/用户禁用号垫后)。
@@ -999,58 +1175,65 @@ function ProviderCard({
     return () => document.removeEventListener("mousedown", close);
   }, [menuOpen]);
 
+  const statusPillTone = cardStatus === "warn" ? "warn" : cardStatus === "muted" ? "muted" : "green";
+
   return (
-    <div className="pv-card">
-      <div className="pv-card-head">
-        <span className="pv-card-logo" style={{ color: `#${group.colorHex}`, background: `#${group.colorHex}18` }}>
-          {initial}
-        </span>
-        <div className="pv-card-title-area">
-          <strong className="pv-card-name">{group.label}</strong>
-          <span className={`pv-card-status pv-card-status--${cardStatus}`}>{statusLabel}</span>
-        </div>
-        <button className="pv-card-add" type="button" onClick={onAddAccount} disabled={isBusy} title="添加账号" aria-label="添加账号">
-          <PlusIcon />
-        </button>
-        <div className="pv-card-menu-anchor" ref={menuRef}>
-          <button className="pv-card-more" type="button" onClick={() => setMenuOpen((v) => !v)} aria-label="更多操作">
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><circle cx="8" cy="3" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="8" cy="13" r="1.3"/></svg>
-          </button>
-          {menuOpen ? (
-            <div className="pv-card-dropdown">
-              <button type="button" onClick={() => { onAddAccount(); setMenuOpen(false); }}>
-                <PlusIcon /> 添加账号
-              </button>
-              {accounts.length > 0 ? (
-                <button type="button" onClick={() => { onToggleDisableAll(); setMenuOpen(false); }}>
-                  {allDisabled ? "✦ 全部启用" : "⏸ 全部禁用"}
-                </button>
-              ) : null}
-              {accounts.length > 0 ? (
-                <button type="button" onClick={() => { onExport(); setMenuOpen(false); }}>
-                  ⬇ 导出账号
-                </button>
-              ) : null}
-              {accounts.length > 0 ? (
-                <button
-                  type="button"
-                  className={confirmDelete ? "pv-dropdown-danger" : ""}
-                  onClick={() => {
-                    if (confirmDelete) { onDeleteAll(); setMenuOpen(false); setConfirmDelete(false); }
-                    else { setConfirmDelete(true); window.setTimeout(() => setConfirmDelete(false), 3000); }
-                  }}
-                >
-                  <TrashIcon /> {confirmDelete ? `确认删除 ${accounts.length} 个？` : "删除所有账号"}
-                </button>
-              ) : null}
+    <div className="panel provider-card">
+      <div className="provider-head">
+        <div className="provider-title">
+          <span className="provider-logo">
+            <ProviderLogo providerId={group.id} className="provider-brand-logo" />
+          </span>
+          <div className="provider-title-text">
+            <div className="provider-title-name">
+              <span className="provider-title-label">{group.label}</span>
+              <span className={`pill ${statusPillTone}`}>{statusLabel}</span>
             </div>
-          ) : null}
+            <span className="provider-title-sub">{group.accounts.length} 个账户</span>
+          </div>
+        </div>
+        <div className="provider-head-actions">
+          <div className="pv-card-menu-anchor" ref={menuRef}>
+            <button className="pv-card-more" type="button" onClick={() => setMenuOpen((v) => !v)} aria-label="更多操作">
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><circle cx="8" cy="3" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="8" cy="13" r="1.3"/></svg>
+            </button>
+            {menuOpen ? (
+              <div className="pv-card-dropdown">
+                <button type="button" onClick={() => { onAddAccount(); setMenuOpen(false); }}>
+                  <PlusIcon /> 添加账号
+                </button>
+                {accounts.length > 0 ? (
+                  <button type="button" onClick={() => { onToggleDisableAll(); setMenuOpen(false); }}>
+                    {allDisabled ? "✦ 全部启用" : "⏸ 全部禁用"}
+                  </button>
+                ) : null}
+                {accounts.length > 0 ? (
+                  <button type="button" onClick={() => { onExport(); setMenuOpen(false); }}>
+                    ⬇ 导出账号
+                  </button>
+                ) : null}
+                {accounts.length > 0 ? (
+                  <button
+                    type="button"
+                    className={confirmDelete ? "pv-dropdown-danger" : ""}
+                    onClick={() => {
+                      if (confirmDelete) { onDeleteAll(); setMenuOpen(false); setConfirmDelete(false); }
+                      else { setConfirmDelete(true); window.setTimeout(() => setConfirmDelete(false), 3000); }
+                    }}
+                  >
+                    <TrashIcon /> {confirmDelete ? `确认删除 ${accounts.length} 个？` : "删除所有账号"}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          <button className="button primary" type="button" onClick={onAddAccount} disabled={isBusy} title="添加账号">
+            <PlusIcon /> 添加账户
+          </button>
         </div>
       </div>
 
-      <span className="pv-card-meta">{group.accounts.length} 个账户</span>
-
-      <div className="pv-card-accounts">
+      <div className="account-list">
         {previewAccounts.map((account) => {
           const canDrag = !isBusy && !!order.get(account.name);
           const isOver = dragOverFile === account.name && !!draggingFile && draggingFile !== account.name;
@@ -1096,26 +1279,30 @@ function ProviderCard({
         })}
       </div>
 
-      {accounts.length > PREVIEW_COUNT ? (
-        <button className="pv-card-toggle" type="button" onClick={() => setExpanded((v) => !v)}>
-          {expanded ? "收起" : `查看全部 ${accounts.length} 个`}{" "}
-            <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle", transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "rotate(0)" }}>
-              <path d="M2.5 4.5 6 8l3.5-3.5" />
-            </svg>
-        </button>
-      ) : null}
-      {hasManualOrder ? (
-        <button
-          className="pv-order-reset"
-          type="button"
-          title="清除手动顺序,恢复按额度自动排"
-          onClick={() => {
-            const first = accounts.find((a) => order.get(a.name));
-            if (first) onReorder(first.name, "reset");
-          }}
-        >
-          ↺ 重置为自动顺序
-        </button>
+      {hasManualOrder || accounts.length > PREVIEW_COUNT ? (
+        <div className="provider-foot">
+          {hasManualOrder ? (
+            <button
+              className="pv-order-reset"
+              type="button"
+              title="清除手动顺序,恢复按额度自动排"
+              onClick={() => {
+                const first = accounts.find((a) => order.get(a.name));
+                if (first) onReorder(first.name, "reset");
+              }}
+            >
+              <Icon id="icon-refresh" /> 重置为自动顺序
+            </button>
+          ) : null}
+          {accounts.length > PREVIEW_COUNT ? (
+            <button className="pv-card-toggle" type="button" onClick={() => setExpanded((v) => !v)}>
+              {expanded ? "收起" : `查看全部 ${accounts.length} 个`}{" "}
+              <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle", transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "rotate(0)" }}>
+                <path d="M2.5 4.5 6 8l3.5-3.5" />
+              </svg>
+            </button>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
@@ -1223,12 +1410,10 @@ const AccountRow = memo(function AccountRow({
       <span className="account-logo account-logo--sm" style={{ color: `#${colorHex}`, background: `#${colorHex}22` }} aria-hidden="true">
         {initial}
       </span>
-      <div className="account-row-info">
-        <span className={`account-row-email${revealed ? " account-row-email--revealed" : ""}`} title={label}>
-          {revealed ? label : maskEmail(label)}
-        </span>
-        <span className={`account-row-status account-row-status--${state.tone}`}>{t(state.key, state.fallback)}</span>
-      </div>
+      <span className={`pv-account-email${revealed ? " pv-account-email--revealed" : ""}`} title={label}>
+        {revealed ? label : maskEmail(label)}
+      </span>
+      <span className={`pv-account-status pv-account-status--${state.tone}`}>{t(state.key, state.fallback)}</span>
       <div className="account-row-actions">
         {order ? (
           <div className="account-reorder">

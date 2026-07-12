@@ -1,0 +1,104 @@
+{
+  "meta": {
+    "name": "quotio-providers-redesign",
+    "target": "desktop-provider-page",
+    "canvas": {
+      "width": 2558,
+      "height": 1307,
+      "sidebarWidth": 256,
+      "contentMaxWidth": 2240
+    }
+  },
+  "colors": {
+    "page": "#F7F3EA",
+    "pageCool": "#F5F8FF",
+    "surface": "rgba(255, 255, 255, 0.84)",
+    "surfaceStrong": "#FFFFFF",
+    "surfaceSoft": "#F9FBFF",
+    "border": "rgba(137, 151, 177, 0.24)",
+    "borderStrong": "rgba(92, 110, 140, 0.32)",
+    "text": "#172033",
+    "textMuted": "#66758F",
+    "textSoft": "#9AA7BA",
+    "primary": "#2E7BFF",
+    "primarySoft": "#E7F0FF",
+    "provider": "#16A085",
+    "providerSoft": "#E8FAF5",
+    "success": "#20B86E",
+    "successSoft": "#E9F9F1",
+    "warning": "#FF9F1C",
+    "warningSoft": "#FFF4DF",
+    "danger": "#F05252",
+    "dangerSoft": "#FFF0F0",
+    "lavender": "#7C6CF6",
+    "lavenderSoft": "#F0EEFF",
+    "rowHover": "#F8FAFF"
+  },
+  "typography": {
+    "fontFamily": "\"HarmonyOS Sans SC\", \"MiSans\", \"SF Pro Rounded\", \"PingFang SC\", sans-serif",
+    "pageTitle": {
+      "fontSize": 24,
+      "lineHeight": 32,
+      "fontWeight": 850,
+      "letterSpacing": -0.2
+    },
+    "sectionTitle": {
+      "fontSize": 18,
+      "lineHeight": 26,
+      "fontWeight": 850
+    },
+    "metricValue": {
+      "fontSize": 30,
+      "lineHeight": 36,
+      "fontWeight": 850,
+      "letterSpacing": -0.6
+    },
+    "body": {
+      "fontSize": 13,
+      "lineHeight": 21,
+      "fontWeight": 600
+    },
+    "caption": {
+      "fontSize": 12,
+      "lineHeight": 18,
+      "fontWeight": 700
+    }
+  },
+  "spacing": {
+    "pagePadding": 32,
+    "panelGap": 18,
+    "cardPadding": 22,
+    "controlHeight": 40,
+    "sidebarItemHeight": 44,
+    "providerRowHeight": 56
+  },
+  "radii": {
+    "sm": 10,
+    "md": 14,
+    "lg": 20,
+    "xl": 26,
+    "round": 999
+  },
+  "shadows": {
+    "panel": "0 18px 44px rgba(28, 39, 68, 0.08), 0 2px 8px rgba(28, 39, 68, 0.05)",
+    "card": "0 16px 36px rgba(28, 39, 68, 0.08), 0 1px 6px rgba(28, 39, 68, 0.05)",
+    "providerCard": "0 24px 58px rgba(22, 160, 133, 0.12), 0 4px 14px rgba(28, 39, 68, 0.06)",
+    "sidebar": "12px 0 42px rgba(30, 42, 68, 0.08)",
+    "primaryButton": "0 12px 28px rgba(46, 123, 255, 0.28)"
+  },
+  "components": {
+    "overviewStrip": {
+      "height": 128,
+      "itemIcon": 58
+    },
+    "providerCard": {
+      "minHeight": 460,
+      "logoSize": 64,
+      "accountRowHeight": 56
+    },
+    "integrationTemplate": {
+      "height": 174,
+      "iconSize": 58
+    }
+  }
+}

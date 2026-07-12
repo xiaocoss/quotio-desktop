@@ -1,0 +1,982 @@
+/* ============================================================================
+   智能体页重设计 —— 严格按 设计图/智能体 的参考实现(agent-reference.html)落地。
+   全部选择器挂在 .agents-redesign 作用域下,自带暖色玻璃拟态调色板,
+   既不依赖也不污染全局 --quotio-* 主题变量。设计令牌见 design-tokens.json。
+   素材在 apps/desktop/public/agents/(通过 /agents/xxx.svg 引用)。
+   ⚠️ webview 性能:不用 background-attachment: fixed;不用 background-size: cover
+   放大高斯模糊 SVG(agents-bg.svg);卡片一律不叠 backdrop-filter。页底用暖色 +
+   廉价径向渐变近似。表单里的 Select 弹层 portal 到 body(.qselect-menu),这里只
+   重塑触发按钮 .qselect-button,菜单本体保持全局样式不动。
+   ========================================================================== */
+
+.agents-redesign {
+  /* 设计令牌(design-tokens.json / agent-reference.html :root) */
+  --page: #fbfafa;
+  --surface: rgba(255, 255, 255, 0.86);
+  --surface-strong: #fff;
+  --surface-soft: #f8fafe;
+  --border: rgba(137, 151, 177, 0.24);
+  --border-strong: rgba(92, 110, 140, 0.32);
+  --text: #172033;
+  --muted: #66758f;
+  --soft: #9aa7ba;
+  --primary: #2e7bff;
+  --primary-strong: #1264e8;
+  --primary-soft: #e7f0ff;
+  --runtime: #14b8a6;
+  --runtime-soft: #e8faf5;
+  --success: #20b86e;
+  --success-soft: #e9f9f1;
+  --warning: #ff9f1c;
+  --warning-soft: #fff4df;
+  --danger: #ef4444;
+  --danger-soft: #fff0f0;
+  --lavender: #8b5cf6;
+  --lavender-soft: #f2edff;
+  --shadow-panel: 0 3px 10px rgba(28, 39, 68, 0.045), 0 1px 2px rgba(28, 39, 68, 0.03);
+  --shadow-running: 0 20px 48px rgba(20, 184, 166, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  --font: "HarmonyOS Sans SC", "MiSans", "SF Pro Rounded", "PingFang SC", sans-serif;
+  --mono: "SFMono-Regular", "JetBrains Mono", "Cascadia Code", monospace;
+
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+}
+
+.agents-redesign * {
+  box-sizing: border-box;
+}
+
+/* ---------- 页底:暖米色纸感 + 三处柔光(还原 agents-bg.svg 的蓝/绿光晕 + 细网格) ----------
+   参考 body 用 agents-bg.svg + cover + fixed;这里改成暖色 + 径向渐变,规避 webview
+   把渐变 SVG 按 cover 放大栅格化拖垮合成器。.section-page 挂在 .content(padding
+   22/26/26、冷灰底、自身滚动)里,用负 margin 撑破 padding 让暖底铺满,再补回 padding。 */
+.agents-redesign.section-page {
+  gap: 0;
+  flex: 1 0 auto;
+  margin: -22px -26px -26px;
+  padding: 22px 26px 26px;
+  background-color: #fbfafa;
+  /* 纯色页底,不叠柔光渐变——渐变中心会聚在顶部形成明显色块。 */
+}
+
+/* 兜底:把滚动容器本身也刷暖色,盖住 scrollbar-gutter 预留出的那道冷灰缝。 */
+.app-shell--v2 .content:has(.agents-redesign):not(.content--dashboard) {
+  background: #fbfafa;
+}
+
+/* ---------- 顶栏(标题 + 刷新) ---------- */
+.agents-redesign .page-topbar {
+  z-index: 6;
+  min-height: 40px;
+  padding-bottom: 4px;
+  background: transparent;
+}
+.agents-redesign .page-topbar::before {
+  background: #fbfafa;
+}
+.agents-redesign .page-topbar h1 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 850;
+  letter-spacing: -0.3px;
+  color: var(--text);
+}
+.agents-redesign .page-subtitle {
+  margin: 3px 0 20px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+/* SVG symbol 图标(<use href="/agents/agent-icons.svg#…">) */
+.agents-redesign .icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: 0 0 auto;
+}
+
+/* ---------- 通用按钮 ---------- */
+.agents-redesign .btn {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  color: #344159;
+  font: inherit;
+  font-weight: 760;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--border-strong);
+  border-radius: 11px;
+  box-shadow: 0 4px 12px rgba(28, 39, 68, 0.04);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+.agents-redesign .btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(46, 123, 255, 0.38);
+  box-shadow: 0 10px 22px rgba(46, 123, 255, 0.1);
+}
+.agents-redesign .btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.agents-redesign .btn.primary {
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+  border-color: transparent;
+  box-shadow: 0 12px 28px rgba(46, 123, 255, 0.26);
+}
+.agents-redesign .btn.primary:hover:not(:disabled) {
+  border-color: transparent;
+}
+.agents-redesign .btn.danger {
+  color: #fff;
+  background: linear-gradient(135deg, #f2554d, #e6372f);
+  border-color: transparent;
+  box-shadow: 0 10px 22px rgba(239, 68, 68, 0.2);
+}
+.agents-redesign .btn.danger:hover:not(:disabled) {
+  border-color: transparent;
+}
+.agents-redesign .btn.ghost-danger {
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.18);
+  background: rgba(255, 255, 255, 0.72);
+}
+.agents-redesign .btn.small {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+.agents-redesign .btn.small .icon {
+  width: 16px;
+  height: 16px;
+}
+.agents-redesign .btn.is-busy .icon {
+  animation: agr-spin 0.9s linear infinite;
+}
+
+/* ---------- 玻璃面板(半透明白 + 噪点纹理;显式关掉 backdrop-filter) ---------- */
+.agents-redesign .panel {
+  position: relative;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: none;
+}
+
+/* ---------- 指标概览(4 格) ---------- */
+.agents-redesign .metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 18px;
+}
+.agents-redesign .metric {
+  position: relative;
+  overflow: hidden;
+  min-height: 112px;
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  align-items: center;
+  gap: 18px;
+  padding: 20px 24px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: none;
+}
+.agents-redesign .metric::after {
+  content: "";
+  position: absolute;
+  width: 130px;
+  height: 130px;
+  right: -55px;
+  bottom: -72px;
+  border-radius: 50%;
+  background: var(--glow, rgba(46, 123, 255, 0.12));
+  filter: blur(5px);
+}
+.agents-redesign .metric-icon {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  color: var(--metric-color, var(--primary));
+  background: var(--metric-soft, var(--primary-soft));
+  border-radius: 18px;
+}
+.agents-redesign .metric-icon .icon {
+  width: 27px;
+  height: 27px;
+}
+.agents-redesign .metric-label {
+  color: var(--muted);
+  font-weight: 700;
+}
+.agents-redesign .metric-value {
+  margin-top: 2px;
+  font-size: 30px;
+  line-height: 34px;
+  font-weight: 850;
+  letter-spacing: -0.6px;
+}
+.agents-redesign .metric.installed {
+  --metric-color: #4b7cf3;
+  --metric-soft: #edf3ff;
+  --glow: rgba(75, 124, 243, 0.12);
+}
+.agents-redesign .metric.configured {
+  --metric-color: var(--success);
+  --metric-soft: var(--success-soft);
+  --glow: rgba(32, 184, 110, 0.12);
+}
+.agents-redesign .metric.running {
+  --metric-color: var(--runtime);
+  --metric-soft: var(--runtime-soft);
+  --glow: rgba(20, 184, 166, 0.14);
+}
+
+/* ---------- 顶部两列:已接入智能体 + 运行概览 ---------- */
+.agents-redesign .top-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(350px, 0.9fr);
+  gap: 18px;
+  margin-bottom: 18px;
+}
+.agents-redesign .panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px 14px;
+}
+.agents-redesign .panel-title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 850;
+  color: var(--text);
+}
+.agents-redesign .panel-note {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+/* 已接入列表 */
+.agents-redesign .agent-list {
+  padding: 0 22px 14px;
+}
+.agents-redesign .agent-row {
+  min-height: 92px;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid rgba(137, 151, 177, 0.18);
+}
+.agents-redesign .agent-row:last-child {
+  border-bottom: 0;
+}
+.agents-redesign .agent-mark {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  font-weight: 850;
+  border: 1px solid rgba(46, 123, 255, 0.1);
+  border-radius: 17px;
+}
+.agents-redesign .agent-row-info {
+  min-width: 0;
+}
+.agents-redesign .agent-name-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+.agents-redesign .agent-name {
+  font-size: 16px;
+  font-weight: 830;
+}
+.agents-redesign .path {
+  max-width: 760px;
+  margin-top: 5px;
+  overflow: hidden;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agents-redesign .agent-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+/* 状态徽标 */
+.agents-redesign .badge {
+  min-height: 23px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 999px;
+}
+.agents-redesign .badge.success {
+  color: #148c58;
+  background: var(--success-soft);
+}
+.agents-redesign .badge.warning {
+  color: #bd7300;
+  background: var(--warning-soft);
+}
+.agents-redesign .badge.running {
+  color: #0e8b72;
+  background: var(--runtime-soft);
+}
+
+.agents-redesign .panel-footer-link {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 22px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 720;
+  border-top: 1px solid rgba(137, 151, 177, 0.17);
+}
+
+.agents-redesign .agent-empty {
+  padding: 8px 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+/* 运行概览 */
+.agents-redesign .runtime-panel {
+  min-width: 0;
+}
+.agents-redesign .runtime-list {
+  padding: 0 20px 16px;
+}
+.agents-redesign .runtime-row {
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: 34px minmax(110px, 0.9fr) minmax(120px, 1.1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  background: rgba(248, 250, 254, 0.72);
+  border: 1px solid rgba(137, 151, 177, 0.18);
+  border-radius: 11px;
+}
+.agents-redesign .runtime-row + .runtime-row {
+  margin-top: 7px;
+}
+.agents-redesign .runtime-row .icon {
+  color: #43516a;
+}
+.agents-redesign .runtime-label {
+  font-weight: 720;
+}
+.agents-redesign .runtime-value {
+  justify-self: end;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agents-redesign .runtime-value.healthy {
+  color: var(--success);
+}
+.agents-redesign .tiny-dot {
+  width: 6px;
+  height: 6px;
+  display: inline-block;
+  margin-right: 7px;
+  vertical-align: 2px;
+  background: currentColor;
+  border-radius: 50%;
+}
+.agents-redesign .route-asset {
+  width: calc(100% - 40px);
+  height: 70px;
+  display: block;
+  margin: -4px 20px 12px;
+  object-fit: contain;
+  object-position: center 48%;
+  opacity: 0.92;
+}
+
+/* ---------- 当前启动方案 ---------- */
+.agents-redesign .scheme-panel {
+  margin-bottom: 18px;
+  padding-bottom: 6px;
+}
+.agents-redesign .scheme-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 20px 22px 12px;
+}
+.agents-redesign .app-path {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+.agents-redesign .app-path code {
+  margin-left: 7px;
+  font-family: var(--mono);
+  color: #5e6d86;
+}
+.agents-redesign .detect-link {
+  margin-left: 8px;
+  padding: 0;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 760;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.agents-redesign .detect-link:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.agents-redesign .scheme-note {
+  display: block;
+  margin-top: 8px;
+  color: var(--soft);
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.agents-redesign .scheme-list {
+  display: grid;
+  gap: 14px;
+  padding: 0 22px 8px;
+}
+.agents-redesign .scheme-card {
+  min-height: 116px;
+  display: grid;
+  grid-template-columns: minmax(190px, 1.05fr) repeat(4, minmax(135px, 1fr)) auto;
+  align-items: center;
+  padding: 14px 18px;
+  background: linear-gradient(120deg, rgba(235, 251, 246, 0.76), rgba(250, 253, 255, 0.88));
+  border: 1px solid rgba(20, 184, 166, 0.58);
+  border-radius: 14px;
+  box-shadow: var(--shadow-running);
+}
+/* 非运行方案:中性白卡,弱化视觉权重 */
+.agents-redesign .scheme-card--idle {
+  background: #ffffff;
+  border-color: var(--border);
+  box-shadow: 0 12px 30px rgba(28, 39, 68, 0.06);
+}
+.agents-redesign .scheme-identity {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+  padding-right: 16px;
+}
+.agents-redesign .play-orb {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(145deg, #2ac47e, #11a762);
+  border-radius: 50%;
+  box-shadow: 0 8px 18px rgba(32, 184, 110, 0.24);
+}
+.agents-redesign .play-orb--idle {
+  background: linear-gradient(145deg, #9aa7ba, #7c8aa0);
+  box-shadow: none;
+}
+.agents-redesign .play-orb .icon {
+  width: 18px;
+  height: 18px;
+}
+.agents-redesign .scheme-name {
+  font-size: 17px;
+  font-weight: 850;
+}
+.agents-redesign .scheme-sub {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+.agents-redesign .scheme-field {
+  min-width: 0;
+  padding: 5px 16px;
+  border-left: 1px solid rgba(137, 151, 177, 0.19);
+}
+.agents-redesign .field-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 760;
+}
+.agents-redesign .field-label .icon {
+  width: 15px;
+  height: 15px;
+}
+.agents-redesign .field-value {
+  margin-top: 5px;
+  overflow: hidden;
+  color: #44516a;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agents-redesign .scheme-actions {
+  display: flex;
+  gap: 9px;
+  padding-left: 16px;
+}
+/* 启动/切换确认(密钥未绑 Codex / 会先停当前方案) */
+.agents-redesign .scheme-confirm {
+  grid-column: 1 / -1;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 159, 28, 0.4);
+  border-radius: 12px;
+  background: #fff8ec;
+}
+.agents-redesign .scheme-warn-list {
+  display: grid;
+  gap: 4px;
+  color: #9a6400;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 700;
+}
+.agents-redesign .scheme-confirm-actions {
+  display: flex;
+  gap: 9px;
+  margin-top: 10px;
+}
+
+.agents-redesign .scheme-empty {
+  margin: 0 22px 16px;
+  padding: 16px 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 650;
+  background: rgba(248, 250, 254, 0.7);
+  border: 1px dashed rgba(137, 151, 177, 0.4);
+  border-radius: 12px;
+}
+.agents-redesign .scheme-status {
+  margin: 0 22px 16px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  font-weight: 720;
+}
+.agents-redesign .scheme-status.ok {
+  color: #148c58;
+  background: var(--success-soft);
+  border: 1px solid rgba(32, 184, 110, 0.3);
+}
+.agents-redesign .scheme-status.err {
+  color: #c02626;
+  background: var(--danger-soft);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* ---------- 发现更多智能体 ---------- */
+.agents-redesign .discovery-panel {
+  padding-bottom: 18px;
+}
+.agents-redesign .discovery-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  padding: 0 22px;
+}
+.agents-redesign .discovery-card {
+  min-height: 126px;
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  grid-template-rows: 1fr auto;
+  gap: 10px 13px;
+  padding: 16px;
+  background: rgba(250, 252, 255, 0.72);
+  border: 1px solid rgba(137, 151, 177, 0.2);
+  border-radius: 14px;
+  transition: 160ms ease;
+}
+.agents-redesign .discovery-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(46, 123, 255, 0.28);
+  box-shadow: 0 14px 28px rgba(46, 123, 255, 0.08);
+}
+.agents-redesign .discovery-mark {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  font-size: 19px;
+  font-weight: 850;
+  border-radius: 15px;
+}
+.agents-redesign .discovery-info {
+  min-width: 0;
+}
+.agents-redesign .discovery-info strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+}
+.agents-redesign .discovery-info span {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 17px;
+  font-weight: 650;
+}
+.agents-redesign .detect-btn {
+  grid-column: 2;
+  justify-self: stretch;
+  min-height: 33px;
+  color: var(--primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 780;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(46, 123, 255, 0.18);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.agents-redesign .detect-btn:hover:not(:disabled) {
+  border-color: rgba(46, 123, 255, 0.4);
+  background: #fff;
+}
+.agents-redesign .detect-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.agents-redesign .discovery-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 14px 22px 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+.agents-redesign .discovery-footer span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.agents-redesign .discovery-footer .icon {
+  width: 15px;
+  height: 15px;
+}
+.agents-redesign .install-link {
+  color: var(--primary);
+  font-weight: 780;
+  white-space: nowrap;
+}
+
+.agents-redesign .detecting-note {
+  margin: 4px 2px 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+/* ============================================================================
+   表单(启动方案新建/编辑 + 非 Codex 智能体配置面板)。沿用原有结构与类名
+   (.settings-form-grid / label / input / .qselect-button / .inline-actions /
+   .primary-action / .secondary-action / .danger-action / .codex-reasoning-status
+   / .codex-launch-hint),仅在本作用域内重塑视觉贴合暖底。逻辑一律不动。
+   ========================================================================== */
+.agents-redesign .scheme-form,
+.agents-redesign .agent-config-panel {
+  margin: 0 22px 18px;
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.agents-redesign .config-panel {
+  margin-bottom: 18px;
+}
+.agents-redesign .config-panel .agent-config-panel {
+  margin: 0 22px 20px;
+}
+
+.agents-redesign .settings-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.agents-redesign .settings-form-grid label {
+  display: grid;
+  gap: 7px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 780;
+}
+.agents-redesign .settings-form-grid input {
+  padding: 9px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.86);
+  outline: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.agents-redesign .settings-form-grid input:focus {
+  border-color: rgba(46, 123, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(46, 123, 255, 0.12);
+}
+
+/* Select 触发按钮(菜单本体 .qselect-menu portal 到 body,保持全局样式) */
+.agents-redesign .qselect {
+  display: block;
+}
+.agents-redesign .qselect-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 11px;
+  color: var(--text);
+  font-weight: 600;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.86);
+}
+.agents-redesign .qselect-button:hover:not(:disabled) {
+  background: #fff;
+  border-color: rgba(46, 123, 255, 0.4);
+}
+
+.agents-redesign .codex-launch-hint,
+.agents-redesign .codex-reasoning-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 650;
+}
+.agents-redesign .codex-reasoning-status.err {
+  color: var(--danger);
+}
+
+.agents-redesign .inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.agents-redesign .primary-action,
+.agents-redesign .secondary-action,
+.agents-redesign .danger-action {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 780;
+  border-radius: 11px;
+  border: 1px solid var(--border-strong);
+  background: rgba(255, 255, 255, 0.82);
+  color: #344159;
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+.agents-redesign .primary-action {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+  box-shadow: 0 12px 28px rgba(46, 123, 255, 0.26);
+}
+.agents-redesign .danger-action {
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.22);
+}
+.agents-redesign .primary-action:hover:not(:disabled),
+.agents-redesign .secondary-action:hover:not(:disabled),
+.agents-redesign .danger-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+.agents-redesign .primary-action:disabled,
+.agents-redesign .secondary-action:disabled,
+.agents-redesign .danger-action:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* 配置面板里的只读结果 / 备份卡片(沿用全局结构,轻度贴合暖底) */
+.agents-redesign .agent-config-panel .record-card,
+.agents-redesign .agent-config-panel .stacked-form {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+}
+.agents-redesign .agent-config-panel .record-meta {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.agents-redesign .agent-config-panel textarea {
+  width: 100%;
+  padding: 10px 11px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.86);
+  outline: none;
+}
+.agents-redesign .agent-config-panel .empty-copy {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 650;
+}
+.agents-redesign .agent-config-panel .eyebrow {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 780;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ---------- 响应式(参考 agent-reference.html 的断点,按内容宽度收敛) ---------- */
+@media (max-width: 1500px) {
+  .agents-redesign .scheme-card {
+    grid-template-columns: minmax(180px, 1.1fr) repeat(2, minmax(140px, 1fr)) auto;
+    row-gap: 12px;
+  }
+  .agents-redesign .scheme-field:nth-of-type(4),
+  .agents-redesign .scheme-field:nth-of-type(5) {
+    grid-row: 2;
+  }
+  .agents-redesign .scheme-field:nth-of-type(4) {
+    grid-column: 2;
+  }
+  .agents-redesign .scheme-field:nth-of-type(5) {
+    grid-column: 3;
+  }
+  .agents-redesign .scheme-actions {
+    grid-column: 4;
+    grid-row: 1 / span 2;
+  }
+}
+
+@media (max-width: 1180px) {
+  .agents-redesign .metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .agents-redesign .top-grid {
+    grid-template-columns: 1fr;
+  }
+  .agents-redesign .route-asset {
+    display: none;
+  }
+  .agents-redesign .discovery-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 860px) {
+  .agents-redesign .scheme-card {
+    grid-template-columns: 1fr;
+  }
+  .agents-redesign .scheme-field,
+  .agents-redesign .scheme-field:nth-of-type(4),
+  .agents-redesign .scheme-field:nth-of-type(5),
+  .agents-redesign .scheme-actions {
+    grid-column: auto;
+    grid-row: auto;
+    border-left: 0;
+    border-top: 1px solid rgba(137, 151, 177, 0.19);
+    padding: 10px 0 0;
+  }
+  .agents-redesign .scheme-actions {
+    flex-wrap: wrap;
+  }
+  .agents-redesign .settings-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .agents-redesign .metrics,
+  .agents-redesign .discovery-grid {
+    grid-template-columns: 1fr;
+  }
+  .agents-redesign .agent-row {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+  .agents-redesign .agent-mark {
+    width: 48px;
+    height: 48px;
+  }
+  .agents-redesign .agent-row-actions {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .agents-redesign .runtime-row {
+    grid-template-columns: 30px 1fr;
+  }
+  .agents-redesign .runtime-value {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+@keyframes agr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

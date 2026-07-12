@@ -74,45 +74,39 @@ export function TunnelCard() {
   if (!isTauri) return null;
 
   return (
-    <div className="settings-group">
-      <h2 className="settings-group-title">{t("tunnel.title")}</h2>
-      <div className="settings-card">
-        <div className="settings-row">
-          <div className="settings-row-text">
-            <strong>Cloudflared</strong>
-            <small>{t("tunnel.desc")}</small>
-          </div>
-          <div className="settings-row-controls">
-            {status && !status.has_binary ? (
-              <button className="secondary-action" type="button" onClick={() => void run("download_cloudflared")} disabled={busy}>
-                {busy && progress != null ? `${t("tunnel.downloading")} ${progress}%` : t("tunnel.download")}
-              </button>
-            ) : status?.running ? (
-              <button className="danger-action" type="button" onClick={() => void run("stop_tunnel")} disabled={busy}>
-                {t("tunnel.stop")}
-              </button>
-            ) : (
-              <button className="secondary-action" type="button" onClick={() => void run("start_tunnel")} disabled={busy}>
-                {t("tunnel.start")}
-              </button>
-            )}
-          </div>
-        </div>
-        {status?.running ? (
-          <div className="settings-row settings-row--input">
-            <div className="settings-row-text">
-              <strong>{t("tunnel.publicUrl")}</strong>
-              <small className="tunnel-url">{status.public_url ?? t("tunnel.detecting")}</small>
-            </div>
-            {status.public_url ? (
-              <button className="ghost-action" type="button" onClick={() => void copyUrl()}>
-                {copied ? t("tunnel.copied") : t("tunnel.copy")}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
+    <article className="sr-tool-card">
+      <span className="sr-tool-icon" aria-hidden="true">
+        <svg className="sr-icon">
+          <use href="/settings/settings-icons.svg#cloud" />
+        </svg>
+      </span>
+      <div className="sr-tool-text">
+        <strong>{t("tunnel.title")}</strong>
+        <small className={status?.running && status.public_url ? "tunnel-url" : undefined} title={status?.running && status.public_url ? status.public_url : undefined}>
+          {status?.running ? status.public_url ?? t("tunnel.detecting") : t("tunnel.desc")}
+        </small>
       </div>
-    </div>
+      <div className="sr-tool-actions">
+        {status?.running && status.public_url ? (
+          <button className="sr-mini-btn" type="button" onClick={() => void copyUrl()}>
+            {copied ? t("tunnel.copied") : t("tunnel.copy")}
+          </button>
+        ) : null}
+        {status && !status.has_binary ? (
+          <button className="sr-mini-btn" type="button" onClick={() => void run("download_cloudflared")} disabled={busy}>
+            {busy && progress != null ? `${t("tunnel.downloading")} ${progress}%` : t("tunnel.download")}
+          </button>
+        ) : status?.running ? (
+          <button className="sr-mini-btn sr-mini-btn--danger" type="button" onClick={() => void run("stop_tunnel")} disabled={busy}>
+            {t("tunnel.stop")}
+          </button>
+        ) : (
+          <button className="sr-mini-btn sr-mini-btn--primary" type="button" onClick={() => void run("start_tunnel")} disabled={busy}>
+            {t("tunnel.start")}
+          </button>
+        )}
+      </div>
+    </article>
   );
 }
 
@@ -140,20 +134,22 @@ export function WarmupCard() {
   }
 
   return (
-    <div className="settings-group">
-      <h2 className="settings-group-title">{t("warmup.title")}</h2>
-      <div className="settings-card">
-        <div className="settings-row">
-          <div className="settings-row-text">
-            <strong>{t("warmup.antigravity")}</strong>
-            <small>{result ?? t("warmup.desc")}</small>
-          </div>
-          <button className="secondary-action" type="button" onClick={() => void warmup()} disabled={busy}>
-            {busy ? t("warmup.running") : t("warmup.button")}
-          </button>
-        </div>
+    <article className="sr-tool-card sr-tool-card--warm">
+      <span className="sr-tool-icon" aria-hidden="true">
+        <svg className="sr-icon">
+          <use href="/settings/settings-icons.svg#rocket" />
+        </svg>
+      </span>
+      <div className="sr-tool-text">
+        <strong>{t("warmup.antigravity")}</strong>
+        <small title={result ?? undefined}>{result ?? t("warmup.desc")}</small>
       </div>
-    </div>
+      <div className="sr-tool-actions">
+        <button className="sr-mini-btn sr-mini-btn--primary" type="button" onClick={() => void warmup()} disabled={busy}>
+          {busy ? t("warmup.running") : t("warmup.button")}
+        </button>
+      </div>
+    </article>
   );
 }
 

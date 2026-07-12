@@ -1,0 +1,1147 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quotio 智能体页面设计参考</title>
+  <style>
+    :root {
+      --page: #f7f3ea;
+      --page-cool: #f5f8ff;
+      --surface: rgba(255, 255, 255, 0.86);
+      --surface-strong: #fff;
+      --surface-soft: #f8fafe;
+      --border: rgba(137, 151, 177, 0.24);
+      --border-strong: rgba(92, 110, 140, 0.32);
+      --text: #172033;
+      --muted: #66758f;
+      --soft: #9aa7ba;
+      --primary: #2e7bff;
+      --primary-strong: #1264e8;
+      --primary-soft: #e7f0ff;
+      --runtime: #14b8a6;
+      --runtime-soft: #e8faf5;
+      --success: #20b86e;
+      --success-soft: #e9f9f1;
+      --warning: #ff9f1c;
+      --warning-soft: #fff4df;
+      --danger: #ef4444;
+      --danger-soft: #fff0f0;
+      --lavender: #8b5cf6;
+      --lavender-soft: #f2edff;
+      --shadow-panel: 0 18px 44px rgba(28, 39, 68, 0.08), 0 2px 8px rgba(28, 39, 68, 0.05);
+      --shadow-running: 0 20px 48px rgba(20, 184, 166, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.78);
+      --font: "HarmonyOS Sans SC", "MiSans", "SF Pro Rounded", "PingFang SC", sans-serif;
+      --mono: "SFMono-Regular", "JetBrains Mono", "Cascadia Code", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-width: 320px;
+      min-height: 100%;
+      margin: 0;
+    }
+
+    body {
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      background:
+        linear-gradient(rgba(250, 251, 254, 0.48), rgba(250, 251, 254, 0.48)),
+        url("./assets/agents-bg.svg") center / cover fixed;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button {
+      color: inherit;
+      font: inherit;
+    }
+
+    .icon {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex: 0 0 auto;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 256px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 20px 14px 18px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(249, 251, 255, 0.82)),
+        url("./assets/card-noise.svg");
+      border-right: 1px solid rgba(121, 138, 168, 0.16);
+      box-shadow: 12px 0 42px rgba(30, 42, 68, 0.06);
+      backdrop-filter: blur(24px);
+    }
+
+    .traffic-lights {
+      display: flex;
+      gap: 10px;
+      padding: 2px 8px 26px;
+    }
+
+    .traffic-lights span {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+    }
+
+    .traffic-lights span:nth-child(1) { background: #ff5f57; }
+    .traffic-lights span:nth-child(2) { background: #febc2e; }
+    .traffic-lights span:nth-child(3) { background: #28c840; }
+
+    .nav {
+      display: grid;
+      gap: 4px;
+    }
+
+    .nav-item {
+      height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 14px;
+      color: #344159;
+      font-weight: 720;
+      text-decoration: none;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      transition: 160ms ease;
+    }
+
+    .nav-item:hover {
+      color: var(--primary);
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .nav-item.active {
+      color: var(--primary-strong);
+      background: linear-gradient(120deg, rgba(232, 241, 255, 0.98), rgba(255, 255, 255, 0.92));
+      border-color: rgba(46, 123, 255, 0.18);
+      box-shadow: 0 10px 24px rgba(46, 123, 255, 0.1);
+    }
+
+    .sidebar-spacer {
+      flex: 1;
+      min-height: 24px;
+    }
+
+    .proxy-card {
+      display: grid;
+      grid-template-columns: 36px 1fr auto;
+      align-items: center;
+      gap: 10px;
+      min-height: 62px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 12px 28px rgba(28, 39, 68, 0.06);
+    }
+
+    .proxy-icon {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      color: var(--success);
+      background: var(--success-soft);
+      border-radius: 11px;
+    }
+
+    .proxy-card strong {
+      display: block;
+      font-size: 13px;
+    }
+
+    .proxy-card small {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-weight: 650;
+    }
+
+    .proxy-card .chevron {
+      color: var(--muted);
+      font-size: 20px;
+    }
+
+    .sidebar-status {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 13px;
+      padding: 0 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      display: inline-block;
+      margin-right: 7px;
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 0 5px rgba(32, 184, 110, 0.1);
+    }
+
+    .content {
+      width: 100%;
+      max-width: 2304px;
+      margin: 0 auto;
+      padding: 30px 32px 36px;
+    }
+
+    .page-header {
+      min-height: 58px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .page-title {
+      margin: 0;
+      font-size: 28px;
+      line-height: 36px;
+      font-weight: 850;
+      letter-spacing: -0.3px;
+    }
+
+    .page-subtitle {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .btn {
+      min-height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 16px;
+      color: #344159;
+      font-weight: 760;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid var(--border-strong);
+      border-radius: 11px;
+      box-shadow: 0 4px 12px rgba(28, 39, 68, 0.04);
+      cursor: pointer;
+      transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(46, 123, 255, 0.38);
+      box-shadow: 0 10px 22px rgba(46, 123, 255, 0.1);
+    }
+
+    .btn.primary {
+      color: #fff;
+      background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+      border-color: transparent;
+      box-shadow: 0 12px 28px rgba(46, 123, 255, 0.26);
+    }
+
+    .btn.danger {
+      color: #fff;
+      background: linear-gradient(135deg, #f2554d, #e6372f);
+      border-color: transparent;
+      box-shadow: 0 10px 22px rgba(239, 68, 68, 0.2);
+    }
+
+    .btn.ghost-danger {
+      color: var(--danger);
+      border-color: rgba(239, 68, 68, 0.18);
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .btn.small {
+      min-height: 36px;
+      padding: 0 14px;
+      font-size: 13px;
+    }
+
+    .panel,
+    .metric {
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.76)),
+        url("./assets/card-noise.svg");
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow-panel);
+      backdrop-filter: blur(20px);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .metric {
+      min-height: 112px;
+      display: grid;
+      grid-template-columns: 58px 1fr;
+      align-items: center;
+      gap: 18px;
+      padding: 20px 24px;
+    }
+
+    .metric::after {
+      content: "";
+      position: absolute;
+      width: 130px;
+      height: 130px;
+      right: -55px;
+      bottom: -72px;
+      border-radius: 50%;
+      background: var(--glow, rgba(46, 123, 255, 0.12));
+      filter: blur(5px);
+    }
+
+    .metric-icon {
+      width: 58px;
+      height: 58px;
+      display: grid;
+      place-items: center;
+      color: var(--metric-color, var(--primary));
+      background: var(--metric-soft, var(--primary-soft));
+      border-radius: 18px;
+    }
+
+    .metric-icon .icon {
+      width: 27px;
+      height: 27px;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .metric-value {
+      margin-top: 2px;
+      font-size: 30px;
+      line-height: 34px;
+      font-weight: 850;
+      letter-spacing: -0.6px;
+    }
+
+    .metric.installed {
+      --metric-color: #4b7cf3;
+      --metric-soft: #edf3ff;
+      --glow: rgba(75, 124, 243, 0.12);
+    }
+
+    .metric.configured {
+      --metric-color: var(--success);
+      --metric-soft: var(--success-soft);
+      --glow: rgba(32, 184, 110, 0.12);
+    }
+
+    .metric.running {
+      --metric-color: var(--runtime);
+      --metric-soft: var(--runtime-soft);
+      --glow: rgba(20, 184, 166, 0.14);
+    }
+
+    .top-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.65fr) minmax(350px, 0.9fr);
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 20px 22px 14px;
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 18px;
+      line-height: 26px;
+      font-weight: 850;
+    }
+
+    .panel-note {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .agent-list {
+      padding: 0 22px 14px;
+    }
+
+    .agent-row {
+      min-height: 92px;
+      display: grid;
+      grid-template-columns: 64px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 16px;
+      border-bottom: 1px solid rgba(137, 151, 177, 0.18);
+    }
+
+    .agent-row:last-child {
+      border-bottom: 0;
+    }
+
+    .agent-mark {
+      width: 58px;
+      height: 58px;
+      display: grid;
+      place-items: center;
+      color: #2e70ee;
+      font-size: 22px;
+      font-weight: 850;
+      background: linear-gradient(145deg, #e4efff, #f4f8ff);
+      border: 1px solid rgba(46, 123, 255, 0.1);
+      border-radius: 17px;
+    }
+
+    .agent-mark.codex {
+      color: #13936e;
+      background: linear-gradient(145deg, #e2f8ef, #f4fcf9);
+      border-color: rgba(20, 184, 166, 0.12);
+    }
+
+    .agent-name-line {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 9px;
+    }
+
+    .agent-name {
+      font-size: 16px;
+      font-weight: 830;
+    }
+
+    .path {
+      max-width: 760px;
+      margin-top: 5px;
+      overflow: hidden;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .badge {
+      min-height: 23px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 9px;
+      font-size: 11px;
+      font-weight: 800;
+      border-radius: 999px;
+    }
+
+    .badge.success {
+      color: #148c58;
+      background: var(--success-soft);
+    }
+
+    .badge.warning {
+      color: #bd7300;
+      background: var(--warning-soft);
+    }
+
+    .badge.running {
+      color: #0e8b72;
+      background: var(--runtime-soft);
+    }
+
+    .panel-footer-link {
+      min-height: 46px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 22px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 720;
+      border-top: 1px solid rgba(137, 151, 177, 0.17);
+      text-decoration: none;
+    }
+
+    .panel-footer-link:hover {
+      color: var(--primary);
+    }
+
+    .runtime-panel {
+      min-width: 0;
+    }
+
+    .runtime-list {
+      padding: 0 20px 16px;
+    }
+
+    .runtime-row {
+      min-height: 56px;
+      display: grid;
+      grid-template-columns: 34px minmax(110px, 0.9fr) minmax(120px, 1.1fr);
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      background: rgba(248, 250, 254, 0.72);
+      border: 1px solid rgba(137, 151, 177, 0.18);
+      border-radius: 11px;
+    }
+
+    .runtime-row + .runtime-row {
+      margin-top: 7px;
+    }
+
+    .runtime-row .icon {
+      color: #43516a;
+    }
+
+    .runtime-label {
+      font-weight: 720;
+    }
+
+    .runtime-value {
+      justify-self: end;
+      min-width: 0;
+      overflow: hidden;
+      color: var(--muted);
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .runtime-value.healthy {
+      color: var(--success);
+    }
+
+    .tiny-dot {
+      width: 6px;
+      height: 6px;
+      display: inline-block;
+      margin-right: 7px;
+      vertical-align: 2px;
+      background: currentColor;
+      border-radius: 50%;
+    }
+
+    .route-asset {
+      width: calc(100% - 40px);
+      height: 70px;
+      display: block;
+      margin: -4px 20px 12px;
+      object-fit: contain;
+      object-position: center 48%;
+      opacity: 0.92;
+    }
+
+    .scheme-panel {
+      margin-bottom: 18px;
+    }
+
+    .scheme-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 20px 22px 12px;
+    }
+
+    .app-path {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .app-path code {
+      margin-left: 7px;
+      font-family: var(--mono);
+      color: #5e6d86;
+    }
+
+    .detect-link {
+      margin-left: 8px;
+      color: var(--primary);
+      font-weight: 760;
+      text-decoration: none;
+    }
+
+    .scheme-card {
+      min-height: 116px;
+      display: grid;
+      grid-template-columns: minmax(190px, 1.05fr) repeat(4, minmax(135px, 1fr)) auto;
+      align-items: center;
+      margin: 0 22px 22px;
+      padding: 14px 18px;
+      background:
+        linear-gradient(120deg, rgba(235, 251, 246, 0.76), rgba(250, 253, 255, 0.88)),
+        url("./assets/card-noise.svg");
+      border: 1px solid rgba(20, 184, 166, 0.58);
+      border-radius: 14px;
+      box-shadow: var(--shadow-running);
+    }
+
+    .scheme-identity {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      padding-right: 16px;
+    }
+
+    .play-orb {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      background: linear-gradient(145deg, #2ac47e, #11a762);
+      border-radius: 50%;
+      box-shadow: 0 8px 18px rgba(32, 184, 110, 0.24);
+    }
+
+    .play-orb .icon {
+      width: 18px;
+      height: 18px;
+    }
+
+    .scheme-name {
+      font-size: 17px;
+      font-weight: 850;
+    }
+
+    .scheme-field {
+      min-width: 0;
+      padding: 5px 16px;
+      border-left: 1px solid rgba(137, 151, 177, 0.19);
+    }
+
+    .field-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 760;
+    }
+
+    .field-label .icon {
+      width: 15px;
+      height: 15px;
+    }
+
+    .field-value {
+      margin-top: 5px;
+      overflow: hidden;
+      color: #44516a;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 650;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .scheme-actions {
+      display: flex;
+      gap: 9px;
+      padding-left: 16px;
+    }
+
+    .discovery-panel {
+      padding-bottom: 18px;
+    }
+
+    .discovery-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      padding: 0 22px;
+    }
+
+    .discovery-card {
+      min-height: 126px;
+      display: grid;
+      grid-template-columns: 52px 1fr;
+      grid-template-rows: 1fr auto;
+      gap: 10px 13px;
+      padding: 16px;
+      background: rgba(250, 252, 255, 0.72);
+      border: 1px solid rgba(137, 151, 177, 0.2);
+      border-radius: 14px;
+      transition: 160ms ease;
+    }
+
+    .discovery-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(46, 123, 255, 0.28);
+      box-shadow: 0 14px 28px rgba(46, 123, 255, 0.08);
+    }
+
+    .discovery-mark {
+      width: 52px;
+      height: 52px;
+      display: grid;
+      place-items: center;
+      color: var(--mark-color, #60708d);
+      font-size: 19px;
+      font-weight: 850;
+      background: var(--mark-bg, #eef1f6);
+      border-radius: 15px;
+    }
+
+    .discovery-card:nth-child(2) {
+      --mark-color: #2e7bff;
+      --mark-bg: #e8f1ff;
+    }
+
+    .discovery-card:nth-child(3) {
+      --mark-color: #3479ee;
+      --mark-bg: #e8f3ff;
+    }
+
+    .discovery-card:nth-child(4) {
+      --mark-color: #8b5cf6;
+      --mark-bg: #f0e9ff;
+    }
+
+    .discovery-info strong {
+      display: block;
+      margin-top: 2px;
+      font-size: 14px;
+    }
+
+    .discovery-info span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 17px;
+      font-weight: 650;
+    }
+
+    .detect-btn {
+      grid-column: 2;
+      justify-self: stretch;
+      min-height: 33px;
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 780;
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid rgba(46, 123, 255, 0.18);
+      border-radius: 9px;
+      cursor: pointer;
+    }
+
+    .discovery-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 14px 22px 0;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .discovery-footer span {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .discovery-footer .icon {
+      width: 15px;
+      height: 15px;
+    }
+
+    .install-link {
+      color: var(--primary);
+      font-weight: 780;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 1500px) {
+      .app {
+        grid-template-columns: 220px minmax(0, 1fr);
+      }
+
+      .content {
+        padding: 26px 26px 32px;
+      }
+
+      .scheme-card {
+        grid-template-columns: minmax(180px, 1.1fr) repeat(2, minmax(140px, 1fr)) auto;
+        row-gap: 12px;
+      }
+
+      .scheme-field:nth-of-type(4),
+      .scheme-field:nth-of-type(5) {
+        grid-row: 2;
+      }
+
+      .scheme-field:nth-of-type(4) {
+        grid-column: 2;
+      }
+
+      .scheme-field:nth-of-type(5) {
+        grid-column: 3;
+      }
+
+      .scheme-actions {
+        grid-column: 4;
+        grid-row: 1 / span 2;
+      }
+    }
+
+    @media (max-width: 1180px) {
+      .metrics {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .top-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .route-asset {
+        display: none;
+      }
+
+      .discovery-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 860px) {
+      .app {
+        display: block;
+      }
+
+      .sidebar {
+        position: relative;
+        width: 100%;
+        height: auto;
+        padding: 12px;
+      }
+
+      .traffic-lights,
+      .proxy-card,
+      .sidebar-status {
+        display: none;
+      }
+
+      .nav {
+        display: flex;
+        overflow-x: auto;
+      }
+
+      .nav-item {
+        flex: 0 0 auto;
+      }
+
+      .content {
+        padding: 22px 16px 28px;
+      }
+
+      .scheme-card {
+        grid-template-columns: 1fr;
+      }
+
+      .scheme-field,
+      .scheme-field:nth-of-type(4),
+      .scheme-field:nth-of-type(5),
+      .scheme-actions {
+        grid-column: auto;
+        grid-row: auto;
+        border-left: 0;
+        border-top: 1px solid rgba(137, 151, 177, 0.19);
+        padding: 10px 0 0;
+      }
+
+      .scheme-actions {
+        flex-wrap: wrap;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .page-header {
+        align-items: center;
+      }
+
+      .page-subtitle {
+        display: none;
+      }
+
+      .metrics,
+      .discovery-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .agent-row {
+        grid-template-columns: 52px minmax(0, 1fr);
+        padding: 12px 0;
+      }
+
+      .agent-mark {
+        width: 48px;
+        height: 48px;
+      }
+
+      .agent-row .btn {
+        grid-column: 2;
+        justify-self: start;
+      }
+
+      .runtime-row {
+        grid-template-columns: 30px 1fr;
+      }
+
+      .runtime-value {
+        grid-column: 2;
+        justify-self: start;
+      }
+
+      .scheme-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .discovery-footer {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="traffic-lights" aria-hidden="true"><span></span><span></span><span></span></div>
+      <nav class="nav" aria-label="主导航">
+        <a class="nav-item" href="#"><svg class="icon"><use href="./assets/agent-icons.svg#home" /></svg>仪表盘</a>
+        <a class="nav-item" href="#"><svg class="icon"><use href="./assets/agent-icons.svg#quota" /></svg>额度</a>
+        <a class="nav-item" href="#"><svg class="icon"><use href="./assets/agent-icons.svg#provider" /></svg>服务商</a>
+        <a class="nav-item" href="#"><svg class="icon"><use href="./assets/agent-icons.svg#shield" /></svg>2FA</a>
+        <a class="nav-item active" href="#"><svg class="icon"><use href="./assets/agent-icons.svg#bot" /></svg>智能体</a>
+        <a class="nav-item" href="#"><svg class="icon"><use href="./assets/agent-icons.svg#key" /></svg>API 密钥</a>
+        <a class="nav-item" href="#"><svg class="icon"><use href="./assets/agent-icons.svg#log" /></svg>日志</a>
+        <a class="nav-item" href="#"><svg class="icon"><use href="./assets/agent-icons.svg#settings" /></svg>设置</a>
+        <a class="nav-item" href="#"><svg class="icon"><use href="./assets/agent-icons.svg#info" /></svg>关于</a>
+      </nav>
+      <div class="sidebar-spacer"></div>
+      <div class="proxy-card">
+        <div class="proxy-icon"><svg class="icon"><use href="./assets/agent-icons.svg#play" /></svg></div>
+        <div><strong>本地代理</strong><small>28317 · 运行中</small></div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="sidebar-status">
+        <span><i class="status-dot"></i>运行中</span>
+        <span>:28317</span>
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="page-header">
+        <div>
+          <h1 class="page-title">智能体</h1>
+          <p class="page-subtitle">管理 CLI 智能体与本地代理启动方案</p>
+        </div>
+        <button class="btn" type="button"><svg class="icon"><use href="./assets/agent-icons.svg#refresh" /></svg>刷新</button>
+      </header>
+
+      <section class="metrics" aria-label="智能体概览">
+        <article class="metric">
+          <div class="metric-icon"><svg class="icon"><use href="./assets/agent-icons.svg#layers" /></svg></div>
+          <div><div class="metric-label">已检测</div><div class="metric-value">6</div></div>
+        </article>
+        <article class="metric installed">
+          <div class="metric-icon"><svg class="icon"><use href="./assets/agent-icons.svg#package" /></svg></div>
+          <div><div class="metric-label">已安装</div><div class="metric-value">2</div></div>
+        </article>
+        <article class="metric configured">
+          <div class="metric-icon"><svg class="icon"><use href="./assets/agent-icons.svg#check" /></svg></div>
+          <div><div class="metric-label">已配置</div><div class="metric-value">1</div></div>
+        </article>
+        <article class="metric running">
+          <div class="metric-icon"><svg class="icon"><use href="./assets/agent-icons.svg#play" /></svg></div>
+          <div><div class="metric-label">运行中</div><div class="metric-value">1</div></div>
+        </article>
+      </section>
+
+      <section class="top-grid">
+        <article class="panel">
+          <div class="panel-head">
+            <h2 class="panel-title">已接入智能体</h2>
+            <span class="panel-note">2 个已安装工具</span>
+          </div>
+          <div class="agent-list">
+            <div class="agent-row">
+              <div class="agent-mark">C</div>
+              <div>
+                <div class="agent-name-line">
+                  <span class="agent-name">Claude Code</span>
+                  <span class="badge warning">已安装</span>
+                  <span class="badge warning">需要配置</span>
+                </div>
+                <div class="path">/Users/mac/.nvm/versions/node/v20.13.0/bin/claude</div>
+              </div>
+              <button class="btn small" type="button">配置</button>
+            </div>
+            <div class="agent-row">
+              <div class="agent-mark codex">C</div>
+              <div>
+                <div class="agent-name-line">
+                  <span class="agent-name">Codex</span>
+                  <span class="badge success">已配置</span>
+                </div>
+                <div class="path">/Applications/Codex.app/Contents/MacOS/ChatGPT</div>
+              </div>
+              <button class="btn small" type="button">修复可见性</button>
+            </div>
+          </div>
+          <a class="panel-footer-link" href="#"><span>查看全部已接入</span><span>›</span></a>
+        </article>
+
+        <article class="panel runtime-panel">
+          <div class="panel-head">
+            <h2 class="panel-title">运行概览</h2>
+            <span class="badge running"><i class="tiny-dot"></i>实时</span>
+          </div>
+          <div class="runtime-list">
+            <div class="runtime-row">
+              <svg class="icon"><use href="./assets/agent-icons.svg#server" /></svg>
+              <span class="runtime-label">本地代理</span>
+              <span class="runtime-value healthy"><i class="tiny-dot"></i>运行正常 · 127.0.0.1:28317</span>
+            </div>
+            <div class="runtime-row">
+              <svg class="icon"><use href="./assets/agent-icons.svg#cube" /></svg>
+              <span class="runtime-label">当前智能体</span>
+              <span class="runtime-value"><i class="tiny-dot"></i>Codex</span>
+            </div>
+            <div class="runtime-row">
+              <svg class="icon"><use href="./assets/agent-icons.svg#play" /></svg>
+              <span class="runtime-label">当前方案</span>
+              <span class="runtime-value"><i class="tiny-dot"></i>Got-5.5</span>
+            </div>
+            <div class="runtime-row">
+              <svg class="icon"><use href="./assets/agent-icons.svg#route" /></svg>
+              <span class="runtime-label">路由状态</span>
+              <span class="runtime-value healthy">就绪</span>
+            </div>
+          </div>
+          <img class="route-asset" src="./assets/route-flow.svg" alt="Codex 到启动方案与本地代理的路由关系" />
+        </article>
+      </section>
+
+      <section class="panel scheme-panel">
+        <div class="scheme-head">
+          <div>
+            <h2 class="panel-title">当前启动方案</h2>
+            <div class="app-path">应用路径：<code>/Applications/Codex.app/Contents/MacOS/ChatGPT</code><a class="detect-link" href="#">探测</a></div>
+          </div>
+          <button class="btn primary" type="button"><svg class="icon"><use href="./assets/agent-icons.svg#plus" /></svg>新建方案</button>
+        </div>
+
+        <div class="scheme-card">
+          <div class="scheme-identity">
+            <span class="play-orb"><svg class="icon"><use href="./assets/agent-icons.svg#play" /></svg></span>
+            <div>
+              <div class="agent-name-line"><span class="scheme-name">Got-5.5</span><span class="badge running">运行中</span></div>
+            </div>
+          </div>
+          <div class="scheme-field">
+            <div class="field-label"><svg class="icon"><use href="./assets/agent-icons.svg#user" /></svg>账号</div>
+            <div class="field-value">te••••c1oud.com</div>
+          </div>
+          <div class="scheme-field">
+            <div class="field-label"><svg class="icon"><use href="./assets/agent-icons.svg#cube" /></svg>模型</div>
+            <div class="field-value">gpt-5.5-sol</div>
+          </div>
+          <div class="scheme-field">
+            <div class="field-label"><svg class="icon"><use href="./assets/agent-icons.svg#globe" /></svg>本地端点</div>
+            <div class="field-value">http://127.0.0.1:28317</div>
+          </div>
+          <div class="scheme-field">
+            <div class="field-label"><svg class="icon"><use href="./assets/agent-icons.svg#key" /></svg>API 密钥</div>
+            <div class="field-value">••••••••••bd3u</div>
+          </div>
+          <div class="scheme-actions">
+            <button class="btn danger small" type="button"><svg class="icon"><use href="./assets/agent-icons.svg#stop" /></svg>停止</button>
+            <button class="btn small" type="button"><svg class="icon"><use href="./assets/agent-icons.svg#edit" /></svg>编辑</button>
+            <button class="btn ghost-danger small" type="button"><svg class="icon"><use href="./assets/agent-icons.svg#trash" /></svg>删除</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel discovery-panel">
+        <div class="panel-head">
+          <h2 class="panel-title">发现更多智能体</h2>
+          <span class="panel-note">自动扫描 PATH 与常见安装路径</span>
+        </div>
+        <div class="discovery-grid">
+          <article class="discovery-card">
+            <div class="discovery-mark">A</div>
+            <div class="discovery-info"><strong>Amp</strong><span>自动检测系统中的安装</span></div>
+            <button class="detect-btn" type="button">自动检测</button>
+          </article>
+          <article class="discovery-card">
+            <div class="discovery-mark">F</div>
+            <div class="discovery-info"><strong>Factory Droid</strong><span>自动检测系统中的安装</span></div>
+            <button class="detect-btn" type="button">自动检测</button>
+          </article>
+          <article class="discovery-card">
+            <div class="discovery-mark">G</div>
+            <div class="discovery-info"><strong>Gemini</strong><span>自动检测系统中的安装</span></div>
+            <button class="detect-btn" type="button">自动检测</button>
+          </article>
+          <article class="discovery-card">
+            <div class="discovery-mark">O</div>
+            <div class="discovery-info"><strong>OpenCode</strong><span>自动检测系统中的安装</span></div>
+            <button class="detect-btn" type="button">自动检测</button>
+          </article>
+        </div>
+        <div class="discovery-footer">
+          <span><svg class="icon"><use href="./assets/agent-icons.svg#info" /></svg>未找到时可检查环境变量 PATH，或按工具文档完成安装。</span>
+          <a class="install-link" href="#">查看安装指南　›</a>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

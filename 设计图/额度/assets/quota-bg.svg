@@ -1,0 +1,23 @@
+<svg width="2560" height="1310" viewBox="0 0 2560 1310" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="2560" height="1310" fill="#F7F3EA"/>
+  <g filter="url(#softBlur)" opacity=".95">
+    <circle cx="540" cy="96" r="260" fill="#EAF2FF"/>
+    <circle cx="1720" cy="170" r="340" fill="#F3EEFF"/>
+    <circle cx="2100" cy="950" r="300" fill="#E9FAF4"/>
+  </g>
+  <g opacity=".4">
+    <path d="M296 208H2410" stroke="#DEE6F4"/>
+    <path d="M296 408H2410" stroke="#E8EDF5"/>
+    <path d="M296 608H2410" stroke="#E8EDF5"/>
+    <path d="M296 808H2410" stroke="#E8EDF5"/>
+    <path d="M296 1008H2410" stroke="#E8EDF5"/>
+    <path d="M456 40V1240" stroke="#EDF1F8"/>
+    <path d="M896 40V1240" stroke="#EDF1F8"/>
+    <path d="M1336 40V1240" stroke="#EDF1F8"/>
+    <path d="M1776 40V1240" stroke="#EDF1F8"/>
+    <path d="M2216 40V1240" stroke="#EDF1F8"/>
+  </g>
+  <filter id="softBlur" x="0" y="-360" width="2760" height="1740" color-interpolation-filters="sRGB">
+    <feGaussianBlur stdDeviation="130"/>
+  </filter>
+</svg>

@@ -1,0 +1,452 @@
+/* ============================================================================
+   关于页重设计 —— 按 设计图/关于/about-redesign.png + design-tokens.json 还原
+   (该页无 reference.html,按效果图 + 精确令牌落地)。作用域挂 .about-redesign。
+   ========================================================================== */
+
+.about-redesign {
+  --primary: #2e7bff;
+  --primary-soft: #e7f0ff;
+  --brand-green: #53d769;
+  --brand-green-strong: #20b86e;
+  --brand-green-soft: #e9f9f1;
+  --brand-cyan: #26b7d7;
+  --brand-cyan-soft: #e8f8fc;
+  --lavender: #8b5cf6;
+  --lavender-soft: #f2edff;
+  --a-text: #172033;
+  --a-muted: #66758f;
+  --a-soft: #9aa7ba;
+  --a-border: rgba(137, 151, 177, 0.24);
+  --a-shadow: 0 3px 10px rgba(28, 39, 68, 0.045), 0 1px 2px rgba(28, 39, 68, 0.03);
+  --a-radius-lg: 19px;
+  --a-radius-xl: 28px;
+
+  color: var(--a-text);
+  background-color: #fbfafa;
+  /* 纯色页底,不叠柔光渐变——保持均匀无色块。 */
+}
+.about-redesign * {
+  box-sizing: border-box;
+}
+
+/* 顶栏 */
+.about-redesign.dashboard-content {
+  gap: 0;
+}
+.about-redesign .page-topbar {
+  z-index: 5;
+  min-height: 40px;
+  padding: 4px 2px 16px;
+  background: transparent;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.about-redesign .page-topbar::before {
+  display: none;
+}
+.about-redesign .page-topbar h1 {
+  font-size: 29px;
+  line-height: 36px;
+  font-weight: 850;
+  letter-spacing: -0.3px;
+  color: var(--a-text);
+}
+.about-redesign .about-subtitle {
+  margin: 0;
+  color: var(--a-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.about-redesign .about-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 4px 6px 12px 0;
+}
+/* 同仪表盘:flex 列滚动区里的块不被压扁,保持原高、超出则滚动。 */
+.about-redesign .about-scroll > * {
+  flex-shrink: 0;
+}
+
+/* 通用面板 */
+.about-redesign .panel {
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-xl);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--a-shadow);
+  backdrop-filter: none;
+}
+
+/* ---------- Hero ---------- */
+.about-redesign .about-hero {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr) 360px;
+  gap: 28px;
+  align-items: center;
+  padding: 28px 30px;
+}
+.about-redesign .about-mark {
+  width: 148px;
+  height: 148px;
+  display: grid;
+  place-items: center;
+  border-radius: 34px;
+  background: linear-gradient(150deg, #6ee7a6, #35c98d 55%, #26b7d7);
+  box-shadow: 0 24px 54px rgba(38, 183, 215, 0.18), 0 12px 32px rgba(83, 215, 105, 0.14);
+  color: #10241c;
+  font-size: 92px;
+  font-weight: 900;
+  letter-spacing: -2px;
+}
+.about-redesign .about-hero-main {
+  min-width: 0;
+}
+.about-redesign .about-name {
+  display: block;
+  font-size: 44px;
+  line-height: 52px;
+  font-weight: 900;
+  letter-spacing: -1.2px;
+}
+.about-redesign .about-version {
+  margin-top: 2px;
+  color: var(--a-muted);
+  font-size: 24px;
+  font-weight: 820;
+}
+.about-redesign .about-tagline {
+  margin: 10px 0 0;
+  color: #3a475e;
+  font-size: 16px;
+  font-weight: 700;
+}
+.about-redesign .about-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.about-redesign .about-pill {
+  height: 30px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+}
+.about-redesign .about-pill--blue {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.about-redesign .about-pill--green {
+  color: var(--brand-green-strong);
+  background: var(--brand-green-soft);
+}
+.about-redesign .about-pill--lav {
+  color: var(--lavender);
+  background: var(--lavender-soft);
+}
+.about-redesign .about-orbit {
+  position: absolute;
+  left: 40%;
+  right: 372px;
+  top: 0;
+  bottom: 0;
+  background: url("/about/brand-orbit.svg") center / contain no-repeat;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* 版本状态卡 */
+.about-redesign .about-status {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-lg);
+  background: #fff;
+  box-shadow: 0 16px 34px rgba(32, 184, 110, 0.08);
+}
+.about-redesign .about-status-title {
+  font-size: 16px;
+  font-weight: 850;
+}
+.about-redesign .about-status-ok {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--brand-green-strong);
+  font-size: 14px;
+  font-weight: 800;
+}
+.about-redesign .about-status-ok svg {
+  width: 18px;
+  height: 18px;
+}
+.about-redesign .about-check-btn {
+  height: 42px;
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(135deg, #3b86ff, #1f6af0);
+  box-shadow: 0 10px 24px rgba(46, 123, 255, 0.18);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.about-redesign .about-check-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+.about-redesign .about-status-note {
+  color: var(--a-soft);
+  font-size: 12px;
+  font-weight: 680;
+}
+
+/* ---------- 3 信息卡 ---------- */
+.about-redesign .about-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.about-redesign .about-card {
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+}
+.about-redesign .about-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.about-redesign .about-card-icon {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+}
+.about-redesign .about-card-icon svg {
+  width: 20px;
+  height: 20px;
+}
+.about-redesign .about-card-icon.blue {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.about-redesign .about-card-icon.green {
+  color: var(--brand-green-strong);
+  background: var(--brand-green-soft);
+}
+.about-redesign .about-card-icon.lav {
+  color: var(--lavender);
+  background: var(--lavender-soft);
+}
+.about-redesign .about-card-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 850;
+}
+.about-redesign .about-badge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 11px;
+  border-radius: 999px;
+  color: var(--brand-green-strong);
+  background: var(--brand-green-soft);
+  font-size: 12px;
+  font-weight: 800;
+}
+.about-redesign .about-badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+}
+.about-redesign .about-rows {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+.about-redesign .about-rows > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 54px;
+  border-top: 1px solid rgba(221, 228, 238, 0.85);
+}
+.about-redesign .about-rows > div:first-child {
+  border-top: none;
+}
+.about-redesign .about-rows dt {
+  color: var(--a-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+.about-redesign .about-rows dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: right;
+}
+.about-redesign .about-rows dd.link {
+  color: var(--primary);
+}
+.about-redesign .about-rows dd.ok {
+  color: var(--brand-green-strong);
+}
+.about-redesign .about-tag {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 850;
+}
+.about-redesign .about-config-label {
+  color: var(--a-muted);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.about-redesign .about-config-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.about-redesign .about-config-row code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "SFMono-Regular", "JetBrains Mono", monospace;
+  font-size: 13px;
+  color: var(--a-text);
+}
+.about-redesign .about-copy {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--a-border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--a-muted);
+  cursor: pointer;
+}
+.about-redesign .about-copy svg {
+  width: 16px;
+  height: 16px;
+}
+.about-redesign .about-config-note {
+  margin: 12px 0 0;
+  color: var(--a-soft);
+  font-size: 12px;
+  font-weight: 680;
+}
+
+/* ---------- 特性底卡 ---------- */
+.about-redesign .about-features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding: 22px 8px;
+  overflow: hidden;
+}
+.about-redesign .about-feature {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 4px 24px;
+  border-right: 1px solid var(--a-border);
+}
+.about-redesign .about-feature:last-child {
+  border-right: none;
+}
+.about-redesign .about-feature-icon {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+}
+.about-redesign .about-feature-icon svg {
+  width: 26px;
+  height: 26px;
+}
+.about-redesign .about-feature-icon.blue {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.about-redesign .about-feature-icon.green {
+  color: var(--brand-green-strong);
+  background: var(--brand-green-soft);
+}
+.about-redesign .about-feature-icon.lav {
+  color: var(--lavender);
+  background: var(--lavender-soft);
+}
+.about-redesign .about-feature strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 850;
+}
+.about-redesign .about-feature p {
+  margin: 4px 0 0;
+  color: var(--a-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.about-redesign .about-foot {
+  margin: 2px 2px 0;
+  color: var(--a-soft);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+@media (max-width: 1180px) {
+  .about-redesign .about-hero {
+    grid-template-columns: 148px minmax(0, 1fr);
+  }
+  .about-redesign .about-orbit {
+    display: none;
+  }
+  .about-redesign .about-status {
+    grid-column: 1 / -1;
+  }
+  .about-redesign .about-cards,
+  .about-redesign .about-features {
+    grid-template-columns: 1fr;
+  }
+  .about-redesign .about-feature {
+    border-right: none;
+    border-bottom: 1px solid var(--a-border);
+    padding: 14px 16px;
+  }
+}

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="icon-2fa" viewBox="0 0 24 24">
+    <path d="M7 10V8a5 5 0 0 1 10 0v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <rect x="5" y="10" width="14" height="10" rx="2.2" fill="none" stroke="currentColor" stroke-width="2"/>
+    <path d="M12 14v2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="icon-dashboard" viewBox="0 0 24 24">
+    <path d="M4 13.2C4 8.7 7.6 5 12 5s8 3.7 8 8.2V18a1 1 0 0 1-1 1h-4.2a1 1 0 0 1-1-1v-3.2h-3.6V18a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4.8Z" fill="currentColor"/>
+  </symbol>
+  <symbol id="icon-quota" viewBox="0 0 24 24">
+    <path d="M5 5.8C5 4.8 5.8 4 6.8 4h10.4C18.2 4 19 4.8 19 5.8v12.4c0 1-.8 1.8-1.8 1.8H6.8C5.8 20 5 19.2 5 18.2V5.8Z" fill="none" stroke="currentColor" stroke-width="2"/>
+    <path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="icon-shield" viewBox="0 0 24 24">
+    <path d="M12 3.8 19 6.6v5.2c0 4.2-2.8 7.2-7 8.4-4.2-1.2-7-4.2-7-8.4V6.6l7-2.8Z" fill="none" stroke="currentColor" stroke-width="2"/>
+    <path d="m8.6 12 2.2 2.2 4.7-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="icon-key" viewBox="0 0 24 24">
+    <path d="M14.2 9.8a4.2 4.2 0 1 1-1.7-3.4l7.5 7.5-2.4 2.4-2-2-1.7 1.7-1.7-1.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="icon-copy" viewBox="0 0 24 24">
+    <rect x="8" y="8" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+    <path d="M5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="icon-upload" viewBox="0 0 24 24">
+    <path d="M12 15V4m0 0 5 5m-5-5-5 5M5 16v3h14v-3" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="icon-download" viewBox="0 0 24 24">
+    <path d="M12 4v11m0 0 5-5m-5 5-5-5M5 16v3h14v-3" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="icon-search" viewBox="0 0 24 24">
+    <path d="m16.5 16.5 3.5 3.5M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="icon-qr" viewBox="0 0 24 24">
+    <path d="M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h2v2h-2v-2Zm4 0h2v2h-2v-2Zm-4 4h2v2h-2v-2Zm4 0h2v2h-2v-2Z" fill="currentColor"/>
+  </symbol>
+  <symbol id="icon-provider" viewBox="0 0 24 24">
+    <path d="M12 4v6m0 0H7.5A2.5 2.5 0 0 0 5 12.5V15m7-5h4.5A2.5 2.5 0 0 1 19 12.5V15M8 20a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="icon-spark" viewBox="0 0 24 24">
+    <path d="M12 3 14.5 9.5 21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z" fill="currentColor"/>
+  </symbol>
+</svg>

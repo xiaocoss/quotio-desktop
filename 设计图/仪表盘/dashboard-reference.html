@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quotio 仪表盘重设计参考</title>
+    <style>
+      :root {
+        --page: #f7f3ea;
+        --surface: rgba(255, 255, 255, 0.82);
+        --surface-strong: #ffffff;
+        --surface-soft: #f9fbff;
+        --border: rgba(137, 151, 177, 0.24);
+        --border-strong: rgba(92, 110, 140, 0.28);
+        --text: #172033;
+        --muted: #65758f;
+        --soft: #96a3b8;
+        --primary: #2e7bff;
+        --primary-soft: #e7f0ff;
+        --cost: #ff8a00;
+        --success: #20b86e;
+        --danger: #f05252;
+        --cached: #8b5cf6;
+        --warning: #f59e0b;
+        --radius-sm: 10px;
+        --radius-md: 14px;
+        --radius-lg: 20px;
+        --radius-xl: 26px;
+        --shadow-card: 0 18px 44px rgba(28, 39, 68, 0.08), 0 2px 8px rgba(28, 39, 68, 0.05);
+        --shadow-hover: 0 22px 58px rgba(28, 39, 68, 0.12), 0 4px 14px rgba(28, 39, 68, 0.06);
+        --font: "HarmonyOS Sans SC", "MiSans", "SF Pro Rounded", "PingFang SC", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        font-family: var(--font);
+        background:
+          linear-gradient(rgba(247, 243, 234, 0.78), rgba(247, 243, 234, 0.9)),
+          url("assets/dashboard-bg.svg") center / cover fixed;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 256px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 18px 20px;
+        background: rgba(255, 255, 255, 0.72);
+        border-right: 1px solid rgba(214, 222, 236, 0.8);
+        box-shadow: 12px 0 42px rgba(30, 42, 68, 0.08);
+        backdrop-filter: blur(22px);
+      }
+
+      .window-dots {
+        display: flex;
+        gap: 10px;
+        margin: 4px 0 28px 6px;
+      }
+
+      .window-dots span {
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+        box-shadow: inset 0 -1px 1px rgba(0, 0, 0, 0.14);
+      }
+
+      .dot-red {
+        background: #ff5f57;
+      }
+
+      .dot-yellow {
+        background: #febc2e;
+      }
+
+      .dot-green {
+        background: #28c840;
+      }
+
+      .nav {
+        display: grid;
+        gap: 8px;
+      }
+
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 44px;
+        padding: 0 13px;
+        color: #45546d;
+        font-size: 14px;
+        font-weight: 760;
+        border-radius: 14px;
+      }
+
+      .nav-item.active {
+        color: var(--primary);
+        background: linear-gradient(135deg, rgba(46, 123, 255, 0.14), rgba(46, 123, 255, 0.06));
+        box-shadow: inset 0 0 0 1px rgba(46, 123, 255, 0.1);
+      }
+
+      .icon {
+        width: 20px;
+        height: 20px;
+        color: currentColor;
+      }
+
+      .proxy {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 64px;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.86);
+        box-shadow: var(--shadow-card);
+      }
+
+      .proxy-light {
+        width: 28px;
+        height: 28px;
+        border-radius: 10px;
+        background: #e8fbef;
+        color: var(--success);
+        display: grid;
+        place-items: center;
+      }
+
+      .proxy strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .proxy span {
+        display: block;
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      main {
+        padding: 28px 32px 34px;
+      }
+
+      .topline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        line-height: 32px;
+        letter-spacing: -0.2px;
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 740;
+      }
+
+      .button,
+      .select,
+      .tab,
+      .chip {
+        height: 40px;
+        border: 1px solid var(--border);
+        border-radius: 13px;
+        background: rgba(255, 255, 255, 0.82);
+        color: #526179;
+        font: inherit;
+        font-weight: 750;
+        box-shadow: 0 8px 20px rgba(46, 123, 255, 0.06);
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 16px;
+      }
+
+      .button.primary {
+        color: white;
+        border-color: transparent;
+        background: linear-gradient(135deg, #3b86ff, #1f6af0);
+        box-shadow: 0 12px 28px rgba(46, 123, 255, 0.28);
+      }
+
+      .panel {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.78)),
+          url("assets/card-noise.svg");
+        box-shadow: var(--shadow-card);
+        backdrop-filter: blur(18px);
+      }
+
+      .filters {
+        padding: 18px;
+        margin-bottom: 18px;
+      }
+
+      .range-tabs,
+      .filter-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .range-tabs {
+        margin-bottom: 14px;
+      }
+
+      .tab {
+        min-width: 74px;
+        padding: 0 18px;
+      }
+
+      .tab.active {
+        color: var(--primary);
+        background: white;
+        border-color: rgba(46, 123, 255, 0.2);
+        box-shadow: 0 10px 24px rgba(46, 123, 255, 0.14);
+      }
+
+      .chip {
+        min-width: 150px;
+        padding: 0 14px;
+        text-align: left;
+      }
+
+      .search {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        height: 46px;
+        margin-top: 14px;
+        padding: 0 16px;
+        color: var(--soft);
+        border: 1px solid var(--border);
+        border-radius: 15px;
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .kpis {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+
+      .kpi {
+        display: grid;
+        grid-template-columns: 70px 1fr;
+        align-items: center;
+        min-height: 112px;
+        padding: 20px;
+        transition: transform 160ms ease, box-shadow 160ms ease;
+      }
+
+      .kpi:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-hover);
+      }
+
+      .orb {
+        width: 58px;
+        height: 58px;
+        border-radius: 22px;
+        display: grid;
+        place-items: center;
+      }
+
+      .orb.blue {
+        color: var(--primary);
+        background: linear-gradient(135deg, #e8f1ff, #d9e8ff);
+      }
+
+      .orb.orange {
+        color: var(--cost);
+        background: linear-gradient(135deg, #fff3df, #ffe4bd);
+      }
+
+      .orb.red {
+        color: var(--danger);
+        background: linear-gradient(135deg, #fff0f0, #ffdede);
+      }
+
+      .orb.green {
+        color: var(--success);
+        background: linear-gradient(135deg, #e9f9f1, #d7f3e4);
+      }
+
+      .orb.purple {
+        color: var(--cached);
+        background: linear-gradient(135deg, #f2edff, #e8dcff);
+      }
+
+      .kpi-label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 850;
+        letter-spacing: 0.02em;
+      }
+
+      .kpi-value {
+        margin-top: 3px;
+        font-size: 32px;
+        line-height: 38px;
+        font-weight: 850;
+        letter-spacing: -0.8px;
+      }
+
+      .kpi-note {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .blue-text {
+        color: var(--primary);
+      }
+
+      .orange-text {
+        color: var(--cost);
+      }
+
+      .red-text {
+        color: var(--danger);
+      }
+
+      .green-text {
+        color: var(--success);
+      }
+
+      .purple-text {
+        color: var(--cached);
+      }
+
+      .chart-panel {
+        padding: 22px 24px 20px;
+        margin-bottom: 18px;
+      }
+
+      .panel-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+
+      .panel-title {
+        margin: 0;
+        font-size: 18px;
+        line-height: 26px;
+        font-weight: 850;
+      }
+
+      .panel-desc {
+        margin: 3px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .segmented {
+        display: flex;
+        gap: 4px;
+        padding: 4px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: rgba(244, 247, 252, 0.82);
+      }
+
+      .segmented span {
+        padding: 8px 14px;
+        border-radius: 12px;
+        color: #64748b;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .segmented .active {
+        color: var(--primary);
+        background: white;
+        box-shadow: 0 10px 22px rgba(46, 123, 255, 0.14);
+      }
+
+      .chart {
+        position: relative;
+        height: 282px;
+        padding: 0 10px 0 42px;
+      }
+
+      .chart-grid {
+        position: absolute;
+        inset: 4px 0 28px 42px;
+        background:
+          repeating-linear-gradient(to bottom, transparent 0, transparent 55px, #e4eaf4 56px),
+          linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0));
+        opacity: 0.84;
+      }
+
+      .axis-y {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 28px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        color: #8fa0b8;
+        font-size: 12px;
+        font-weight: 750;
+      }
+
+      .axis-x {
+        position: absolute;
+        left: 42px;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        justify-content: space-between;
+        color: #8fa0b8;
+        font-size: 12px;
+        font-weight: 750;
+      }
+
+      .chart img {
+        position: absolute;
+        left: 42px;
+        right: 0;
+        bottom: 28px;
+        width: calc(100% - 42px);
+        height: 220px;
+        object-fit: fill;
+      }
+
+      .table-panel {
+        padding: 18px 22px;
+      }
+
+      .table-tools {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 12px;
+      }
+
+      .table-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .mini-search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 220px;
+        height: 38px;
+        padding: 0 12px;
+        color: var(--soft);
+        border: 1px solid var(--border);
+        border-radius: 13px;
+        background: white;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+
+      th {
+        color: #65758f;
+        font-size: 12px;
+        text-align: left;
+        letter-spacing: 0.02em;
+      }
+
+      th,
+      td {
+        padding: 12px 8px;
+        border-bottom: 1px solid rgba(221, 228, 238, 0.9);
+      }
+
+      td {
+        color: #273246;
+        font-weight: 680;
+      }
+
+      .provider {
+        display: grid;
+        gap: 2px;
+      }
+
+      .provider small {
+        color: #7b8aa2;
+        font-size: 11px;
+        font-weight: 850;
+        letter-spacing: 0.03em;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 24px;
+        padding: 0 9px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .badge.warn {
+        color: #b96e00;
+        background: #fff1d9;
+      }
+
+      .badge.bad {
+        color: #d93b3b;
+        background: #ffe8e8;
+      }
+
+      .link {
+        color: var(--primary);
+        font-weight: 850;
+      }
+
+      @media (max-width: 1180px) {
+        .app {
+          grid-template-columns: 88px minmax(0, 1fr);
+        }
+
+        .sidebar {
+          padding-inline: 12px;
+        }
+
+        .nav-item span,
+        .proxy div {
+          display: none;
+        }
+
+        .nav-item {
+          justify-content: center;
+          padding: 0;
+        }
+
+        .kpis {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 760px) {
+        .app {
+          display: block;
+        }
+
+        .sidebar {
+          display: none;
+        }
+
+        main {
+          padding: 18px;
+        }
+
+        .kpis {
+          grid-template-columns: 1fr;
+        }
+
+        .panel-head,
+        .table-tools {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        table {
+          min-width: 880px;
+        }
+
+        .table-panel {
+          overflow: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="window-dots">
+          <span class="dot-red"></span>
+          <span class="dot-yellow"></span>
+          <span class="dot-green"></span>
+        </div>
+        <nav class="nav">
+          <div class="nav-item active">
+            <svg class="icon"><use href="assets/ui-icons.svg#icon-dashboard"></use></svg>
+            <span>仪表盘</span>
+          </div>
+          <div class="nav-item"><svg class="icon"><use href="assets/ui-icons.svg#icon-stack"></use></svg><span>额度</span></div>
+          <div class="nav-item"><svg class="icon"><use href="assets/ui-icons.svg#icon-check"></use></svg><span>服务商</span></div>
+          <div class="nav-item"><svg class="icon"><use href="assets/ui-icons.svg#icon-bolt"></use></svg><span>2FA</span></div>
+          <div class="nav-item"><svg class="icon"><use href="assets/ui-icons.svg#icon-pulse"></use></svg><span>智能体</span></div>
+          <div class="nav-item"><svg class="icon"><use href="assets/ui-icons.svg#icon-dashboard"></use></svg><span>API 密钥</span></div>
+          <div class="nav-item"><svg class="icon"><use href="assets/ui-icons.svg#icon-search"></use></svg><span>日志</span></div>
+        </nav>
+        <div class="proxy">
+          <div class="proxy-light">●</div>
+          <div>
+            <strong>本地代理</strong>
+            <span>:28317 · 运行中</span>
+          </div>
+        </div>
+      </aside>
+
+      <main>
+        <div class="topline">
+          <h1>仪表盘</h1>
+          <div class="toolbar">
+            <span>自动刷新</span>
+            <button class="select">10秒⌄</button>
+            <button class="button primary">刷新</button>
+          </div>
+        </div>
+
+        <section class="panel filters">
+          <div class="range-tabs">
+            <button class="tab active">今日</button>
+            <button class="tab">7 天</button>
+            <button class="tab">14 天</button>
+            <button class="tab">30 天</button>
+            <button class="tab">全部</button>
+            <button class="tab">自定义</button>
+          </div>
+          <div class="filter-row">
+            <button class="chip">全部账号⌄</button>
+            <button class="chip">全部提供方⌄</button>
+            <button class="chip">全部模型⌄</button>
+            <button class="chip">全部渠道⌄</button>
+            <button class="chip">全部调用方密钥⌄</button>
+            <button class="chip">全部状态⌄</button>
+          </div>
+          <div class="search">
+            <svg class="icon"><use href="assets/ui-icons.svg#icon-search"></use></svg>
+            <span>搜索账号、标签、认证密钥、模型、渠道、来源、凭证、API Key、接口路径</span>
+          </div>
+        </section>
+
+        <section class="kpis">
+          <article class="panel kpi">
+            <div class="orb blue"><svg class="icon"><use href="assets/ui-icons.svg#icon-pulse"></use></svg></div>
+            <div>
+              <div class="kpi-label">总调用</div>
+              <div class="kpi-value blue-text">390</div>
+              <div class="kpi-note">5 账号</div>
+            </div>
+          </article>
+          <article class="panel kpi">
+            <div class="orb orange"><svg class="icon"><use href="assets/ui-icons.svg#icon-check"></use></svg></div>
+            <div>
+              <div class="kpi-label">成功率</div>
+              <div class="kpi-value orange-text">69.0%</div>
+              <div class="kpi-note">269 成功</div>
+            </div>
+          </article>
+          <article class="panel kpi">
+            <div class="orb red"><svg class="icon"><use href="assets/ui-icons.svg#icon-x"></use></svg></div>
+            <div>
+              <div class="kpi-label">失败总数</div>
+              <div class="kpi-value red-text">121</div>
+              <div class="kpi-note">失败率 31.0%</div>
+            </div>
+          </article>
+          <article class="panel kpi">
+            <div class="orb orange"><svg class="icon"><use href="assets/ui-icons.svg#icon-dollar"></use></svg></div>
+            <div>
+              <div class="kpi-label">预估花费</div>
+              <div class="kpi-value orange-text">$30.25</div>
+              <div class="kpi-note">已按模型单价估算。</div>
+            </div>
+          </article>
+          <article class="panel kpi">
+            <div class="orb purple"><svg class="icon"><use href="assets/ui-icons.svg#icon-stack"></use></svg></div>
+            <div>
+              <div class="kpi-label">总 TOKENS</div>
+              <div class="kpi-value purple-text">28.6M</div>
+              <div class="kpi-note">消耗 Tokens 46.9K</div>
+            </div>
+          </article>
+          <article class="panel kpi">
+            <div class="orb blue"><svg class="icon"><use href="assets/ui-icons.svg#icon-arrow-down"></use></svg></div>
+            <div>
+              <div class="kpi-label">输入 TOKENS</div>
+              <div class="kpi-value blue-text">28.4M</div>
+              <div class="kpi-note">占比 99.5%</div>
+            </div>
+          </article>
+          <article class="panel kpi">
+            <div class="orb green"><svg class="icon"><use href="assets/ui-icons.svg#icon-arrow-up"></use></svg></div>
+            <div>
+              <div class="kpi-label">输出 TOKENS</div>
+              <div class="kpi-value green-text">154.2K</div>
+              <div class="kpi-note">占比 0.5%</div>
+            </div>
+          </article>
+          <article class="panel kpi">
+            <div class="orb purple"><svg class="icon"><use href="assets/ui-icons.svg#icon-bolt"></use></svg></div>
+            <div>
+              <div class="kpi-label">缓存 TOKENS</div>
+              <div class="kpi-value purple-text">25.7M</div>
+              <div class="kpi-note">命中率 90.6%</div>
+            </div>
+          </article>
+        </section>
+
+        <section class="panel chart-panel">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">用量趋势</h2>
+              <p class="panel-desc">按当前筛选展示花费趋势、Token 构成和模型排行。</p>
+            </div>
+            <div class="segmented">
+              <span class="active">花费趋势</span>
+              <span>Token 构成</span>
+              <span>模型花费</span>
+            </div>
+          </div>
+          <div class="chart">
+            <div class="axis-y">
+              <span>$12.00</span>
+              <span>$9.00</span>
+              <span>$6.00</span>
+              <span>$3.00</span>
+              <span>$0.00</span>
+            </div>
+            <div class="chart-grid"></div>
+            <img src="assets/chart-cost-area.svg" alt="花费趋势曲线" />
+            <div class="axis-x">
+              <span>07-12 00:00</span>
+              <span>07-12 00:20</span>
+              <span>07-12 00:40</span>
+              <span>07-12 01:00</span>
+              <span>07-12 01:20</span>
+              <span>07-12 01:40</span>
+              <span>07-12 02:00</span>
+              <span>07-12 02:20</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel table-panel">
+          <div class="table-tools">
+            <div>
+              <h2 class="panel-title">账号汇总 <span class="badge warn">5</span></h2>
+            </div>
+            <div class="table-actions">
+              <div class="mini-search">
+                <svg class="icon"><use href="assets/ui-icons.svg#icon-search"></use></svg>
+                <span>搜索账号 / 邮箱</span>
+              </div>
+              <button class="chip">排序　总调用⌄</button>
+              <button class="tab active">表格</button>
+              <button class="tab">卡片</button>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>账号 / PROVIDER</th>
+                <th>状态</th>
+                <th>总调用</th>
+                <th>成功</th>
+                <th>失败</th>
+                <th>成功率</th>
+                <th>总 TOKENS</th>
+                <th>预估花费</th>
+                <th>最近请求时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="provider">undue••••@•••••.com<small>CODEX</small></span></td>
+                <td><span class="badge warn">警告</span></td>
+                <td>303</td>
+                <td>238</td>
+                <td>65</td>
+                <td>78.5%</td>
+                <td>26.6M</td>
+                <td>$27.10</td>
+                <td>2分钟前</td>
+                <td class="link">筛选</td>
+              </tr>
+              <tr>
+                <td><span class="provider">jello••@•••••.com<small>CODEX</small></span></td>
+                <td><span class="badge warn">警告</span></td>
+                <td>51</td>
+                <td>30</td>
+                <td>21</td>
+                <td>58.8%</td>
+                <td>1.7M</td>
+                <td>$3.02</td>
+                <td>刚刚</td>
+                <td class="link">筛选</td>
+              </tr>
+              <tr>
+                <td><span class="provider">locks3••@•••••.com<small>CODEX</small></span></td>
+                <td><span class="badge bad">异常</span></td>
+                <td>16</td>
+                <td>1</td>
+                <td>15</td>
+                <td>6.3%</td>
+                <td>211.2K</td>
+                <td>$0.1345</td>
+                <td>1小时前</td>
+                <td class="link">筛选</td>
+              </tr>
+              <tr>
+                <td><span class="provider">subnet••@•••••.com<small>CODEX</small></span></td>
+                <td><span class="badge bad">异常</span></td>
+                <td>11</td>
+                <td>0</td>
+                <td>11</td>
+                <td>0.0%</td>
+                <td>0</td>
+                <td>$0.00</td>
+                <td>1小时前</td>
+                <td class="link">筛选</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

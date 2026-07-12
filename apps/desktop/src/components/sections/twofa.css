@@ -1,0 +1,688 @@
+/* ============================================================================
+   2FA 页重设计 —— 严格按 设计图/2FA 的参考实现(2fa-reference.html)落地。
+   全部选择器挂在 .twofa-redesign 作用域下,自带暖色玻璃拟态调色板,
+   既不依赖也不污染全局 --quotio-* 主题变量。设计令牌见 design-tokens.json。
+   素材在 apps/desktop/public/twofa/(通过 /twofa/xxx.svg 引用)。
+   ⚠️ webview 性能:不用 background-attachment: fixed;不用 background-size: cover
+   放大高斯模糊 SVG;卡片一律不叠 backdrop-filter。页底用暖色 + 廉价径向渐变近似。
+   ========================================================================== */
+
+.twofa-redesign {
+  /* 设计令牌(design-tokens.json) */
+  --page: #fbfafa;
+  --surface: rgba(255, 255, 255, 0.84);
+  --surface-strong: #fff;
+  --surface-soft: #f9fbff;
+  --border: rgba(137, 151, 177, 0.24);
+  --border-strong: rgba(92, 110, 140, 0.32);
+  --text: #172033;
+  --muted: #66758f;
+  --soft: #9aa7ba;
+  --primary: #2e7bff;
+  --primary-soft: #e7f0ff;
+  --vault: #14b8a6;
+  --vault-soft: #e8faf5;
+  --secure: #20b86e;
+  --secure-soft: #e9f9f1;
+  --warning: #ff9f1c;
+  --warning-soft: #fff4df;
+  --danger: #f05252;
+  --danger-soft: #fff0f0;
+  --lavender: #7c6cf6;
+  --lavender-soft: #f0eeff;
+  --shadow-panel: 0 3px 10px rgba(28, 39, 68, 0.045), 0 1px 2px rgba(28, 39, 68, 0.03);
+  --shadow-code: 0 18px 46px rgba(46, 123, 255, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  --font: "HarmonyOS Sans SC", "MiSans", "SF Pro Rounded", "PingFang SC", sans-serif;
+
+  color: var(--text);
+  font-family: var(--font);
+}
+
+.twofa-redesign * {
+  box-sizing: border-box;
+}
+
+/* ---------- 页底:暖米色纸感 + 三处柔光 ----------
+   参考 body 用 twofa-bg.svg + cover + fixed;这里改成暖色 + 径向渐变,规避 webview
+   把大范围高斯模糊按 cover 放大栅格化拖垮合成器。.section-page 挂在 .content
+   (padding 22/26/26、冷灰底、自身滚动)里,用负 margin 撑破 padding 让暖底铺满,再补回。 */
+.twofa-redesign.section-page {
+  gap: 0;
+  flex: 1 0 auto;
+  margin: -22px -26px -26px;
+  padding: 22px 26px 26px;
+  background-color: #fbfafa;
+  /* 纯色页底,不叠柔光渐变——渐变中心会聚在顶部形成明显色块。 */
+}
+
+/* 兜底:把滚动容器本身也刷暖色,盖住 scrollbar-gutter 预留出的那道冷灰缝。 */
+.app-shell--v2 .content:has(.twofa-redesign):not(.content--dashboard) {
+  background: #fbfafa;
+}
+
+/* ---------- 顶栏(标题 + 状态徽标) ---------- */
+.twofa-redesign .page-topbar {
+  z-index: 6;
+  min-height: 40px;
+  padding-bottom: 22px;
+  background: #fbfafa;
+}
+.twofa-redesign .page-topbar::before {
+  background: #fbfafa;
+}
+.twofa-redesign .page-topbar h1 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 850;
+  letter-spacing: -0.2px;
+  color: var(--text);
+}
+.twofa-redesign .tf-topline {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.twofa-redesign .tf-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  color: var(--vault);
+  border: 1px solid rgba(20, 184, 166, 0.24);
+  border-radius: 999px;
+  background: var(--vault-soft);
+  font-size: 14px;
+  font-weight: 850;
+}
+.twofa-redesign .tf-status-pill .tf-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* SVG 精灵图标(<use href="/twofa/twofa-icons.svg#…">) */
+.twofa-redesign .tf-icon {
+  width: 20px;
+  height: 20px;
+  color: currentColor;
+  display: block;
+  flex: 0 0 auto;
+}
+
+/* ---------- 面板(玻璃卡:半透明白 + 噪点纹理) ---------- */
+.twofa-redesign .panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  background: #ffffff;
+  box-shadow: var(--shadow-panel);
+  /* 显式关掉全局 .panel 的 backdrop-filter:叠大背景做实时模糊会把 webview 拖卡。 */
+  backdrop-filter: none;
+}
+
+/* ---------- 顶部说明横幅(.tf-notice) ---------- */
+.twofa-redesign .tf-notice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 72px;
+  padding: 0 26px;
+  margin-bottom: 28px;
+  color: #20385f;
+  border-color: rgba(46, 123, 255, 0.32);
+  background: linear-gradient(135deg, rgba(231, 240, 255, 0.84), rgba(255, 255, 255, 0.76));
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 750;
+}
+.twofa-redesign .tf-notice .tf-icon {
+  color: var(--primary);
+}
+
+/* ---------- 主网格(生成器 + 保险箱) ---------- */
+.twofa-redesign .tf-grid {
+  display: grid;
+  grid-template-columns: minmax(560px, 1.15fr) minmax(400px, 0.95fr);
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.twofa-redesign .tf-generator,
+.twofa-redesign .tf-vault {
+  min-height: 468px;
+  padding: 28px;
+}
+
+.twofa-redesign h2 {
+  margin: 0 0 20px;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 850;
+  color: var(--text);
+}
+
+/* ---------- 输入框(玻璃胶囊,内嵌真 <input>) ---------- */
+.twofa-redesign .tf-input {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--soft);
+  font-size: 14px;
+  font-weight: 650;
+}
+.twofa-redesign .tf-input:focus-within {
+  border-color: rgba(46, 123, 255, 0.5);
+  box-shadow: 0 0 0 3px rgba(46, 123, 255, 0.12);
+}
+.twofa-redesign .tf-input .tf-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--soft);
+}
+.twofa-redesign .tf-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+}
+.twofa-redesign .tf-input input::placeholder {
+  color: var(--soft);
+  font-weight: 650;
+}
+
+.twofa-redesign .tf-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+/* ---------- 按钮 ---------- */
+.twofa-redesign .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 88px;
+  height: 46px;
+  padding: 0 16px;
+  color: #526179;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.84);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 850;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+.twofa-redesign .button:hover:not(:disabled) {
+  border-color: rgba(46, 123, 255, 0.32);
+}
+.twofa-redesign .button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.twofa-redesign .button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.twofa-redesign .button.primary {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #3b86ff, #1f6af0);
+  box-shadow: 0 12px 28px rgba(46, 123, 255, 0.28);
+}
+.twofa-redesign .button.primary:hover:not(:disabled) {
+  border-color: transparent;
+}
+.twofa-redesign .button .tf-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* ---------- 当前验证码面板(蓝色高光卡) ---------- */
+.twofa-redesign .tf-code-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  align-items: center;
+  min-height: 154px;
+  margin-top: 22px;
+  padding: 24px 28px;
+  border: 1px solid rgba(46, 123, 255, 0.32);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(46, 123, 255, 0.12), transparent 38%),
+    linear-gradient(135deg, rgba(241, 248, 255, 0.92), rgba(255, 255, 255, 0.8));
+  box-shadow: var(--shadow-code);
+}
+.twofa-redesign .tf-code-main {
+  min-width: 0;
+}
+.twofa-redesign .tf-code-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #20385f;
+  font-size: 14px;
+  font-weight: 850;
+}
+.twofa-redesign .tf-code-copy {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--primary);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+.twofa-redesign .tf-code-copy:hover:not(:disabled) {
+  background: rgba(46, 123, 255, 0.12);
+}
+.twofa-redesign .tf-code-copy:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.twofa-redesign .tf-code-copy svg {
+  width: 18px;
+  height: 18px;
+}
+.twofa-redesign .tf-code {
+  margin-top: 12px;
+  color: var(--primary);
+  font-size: 58px;
+  line-height: 66px;
+  font-weight: 850;
+  letter-spacing: 12px;
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+}
+.twofa-redesign .tf-code-empty {
+  margin-top: 14px;
+  color: var(--soft);
+  font-size: 17px;
+  line-height: 26px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.twofa-redesign .tf-error {
+  margin: 12px 0 0;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 700;
+}
+.twofa-redesign .tf-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+.twofa-redesign .tf-hint .tf-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+}
+
+/* ---------- 倒计时圆环(内联 SVG,弧长跟随 timeRemaining) ---------- */
+.twofa-redesign .tf-countdown {
+  width: 112px;
+  height: 112px;
+  justify-self: end;
+}
+.twofa-redesign .tf-countdown-track {
+  stroke: #ffe4b8;
+}
+.twofa-redesign .tf-countdown-arc {
+  stroke: #ff9f1c;
+  transition: stroke-dashoffset 0.95s linear;
+}
+/* 无验证码时:静态灰环 + 灰「--」,不空转倒数 */
+.twofa-redesign .tf-countdown--idle .tf-countdown-track {
+  stroke: #e4e8ef;
+}
+.twofa-redesign .tf-countdown--idle .tf-countdown-text {
+  fill: #9aa7ba;
+}
+.twofa-redesign .tf-countdown-text {
+  fill: #ff9f1c;
+  font-family: var(--font);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+/* ---------- 本地保险箱卡 ---------- */
+.twofa-redesign .tf-vault-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.twofa-redesign .tf-vault-head h2 {
+  margin: 0;
+}
+.twofa-redesign .tf-vault-sub {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+.twofa-redesign .tf-secure-list {
+  display: grid;
+  gap: 14px;
+}
+.twofa-redesign .tf-secure-row {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 14px;
+  min-height: 78px;
+  padding: 14px;
+  border: 1px solid rgba(20, 184, 166, 0.18);
+  border-radius: 18px;
+  background: rgba(249, 251, 255, 0.86);
+}
+.twofa-redesign .tf-secure-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: var(--vault);
+  border-radius: 15px;
+  background: var(--vault-soft);
+}
+.twofa-redesign .tf-secure-icon.purple {
+  color: var(--lavender);
+  background: var(--lavender-soft);
+}
+.twofa-redesign .tf-secure-icon.blue {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.twofa-redesign .tf-secure-text {
+  min-width: 0;
+}
+.twofa-redesign .tf-secure-text strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+.twofa-redesign .tf-secure-text span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 650;
+}
+.twofa-redesign .tf-secure-row .tf-secure-flag {
+  color: var(--vault);
+  width: 22px;
+  height: 22px;
+}
+.twofa-redesign .tf-secure-chev {
+  color: var(--soft);
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+.twofa-redesign .tf-vault-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 24px;
+}
+.twofa-redesign .tf-vault-actions .button {
+  width: 100%;
+}
+
+/* ---------- 已保存 / 历史 列表面板 ---------- */
+.twofa-redesign .tf-saved {
+  min-height: 380px;
+  overflow: hidden;
+  padding: 0;
+}
+.twofa-redesign .tf-saved-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+}
+.twofa-redesign .tf-tabs {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  height: 100%;
+}
+.twofa-redesign .tf-tab {
+  height: 72px;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  color: #526179;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 850;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+.twofa-redesign .tf-tab:hover {
+  color: var(--text);
+}
+.twofa-redesign .tf-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+.twofa-redesign .tf-saved-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.twofa-redesign .tf-saved-actions .button {
+  min-width: 0;
+  height: 40px;
+  padding: 0 14px;
+}
+.twofa-redesign .tf-saved-body {
+  min-height: 300px;
+  padding: 24px;
+}
+.twofa-redesign .tf-search {
+  width: 310px;
+  max-width: 100%;
+  margin-bottom: 26px;
+}
+
+/* ---------- 空态 ---------- */
+.twofa-redesign .tf-empty {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  text-align: center;
+}
+.twofa-redesign .tf-empty img {
+  width: 150px;
+  height: auto;
+}
+.twofa-redesign .tf-empty strong {
+  display: block;
+  margin-top: 14px;
+  font-size: 17px;
+  font-weight: 850;
+  color: var(--text);
+}
+.twofa-redesign .tf-empty p {
+  margin: 8px 0 20px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 650;
+}
+.twofa-redesign .tf-empty-buttons {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.twofa-redesign .tf-nomatch {
+  display: grid;
+  place-items: center;
+  min-height: 140px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+/* ---------- 已保存 / 历史 记录行(参考图无填充态,按设计令牌自绘) ---------- */
+.twofa-redesign .tf-records {
+  display: grid;
+  gap: 12px;
+}
+.twofa-redesign .tf-record {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(249, 251, 255, 0.86);
+}
+.twofa-redesign .tf-record-main {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.twofa-redesign .tf-record-main strong {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.twofa-redesign .tf-record-main code {
+  color: var(--soft);
+  font-size: 12px;
+  font-weight: 650;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.twofa-redesign .tf-record-main input {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  background: #fff;
+  outline: none;
+}
+.twofa-redesign .tf-record-main input:focus {
+  border-color: rgba(46, 123, 255, 0.5);
+  box-shadow: 0 0 0 3px rgba(46, 123, 255, 0.12);
+}
+.twofa-redesign .tf-record-code {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.twofa-redesign .tf-record-code span {
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 850;
+  letter-spacing: 2px;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+.twofa-redesign .tf-record-code small {
+  color: var(--warning);
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.twofa-redesign .tf-record-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------- 小图标按钮(复制 / 编辑 / 刷新 / 删除) ---------- */
+.twofa-redesign .tf-icon-btn {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: #64748b;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+.twofa-redesign .tf-icon-btn:hover:not(:disabled) {
+  color: var(--primary);
+  border-color: rgba(46, 123, 255, 0.32);
+}
+.twofa-redesign .tf-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.twofa-redesign .tf-icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+.twofa-redesign .tf-icon-btn--danger:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: rgba(240, 82, 82, 0.4);
+}
+
+/* ---------- 响应式(对齐参考图断点) ---------- */
+@media (max-width: 1200px) {
+  .twofa-redesign .tf-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 720px) {
+  .twofa-redesign .tf-input-row,
+  .twofa-redesign .tf-code-panel,
+  .twofa-redesign .tf-vault-actions {
+    grid-template-columns: 1fr;
+  }
+  .twofa-redesign .tf-countdown {
+    justify-self: start;
+  }
+  .twofa-redesign .tf-code {
+    font-size: 40px;
+    letter-spacing: 7px;
+  }
+}

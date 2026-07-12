@@ -1,0 +1,811 @@
+/* ============================================================================
+   额度页重设计 —— 严格按 设计图/额度 的参考实现(quota-reference.html)落地。
+   全部选择器挂在 .quota-redesign 作用域下,自带暖色玻璃拟态调色板,
+   既不依赖也不污染全局 --quotio-* 主题变量。设计令牌见 design-tokens.json。
+   素材在 apps/desktop/public/quota/(通过 /quota/xxx.svg 引用)。
+   ⚠️ webview 性能:不用 background-attachment: fixed;不用 background-size: cover
+   放大高斯模糊 SVG;卡片一律不叠 backdrop-filter。页底用暖色 + 廉价径向渐变近似。
+   ========================================================================== */
+
+.quota-redesign {
+  /* 设计令牌(design-tokens.json) */
+  --page: #fbfafa;
+  --surface: rgba(255, 255, 255, 0.84);
+  --surface-strong: #fff;
+  --border: rgba(137, 151, 177, 0.24);
+  --border-strong: rgba(92, 110, 140, 0.32);
+  --text: #172033;
+  --muted: #66758f;
+  --soft: #9aa7ba;
+  --primary: #5e67f2;
+  --primary-blue: #2e7bff;
+  --primary-soft: #eceeff;
+  --provider: #16a085;
+  --provider-soft: #e8faf5;
+  --healthy: #20b86e;
+  --warning: #ff9f1c;
+  --danger: #f05252;
+  --idle: #8b97aa;
+  --idle-soft: #f1f4f8;
+  --track: #e5e9f0;
+  --shadow-panel: 0 3px 10px rgba(28, 39, 68, 0.045), 0 1px 2px rgba(28, 39, 68, 0.03);
+  --shadow-card: 0 16px 36px rgba(28, 39, 68, 0.08), 0 1px 6px rgba(28, 39, 68, 0.05);
+  --font: "HarmonyOS Sans SC", "MiSans", "SF Pro Rounded", "PingFang SC", sans-serif;
+
+  color: var(--text);
+  font-family: var(--font);
+}
+
+.quota-redesign * {
+  box-sizing: border-box;
+}
+
+/* ---------- 页底:暖米色纸感 + 三处柔光(还原 quota-bg.svg 的蓝/紫/绿圆) ----------
+   参考 body 用 quota-bg.svg + cover + fixed;这里改成暖色 + 径向渐变,规避 webview
+   把 stdDeviation=130 的高斯模糊按 cover 放大栅格化拖垮合成器。
+   .section-page 挂在 .content(padding 22/26/26、冷灰底、自身滚动)里,用负 margin
+   撑破 padding 让暖底铺满,再补回 padding。 */
+.quota-redesign.section-page {
+  gap: 0;
+  flex: 1 0 auto;
+  margin: -22px -26px -26px;
+  padding: 22px 26px 26px;
+  background-color: #fbfafa;
+  /* 纯色页底,不叠柔光渐变——渐变中心会聚在顶部形成明显色块。 */
+}
+
+/* 兜底:把滚动容器本身也刷暖色,盖住 scrollbar-gutter 预留出的那道冷灰缝
+   (:has 在现代 webview 都支持;不支持时负 margin 已覆盖可见区,退化仅剩右侧极窄一条)。*/
+.app-shell--v2 .content:has(.quota-redesign):not(.content--dashboard) {
+  background: #fbfafa;
+}
+
+/* ---------- 顶栏(标题 + 刷新) ---------- */
+.quota-redesign .page-topbar {
+  z-index: 6;
+  min-height: 40px;
+  padding-bottom: 22px;
+  background: #fbfafa;
+}
+.quota-redesign .page-topbar::before {
+  background: #fbfafa;
+}
+.quota-redesign .page-topbar h1 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 850;
+  letter-spacing: -0.2px;
+  color: var(--text);
+}
+
+/* ---------- 通用按钮(顶栏刷新 / 调度模式 / 添加账号) ---------- */
+.quota-redesign .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.84);
+  color: #526179;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+.quota-redesign .button:hover {
+  border-color: rgba(94, 103, 242, 0.32);
+}
+.quota-redesign .button:active {
+  transform: translateY(1px);
+}
+.quota-redesign .button.primary {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #6d73ff, #515be8);
+  box-shadow: 0 12px 28px rgba(94, 103, 242, 0.28);
+}
+.quota-redesign .button.primary:hover {
+  border-color: transparent;
+}
+.quota-redesign .button:disabled {
+  opacity: 0.6;
+  cursor: default;
+  transform: none;
+}
+.quota-redesign .button .qr-icon {
+  width: 16px;
+  height: 16px;
+}
+.quota-redesign .button.is-busy .qr-icon {
+  animation: qr-spin 0.9s linear infinite;
+}
+
+/* SVG 图标(<use href="/quota/quota-icons.svg#…">) */
+.quota-redesign .qr-icon {
+  width: 20px;
+  height: 20px;
+  color: currentColor;
+  display: block;
+}
+
+/* ---------- 面板(玻璃卡:半透明白 + 噪点纹理) ---------- */
+.quota-redesign .panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  background: #ffffff;
+  box-shadow: var(--shadow-panel);
+  /* 显式关掉全局 .panel 的 backdrop-filter:叠大背景做实时模糊会把 webview 拖卡。 */
+  backdrop-filter: none;
+}
+
+/* ---------- 调度横幅(.strategy) ---------- */
+.quota-redesign .strategy {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  min-height: 142px;
+  padding: 22px 24px;
+  margin-bottom: 18px;
+  border-color: rgba(94, 103, 242, 0.28);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(94, 103, 242, 0.12), transparent 36%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(246, 247, 255, 0.86));
+}
+.quota-redesign .strategy-icon,
+.quota-redesign .summary-icon {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.quota-redesign .strategy-icon .qr-icon,
+.quota-redesign .summary-icon .qr-icon {
+  width: 24px;
+  height: 24px;
+}
+.quota-redesign .strategy h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0;
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 850;
+  color: var(--text);
+}
+.quota-redesign .strategy p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 21px;
+  font-weight: 650;
+}
+.quota-redesign .strategy small {
+  display: block;
+  margin-top: 16px;
+  color: #75849a;
+  font-size: 12px;
+  font-weight: 680;
+}
+.quota-redesign .pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: var(--primary);
+  background: var(--primary-soft);
+  font-size: 12px;
+  font-weight: 850;
+}
+.quota-redesign .strategy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.quota-redesign .strategy-actions .button {
+  position: relative;
+}
+.quota-redesign .btn-spinner {
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: qr-spin 0.7s linear infinite;
+  opacity: 0.85;
+}
+
+/* ---------- 四格汇总(.summary-grid) ---------- */
+.quota-redesign .summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin-bottom: 28px;
+  overflow: hidden;
+}
+.quota-redesign .summary-item {
+  display: grid;
+  grid-template-columns: 68px 1fr;
+  align-items: center;
+  min-height: 118px;
+  padding: 22px;
+  border-right: 1px solid var(--border);
+}
+.quota-redesign .summary-item:last-child {
+  border-right: 0;
+}
+.quota-redesign .summary-icon.healthy {
+  color: var(--healthy);
+  background: #e9f9f1;
+}
+.quota-redesign .summary-icon.warning {
+  color: var(--warning);
+  background: #fff4df;
+}
+.quota-redesign .summary-icon.idle {
+  color: var(--idle);
+  background: #f1f4f8;
+}
+.quota-redesign .summary-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 760;
+}
+.quota-redesign .summary-value {
+  margin-top: 3px;
+  font-size: 28px;
+  line-height: 34px;
+  font-weight: 850;
+  letter-spacing: -0.6px;
+}
+.quota-redesign .summary-note {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+/* ---------- 服务商标题行 ---------- */
+.quota-redesign .provider-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.quota-redesign .provider-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 17px;
+  font-weight: 850;
+  color: var(--text);
+}
+/* 设计效果图:白色圆底 + 各家彩色品牌 logo(logo 自带品牌色)。 */
+.quota-redesign .provider-mark {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: #96a3b8;
+  border: 1px solid #eceff3;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(28, 39, 68, 0.05);
+}
+.quota-redesign .provider-mark .qr-icon,
+.quota-redesign .provider-mark .qr-logo {
+  width: 26px;
+  height: 26px;
+}
+.quota-redesign .count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  color: #64748b;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+/* ---------- 账号卡网格 ---------- */
+.quota-redesign .cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+.quota-redesign .quota-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 320px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: var(--shadow-card);
+  /* 卡片数量多,绝不叠 backdrop-filter。 */
+  backdrop-filter: none;
+}
+.quota-redesign .quota-card.warning-card {
+  box-shadow: 0 16px 38px rgba(255, 159, 28, 0.12), var(--shadow-card);
+}
+
+.quota-redesign .card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.quota-redesign .rank-plan {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.quota-redesign .rank {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #17b890, #0c9b7c);
+  font-size: 12px;
+  font-weight: 900;
+  flex: 0 0 auto;
+}
+.quota-redesign .rank.idle {
+  background: #8b97aa;
+}
+.quota-redesign .plan {
+  height: 24px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(135deg, #3b86ff, #6b5cff);
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.quota-redesign .card-top-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.quota-redesign .expiry {
+  color: var(--soft);
+  font-size: 12px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+/* 状态徽标(需重新授权 / 已封禁 / 本周已用尽 / 预热 / IDE 使用中 / 登录专用 / 调度待命) */
+.quota-redesign .flag {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.quota-redesign .flag--bad {
+  color: #c02626;
+  background: #fdecec;
+}
+.quota-redesign .flag--warn {
+  color: #9a6400;
+  background: #fff4df;
+}
+.quota-redesign .flag--blue {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.quota-redesign .flag--idle {
+  color: var(--idle);
+  background: var(--idle-soft);
+}
+
+.quota-redesign .email {
+  margin-top: 20px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 850;
+  word-break: break-all;
+}
+
+.quota-redesign .health-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 16px;
+}
+.quota-redesign .health-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+.quota-redesign .counts {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 850;
+}
+.quota-redesign .counts .ok {
+  color: var(--healthy);
+}
+.quota-redesign .counts .bad {
+  color: var(--danger);
+}
+
+/* 健康状态点阵:真组件 <HealthDots> 渲染 .health-dots > .health-dot--{good|warn|bad|idle} */
+.quota-redesign .health-dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 9px;
+  margin: 8px 0 16px;
+  overflow: hidden;
+}
+.quota-redesign .health-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #d7dee8;
+  flex: 0 0 auto;
+}
+.quota-redesign .health-dot--good {
+  background: var(--healthy);
+}
+.quota-redesign .health-dot--warn {
+  background: var(--warning);
+}
+.quota-redesign .health-dot--bad {
+  background: var(--danger);
+}
+.quota-redesign .health-dot--idle {
+  background: #d7dee8;
+}
+/* 无近期流量时的占位点阵(对应设计里灰化的 .dots) */
+.quota-redesign .quota-dots-empty {
+  height: 9px;
+  margin: 8px 0 16px;
+  background: radial-gradient(circle at 4.5px 50%, #dde3ec 0 4.5px, transparent 5px) left center / 16px 100% repeat-x;
+  opacity: 0.7;
+}
+
+.quota-redesign .reset-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+.quota-redesign .mini-button {
+  height: 26px;
+  padding: 0 10px;
+  color: #718096;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+.quota-redesign .mini-button:hover:not(:disabled) {
+  border-color: rgba(94, 103, 242, 0.32);
+}
+.quota-redesign .mini-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.quota-redesign .mini-button.is-confirm {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #f97316, #ef4444);
+}
+.quota-redesign .quota-reset-error {
+  margin: 0 0 12px;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ---------- 额度进度条(Session / Weekly / 其他),颜色一律按 quotaTone ---------- */
+.quota-redesign .quota-line {
+  margin-top: 12px;
+}
+.quota-redesign .line-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 850;
+}
+.quota-redesign .line-right {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  white-space: nowrap;
+}
+.quota-redesign .remaining--good {
+  color: var(--healthy);
+}
+.quota-redesign .remaining--warn {
+  color: var(--warning);
+}
+.quota-redesign .remaining--bad {
+  color: var(--danger);
+}
+.quota-redesign .reset-at {
+  color: var(--soft);
+  font-weight: 760;
+}
+.quota-redesign .track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--track);
+}
+.quota-redesign .bar {
+  height: 100%;
+  border-radius: inherit;
+}
+.quota-redesign .bar--good {
+  background: var(--healthy);
+}
+.quota-redesign .bar--warn {
+  background: var(--warning);
+}
+.quota-redesign .bar--bad {
+  background: var(--danger);
+}
+
+.quota-redesign .quota-empty-note {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 650;
+}
+
+/* ---------- 卡片底部动作(图表 / 列表 只读图标 + 运行/待命 状态) ---------- */
+.quota-redesign .card-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 18px;
+}
+.quota-redesign .icon-buttons {
+  display: flex;
+  gap: 8px;
+}
+.quota-redesign .icon-button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  color: #64748b;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  cursor: default;
+}
+.quota-redesign .icon-button .qr-icon {
+  width: 16px;
+  height: 16px;
+}
+.quota-redesign .status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  color: var(--healthy);
+  border-radius: 999px;
+  background: #e9f9f1;
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+.quota-redesign .status-pill.idle {
+  color: var(--idle);
+  background: #f1f4f8;
+}
+.quota-redesign .status-pill .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+/* ---------- 服务商 tab(多服务商时显示,沿用原有结构,轻度重塑贴合暖底) ---------- */
+.quota-redesign .quota-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.quota-redesign .quota-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.84);
+  color: #526179;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.quota-redesign .quota-tab--active {
+  color: var(--primary);
+  border-color: rgba(94, 103, 242, 0.4);
+  background: var(--primary-soft);
+}
+.quota-redesign .quota-tab-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+.quota-redesign .quota-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(120, 135, 160, 0.14);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+/* ---------- 状态横幅(未获取到额度 / 未配置账号) ---------- */
+.quota-redesign .state-banner {
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: var(--shadow-card);
+}
+.quota-redesign .state-banner--warn {
+  border-color: rgba(255, 159, 28, 0.4);
+  background: #fff8ec;
+}
+.quota-redesign .state-banner strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+  font-weight: 850;
+  color: var(--text);
+}
+.quota-redesign .state-banner p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 650;
+}
+
+/* ---------- 自定义服务商密钥池(沿用原结构,轻度贴合) ---------- */
+.quota-redesign .cp-quota-panel {
+  padding: 22px 24px;
+}
+.quota-redesign .cp-quota-panel .panel-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.quota-redesign .cp-quota-panel .eyebrow {
+  font-size: 15px;
+  font-weight: 850;
+  color: var(--text);
+}
+.quota-redesign .cp-quota-panel .count-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(120, 135, 160, 0.12);
+  font-size: 12px;
+  font-weight: 800;
+}
+.quota-redesign .cp-quota-key-list {
+  display: grid;
+  gap: 8px;
+}
+.quota-redesign .cp-quota-key-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  font-weight: 700;
+}
+.quota-redesign .cp-quota-key-row--disabled {
+  opacity: 0.6;
+}
+.quota-redesign .cp-key-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--idle);
+  flex: 0 0 auto;
+}
+.quota-redesign .cp-key-dot--on {
+  background: var(--healthy);
+}
+.quota-redesign .cp-quota-key-value {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.quota-redesign .cp-quota-key-weight,
+.quota-redesign .cp-quota-key-badge {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.quota-redesign .empty-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+@keyframes qr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AccountSummaryRow } from "../../types";
 import { Select, type SelectOption } from "../Select";
 import { RefreshIcon } from "../icons";
@@ -15,8 +15,11 @@ type AccountSummaryPanelProps = {
 
 type SortKey = "cost" | "requests" | "tokens" | "recent" | "successRate";
 type ViewMode = "table" | "card";
+type StatusTone = "good" | "warn" | "bad" | "neutral";
 
-function statusTone(row: AccountSummaryRow): "good" | "warn" | "bad" | "neutral" {
+const PAGE_SIZE = 8;
+
+function statusTone(row: AccountSummaryRow): StatusTone {
   if (row.total_requests === 0) return "neutral";
   if (row.success_rate >= 90) return "good";
   if (row.success_rate >= 50) return "warn";
@@ -53,6 +56,7 @@ export function AccountSummaryPanel({
   const [view, setView] = useState<ViewMode>("table");
   const [sortKey, setSortKey] = useState<SortKey>("requests");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   const sortOptions: SelectOption[] = [
     { value: "requests", label: t("dash.sort.requests") },
@@ -74,16 +78,36 @@ export function AccountSummaryPanel({
     return sortRows(filtered, sortKey);
   }, [rows, search, sortKey]);
 
+  const total = visibleRows.length;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  // 行数/筛选/排序变化后夹紧当前页,避免停在空页。
+  useEffect(() => {
+    setPage((current) => Math.min(current, pageCount));
+  }, [pageCount]);
+
+  const currentPage = Math.min(page, pageCount);
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pagedRows = visibleRows.slice(start, start + PAGE_SIZE);
+  const rangeStart = total === 0 ? 0 : start + 1;
+  const rangeEnd = Math.min(start + PAGE_SIZE, total);
+  const countText = t("dash.pageTotal", "共 {n} 条").replace("{n}", String(total));
+
+  const statusBadge = (row: AccountSummaryRow) => {
+    const tone = statusTone(row);
+    return <span className={`badge badge--${tone}`}>{t(`dash.health.${tone}`)}</span>;
+  };
+
   return (
-    <article className="panel account-summary-panel">
-      <div className="account-summary-head">
-        <div className="account-summary-title">
-          <span className="eyebrow">{t("dash.accountSummary")}</span>
-          <span className="count-pill">{rows.length}</span>
-        </div>
-        <div className="account-summary-tools">
-          <div className="usage-search usage-search--compact">
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+    <article className="panel table-panel account-summary-panel">
+      <div className="table-tools">
+        <h2 className="panel-title">
+          {t("dash.accountSummary")}
+          <span className="table-count">{rows.length}</span>
+        </h2>
+        <div className="table-actions">
+          <div className="mini-search">
+            <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
               <circle cx="7" cy="7" r="4.5" />
               <path d="M10.5 10.5L14 14" />
             </svg>
@@ -103,24 +127,22 @@ export function AccountSummaryPanel({
           >
             <RefreshIcon />
           </button>
-          <span className="sort-control">
-            <span className="sort-label">{t("dash.sortBy")}</span>
-            <Select value={sortKey} options={sortOptions} onChange={(value) => setSortKey(value as SortKey)} minWidth="120px" />
-          </span>
+          <span className="sort-label">{t("dash.sortBy")}</span>
+          <Select value={sortKey} options={sortOptions} onChange={(value) => setSortKey(value as SortKey)} minWidth="130px" />
           <button type="button" className="ghost-action" onClick={onManagePrices}>
             {t("dash.managePrices")}
           </button>
           <div className="view-toggle">
             <button
               type="button"
-              className={view === "table" ? "view-toggle-btn view-toggle-btn--active" : "view-toggle-btn"}
+              className={view === "table" ? "active" : undefined}
               onClick={() => setView("table")}
             >
               {t("dash.view.table")}
             </button>
             <button
               type="button"
-              className={view === "card" ? "view-toggle-btn view-toggle-btn--active" : "view-toggle-btn"}
+              className={view === "card" ? "active" : undefined}
               onClick={() => setView("card")}
             >
               {t("dash.view.card")}
@@ -129,7 +151,7 @@ export function AccountSummaryPanel({
         </div>
       </div>
 
-      {visibleRows.length === 0 ? (
+      {total === 0 ? (
         <div className="account-summary-empty">
           <strong>{t("dash.empty.title")}</strong>
           <p>{t("dash.empty.hint")}</p>
@@ -152,7 +174,7 @@ export function AccountSummaryPanel({
               </tr>
             </thead>
             <tbody>
-              {visibleRows.map((row) => (
+              {pagedRows.map((row) => (
                 <tr key={`${row.account}-${row.provider ?? ""}`}>
                   <td>
                     <div className="account-cell">
@@ -160,11 +182,7 @@ export function AccountSummaryPanel({
                       {row.provider ? <span className="account-provider">{row.provider}</span> : null}
                     </div>
                   </td>
-                  <td>
-                    <span className={`health-pill health-pill--${statusTone(row)}`}>
-                      {t(`dash.health.${statusTone(row)}`)}
-                    </span>
-                  </td>
+                  <td>{statusBadge(row)}</td>
                   <td className="num">{formatCompactNumber(row.total_requests)}</td>
                   <td className="num">{formatCompactNumber(row.success_requests)}</td>
                   <td className="num">{formatCompactNumber(row.failed_requests)}</td>
@@ -184,13 +202,11 @@ export function AccountSummaryPanel({
         </div>
       ) : (
         <div className="acct-card-grid">
-          {visibleRows.map((row) => (
+          {pagedRows.map((row) => (
             <div key={`${row.account}-${row.provider ?? ""}`} className="acct-card">
               <div className="acct-card-head">
                 <span className="account-name">{maskEmail(row.account)}</span>
-                <span className={`health-pill health-pill--${statusTone(row)}`}>
-                  {t(`dash.health.${statusTone(row)}`)}
-                </span>
+                {statusBadge(row)}
               </div>
               {row.provider ? <span className="account-provider">{row.provider}</span> : null}
               <div className="acct-card-metrics">
@@ -221,6 +237,44 @@ export function AccountSummaryPanel({
           ))}
         </div>
       )}
+
+      {total > 0 ? (
+        <div className="dash-pagination">
+          <div className="dash-pagination-pages">
+            <button
+              type="button"
+              className="dash-page-btn"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              aria-label={t("dash.page.prev", "上一页")}
+            >
+              ‹
+            </button>
+            {Array.from({ length: pageCount }, (_, index) => index + 1).map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={n === currentPage ? "dash-page-btn dash-page-btn--active" : "dash-page-btn"}
+                onClick={() => setPage(n)}
+              >
+                {n}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="dash-page-btn"
+              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+              disabled={currentPage >= pageCount}
+              aria-label={t("dash.page.next", "下一页")}
+            >
+              ›
+            </button>
+          </div>
+          <span className="dash-pagination-count">
+            {rangeStart}-{rangeEnd}　{countText}
+          </span>
+        </div>
+      ) : null}
     </article>
   );
 }

@@ -339,6 +339,12 @@ impl AppCore {
     }
 
     fn shutdown_unlocked(&mut self) {
+        // 「退出时保留代理」:整套代理栈 + 账号绑定 / 调度状态原样保留,只关 UI 窗口,让正在
+        // 连着本地代理的 Codex 等客户端不会因断连被拖崩。下次启动 Quotio 会探测并接管仍在
+        // 运行的那个代理(refresh 里的 adopt 逻辑)。
+        if self.settings.keep_proxy_on_exit {
+            return;
+        }
         // 退出前先解除当前方案的绑定占用（依赖 codex_active_profile_id，须在清理前读取）：
         // 否则 login-only 的 disabled=true 会持久化到磁盘、跨重启残留，账号下次开机仍被
         // 排除出代理池，而此时并没有运行中的会话需要它被禁用。与 codex_stop 行为一致。

@@ -1,0 +1,122 @@
+{
+  "meta": {
+    "name": "quotio-agents-redesign",
+    "target": "desktop-agents-page",
+    "canvas": {
+      "width": 1748,
+      "height": 899,
+      "sidebarWidth": 228,
+      "contentMaxWidth": 1480
+    }
+  },
+  "colors": {
+    "page": "#F7F3EA",
+    "pageCool": "#F5F8FF",
+    "surface": "rgba(255, 255, 255, 0.86)",
+    "surfaceStrong": "#FFFFFF",
+    "surfaceSoft": "#F8FAFE",
+    "border": "rgba(137, 151, 177, 0.24)",
+    "borderStrong": "rgba(92, 110, 140, 0.32)",
+    "text": "#172033",
+    "textMuted": "#66758F",
+    "textSoft": "#9AA7BA",
+    "primary": "#2E7BFF",
+    "primaryStrong": "#1264E8",
+    "primarySoft": "#E7F0FF",
+    "agent": "#4B7CF3",
+    "agentSoft": "#EDF3FF",
+    "runtime": "#14B8A6",
+    "runtimeSoft": "#E8FAF5",
+    "success": "#20B86E",
+    "successSoft": "#E9F9F1",
+    "warning": "#FF9F1C",
+    "warningSoft": "#FFF4DF",
+    "danger": "#EF4444",
+    "dangerSoft": "#FFF0F0",
+    "lavender": "#8B5CF6",
+    "lavenderSoft": "#F2EDFF",
+    "rowHover": "#F7FAFF"
+  },
+  "typography": {
+    "fontFamily": "\"HarmonyOS Sans SC\", \"MiSans\", \"SF Pro Rounded\", \"PingFang SC\", sans-serif",
+    "monoFamily": "\"SFMono-Regular\", \"JetBrains Mono\", \"Cascadia Code\", monospace",
+    "pageTitle": {
+      "fontSize": 28,
+      "lineHeight": 36,
+      "fontWeight": 850,
+      "letterSpacing": -0.3
+    },
+    "sectionTitle": {
+      "fontSize": 18,
+      "lineHeight": 26,
+      "fontWeight": 850
+    },
+    "metricValue": {
+      "fontSize": 30,
+      "lineHeight": 36,
+      "fontWeight": 850,
+      "letterSpacing": -0.6
+    },
+    "body": {
+      "fontSize": 13,
+      "lineHeight": 21,
+      "fontWeight": 600
+    },
+    "caption": {
+      "fontSize": 12,
+      "lineHeight": 18,
+      "fontWeight": 700
+    },
+    "path": {
+      "fontSize": 12,
+      "lineHeight": 18,
+      "fontWeight": 600
+    }
+  },
+  "spacing": {
+    "pagePadding": 32,
+    "panelGap": 18,
+    "cardPadding": 24,
+    "controlHeight": 40,
+    "sidebarItemHeight": 44,
+    "agentRowHeight": 92,
+    "schemeRowHeight": 116
+  },
+  "radii": {
+    "sm": 10,
+    "md": 14,
+    "lg": 20,
+    "xl": 26,
+    "round": 999
+  },
+  "shadows": {
+    "panel": "0 18px 44px rgba(28, 39, 68, 0.08), 0 2px 8px rgba(28, 39, 68, 0.05)",
+    "agentCard": "0 22px 52px rgba(46, 123, 255, 0.10), 0 3px 12px rgba(28, 39, 68, 0.06)",
+    "running": "0 20px 48px rgba(20, 184, 166, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.78)",
+    "sidebar": "12px 0 42px rgba(30, 42, 68, 0.08)",
+    "primaryButton": "0 12px 28px rgba(46, 123, 255, 0.28)"
+  },
+  "components": {
+    "overviewStrip": {
+      "height": 118,
+      "metricIcon": 58
+    },
+    "connectedAgents": {
+      "minHeight": 350,
+      "agentIcon": 64,
+      "rowHeight": 92
+    },
+    "runtimeOverview": {
+      "minHeight": 350,
+      "statusRowHeight": 60
+    },
+    "launchScheme": {
+      "minHeight": 246,
+      "rowHeight": 116
+    },
+    "discoveryCard": {
+      "minHeight": 128,
+      "iconSize": 52
+    }
+  }
+}

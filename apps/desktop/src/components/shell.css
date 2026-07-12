@@ -1,0 +1,217 @@
+/* ============================================================================
+   侧边栏重设计 —— 按 设计图 里各页共用的玻璃态侧栏还原。
+   作用域挂在 .app-shell--v2 下,确保稳压 App.css 里的旧侧栏规则(不改全局主题)。
+   仅重塑左侧栏;非仪表盘页的正文保持原有底色不受影响。
+   ========================================================================== */
+
+/* 桌面 app 整页永不横向滚动:窄窗下宽内容(账号表 10 列、图表)由各自容器内部滚动,
+   不应让 min-content 撑破 body/#root 造成整页横向滚动条 + 右侧内容被裁。 */
+html {
+  overflow-x: hidden;
+}
+
+.app-shell--v2 {
+  grid-template-columns: 256px minmax(0, 1fr);
+  /* 玻璃侧栏背后透出冷白页底(和仪表盘一致)。 */
+  background: #fbfafa;
+}
+
+/* 正文容器统一冷白底 #fbfafa —— 否则 .content 的冷灰 #f5f5f7 会从各页内容四周的
+   padding 处透出,形成色块/冷边。 */
+.app-shell--v2 .content {
+  background: #fbfafa;
+}
+
+/* ---------- 侧栏容器 ---------- */
+.app-shell--v2 .sidebar {
+  gap: 22px;
+  padding: 16px 16px 18px;
+  color: #45546d;
+  background: rgba(255, 255, 255, 0.72);
+  border-right: 1px solid rgba(214, 222, 236, 0.8);
+  box-shadow: 12px 0 42px rgba(30, 42, 68, 0.08);
+  backdrop-filter: blur(22px) saturate(1.1);
+}
+
+/* ---------- 顶部窗口控制:macOS 三色圆点 ---------- */
+.app-shell--v2 .window-controls {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+.app-shell--v2 .win-dot {
+  width: 13px;
+  height: 13px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 -1px 1px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+}
+.app-shell--v2 .win-dot--close {
+  background: #ff5f57;
+}
+.app-shell--v2 .win-dot--min {
+  background: #febc2e;
+}
+.app-shell--v2 .win-dot--max {
+  background: #28c840;
+}
+.app-shell--v2 .win-dot-icon {
+  width: 8px;
+  height: 8px;
+  color: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.app-shell--v2 .window-controls:hover .win-dot-icon {
+  opacity: 1;
+}
+
+/* ---------- 导航 ---------- */
+.app-shell--v2 .nav-list {
+  display: grid;
+  gap: 8px;
+}
+.app-shell--v2 .nav-list button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: #45546d;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 760;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: color 130ms ease, background 130ms ease, box-shadow 130ms ease;
+}
+.app-shell--v2 .nav-list button:hover:not(.active) {
+  color: #2e3a52;
+  background: rgba(46, 123, 255, 0.06);
+}
+.app-shell--v2 .nav-list button.active {
+  color: #2e7bff;
+  background: linear-gradient(135deg, rgba(46, 123, 255, 0.14), rgba(46, 123, 255, 0.06));
+  box-shadow: inset 0 0 0 1px rgba(46, 123, 255, 0.1);
+}
+.app-shell--v2 .nav-symbol {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  color: currentColor;
+}
+.app-shell--v2 .nav-symbol svg {
+  width: 20px;
+  height: 20px;
+}
+.app-shell--v2 .nav-label {
+  flex: 1;
+  text-align: left;
+}
+.app-shell--v2 .nav-badge {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.14);
+  color: #7c4ddb;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- 底部本地代理卡 ---------- */
+.app-shell--v2 .sidebar-footer {
+  margin-top: auto;
+  display: grid;
+  gap: 8px;
+}
+.app-shell--v2 .proxy-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 11px 12px;
+  border: 1px solid rgba(137, 151, 177, 0.24);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 14px 34px rgba(28, 39, 68, 0.08);
+  cursor: pointer;
+}
+.app-shell--v2 .proxy-card-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.app-shell--v2 .proxy-card-icon--good {
+  color: #20b86e;
+  background: #e8fbef;
+}
+.app-shell--v2 .proxy-card-icon--warn {
+  color: #d98a00;
+  background: #fff4e0;
+}
+.app-shell--v2 .proxy-card-icon--bad {
+  color: #e5484d;
+  background: #ffe8e8;
+}
+.app-shell--v2 .proxy-card-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.app-shell--v2 .proxy-card-text strong {
+  font-size: 13px;
+  font-weight: 800;
+  color: #172033;
+}
+.app-shell--v2 .proxy-card-text span {
+  font-size: 12px;
+  font-weight: 650;
+  color: #65758f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-shell--v2 .proxy-card-chevron {
+  color: #96a3b8;
+  flex: 0 0 auto;
+}
+.app-shell--v2 .proxy-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #65758f;
+}
+.app-shell--v2 .proxy-status-port {
+  margin-left: auto;
+}
+
+/* ---------- 优先级加固 ----------
+   App.css 里存在 (0,3,1) 的 .nav-list button.active / .nav-symbol 旧规则,
+   用 .sidebar 再加一层作用域(0,4,1)确保选中项统一变蓝、代理卡底色到位。 */
+.app-shell--v2 .sidebar .nav-list button.active,
+.app-shell--v2 .sidebar .nav-list button.active .nav-label,
+.app-shell--v2 .sidebar .nav-list button.active .nav-symbol {
+  color: #2e7bff;
+}
+.app-shell--v2 .sidebar .proxy-card {
+  background: rgba(255, 255, 255, 0.86);
+}

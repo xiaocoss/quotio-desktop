@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quotio 2FA 页重设计参考</title>
+    <style>
+      :root {
+        --page: #f7f3ea;
+        --surface: rgba(255, 255, 255, 0.84);
+        --border: rgba(137, 151, 177, 0.24);
+        --border-strong: rgba(92, 110, 140, 0.32);
+        --text: #172033;
+        --muted: #66758f;
+        --soft: #9aa7ba;
+        --primary: #2e7bff;
+        --primary-soft: #e7f0ff;
+        --vault: #14b8a6;
+        --vault-soft: #e8faf5;
+        --secure: #20b86e;
+        --secure-soft: #e9f9f1;
+        --warning: #ff9f1c;
+        --warning-soft: #fff4df;
+        --lavender: #7c6cf6;
+        --lavender-soft: #f0eeff;
+        --shadow-panel: 0 18px 44px rgba(28, 39, 68, 0.08), 0 2px 8px rgba(28, 39, 68, 0.05);
+        --shadow-code: 0 18px 46px rgba(46, 123, 255, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+        --font: "HarmonyOS Sans SC", "MiSans", "SF Pro Rounded", "PingFang SC", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        font-family: var(--font);
+        background:
+          linear-gradient(rgba(247, 243, 234, 0.78), rgba(247, 243, 234, 0.92)),
+          url("assets/twofa-bg.svg") center / cover fixed;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 256px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px;
+        border-right: 1px solid rgba(214, 222, 236, 0.8);
+        background: rgba(255, 255, 255, 0.72);
+        box-shadow: 12px 0 42px rgba(30, 42, 68, 0.08);
+        backdrop-filter: blur(22px);
+      }
+
+      .window-dots {
+        display: flex;
+        gap: 10px;
+        margin: 4px 0 28px 6px;
+      }
+
+      .window-dots span {
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+      }
+
+      .red {
+        background: #ff5f57;
+      }
+
+      .yellow {
+        background: #febc2e;
+      }
+
+      .green {
+        background: #28c840;
+      }
+
+      .nav {
+        display: grid;
+        gap: 8px;
+      }
+
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 44px;
+        padding: 0 13px;
+        color: #45546d;
+        font-size: 14px;
+        font-weight: 760;
+        border-radius: 14px;
+      }
+
+      .nav-item.active {
+        color: var(--primary);
+        background: linear-gradient(135deg, rgba(46, 123, 255, 0.14), rgba(20, 184, 166, 0.06));
+        box-shadow: inset 0 0 0 1px rgba(46, 123, 255, 0.12);
+      }
+
+      .icon {
+        width: 20px;
+        height: 20px;
+        color: currentColor;
+      }
+
+      .proxy {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 64px;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.86);
+        box-shadow: var(--shadow-panel);
+      }
+
+      .proxy-light {
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        color: var(--secure);
+        border-radius: 10px;
+        background: var(--secure-soft);
+      }
+
+      .proxy strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .proxy span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      main {
+        padding: 28px 32px 34px;
+      }
+
+      .topline {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 22px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        line-height: 32px;
+        font-weight: 850;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 36px;
+        padding: 0 14px;
+        color: var(--vault);
+        border: 1px solid rgba(20, 184, 166, 0.24);
+        border-radius: 999px;
+        background: var(--vault-soft);
+        font-size: 14px;
+        font-weight: 850;
+      }
+
+      .panel {
+        border: 1px solid var(--border);
+        border-radius: 26px;
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.78)),
+          url("assets/card-noise.svg");
+        box-shadow: var(--shadow-panel);
+        backdrop-filter: blur(18px);
+      }
+
+      .notice {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-height: 72px;
+        padding: 0 26px;
+        margin-bottom: 28px;
+        color: #20385f;
+        border-color: rgba(46, 123, 255, 0.32);
+        background: linear-gradient(135deg, rgba(231, 240, 255, 0.84), rgba(255, 255, 255, 0.76));
+        font-size: 14px;
+        font-weight: 750;
+      }
+
+      .main-grid {
+        display: grid;
+        grid-template-columns: minmax(580px, 1.15fr) minmax(420px, 0.95fr);
+        gap: 24px;
+        margin-bottom: 28px;
+      }
+
+      .generator,
+      .vault-card {
+        min-height: 468px;
+        padding: 28px;
+      }
+
+      h2 {
+        margin: 0 0 20px;
+        font-size: 18px;
+        line-height: 26px;
+        font-weight: 850;
+      }
+
+      .input {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 56px;
+        padding: 0 16px;
+        border: 1px solid var(--border);
+        border-radius: 15px;
+        background: rgba(255, 255, 255, 0.74);
+        color: var(--soft);
+        font-size: 14px;
+        font-weight: 650;
+      }
+
+      .input-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto auto;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-width: 88px;
+        height: 46px;
+        padding: 0 16px;
+        color: #526179;
+        border: 1px solid var(--border-strong);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.84);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 850;
+      }
+
+      .button.primary {
+        color: white;
+        border-color: transparent;
+        background: linear-gradient(135deg, #3b86ff, #1f6af0);
+        box-shadow: 0 12px 28px rgba(46, 123, 255, 0.28);
+      }
+
+      .code-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 132px;
+        align-items: center;
+        min-height: 154px;
+        margin-top: 22px;
+        padding: 24px 28px;
+        border: 1px solid rgba(46, 123, 255, 0.32);
+        border-radius: 20px;
+        background:
+          radial-gradient(circle at 20% 0%, rgba(46, 123, 255, 0.12), transparent 38%),
+          linear-gradient(135deg, rgba(241, 248, 255, 0.92), rgba(255, 255, 255, 0.8));
+        box-shadow: var(--shadow-code);
+      }
+
+      .code-label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #20385f;
+        font-size: 14px;
+        font-weight: 850;
+      }
+
+      .totp-code {
+        margin-top: 12px;
+        color: var(--primary);
+        font-size: 58px;
+        line-height: 66px;
+        font-weight: 850;
+        letter-spacing: 12px;
+      }
+
+      .hint {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .countdown {
+        width: 112px;
+        height: 112px;
+      }
+
+      .vault-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 22px;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .secure-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .secure-row {
+        display: grid;
+        grid-template-columns: 54px minmax(0, 1fr) 24px;
+        align-items: center;
+        gap: 14px;
+        min-height: 78px;
+        padding: 14px;
+        border: 1px solid rgba(20, 184, 166, 0.18);
+        border-radius: 18px;
+        background: rgba(249, 251, 255, 0.86);
+      }
+
+      .secure-icon {
+        width: 44px;
+        height: 44px;
+        display: grid;
+        place-items: center;
+        color: var(--vault);
+        border-radius: 15px;
+        background: var(--vault-soft);
+      }
+
+      .secure-icon.purple {
+        color: var(--lavender);
+        background: var(--lavender-soft);
+      }
+
+      .secure-icon.blue {
+        color: var(--primary);
+        background: var(--primary-soft);
+      }
+
+      .secure-row strong {
+        display: block;
+        font-size: 15px;
+      }
+
+      .secure-row span {
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .vault-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        margin-top: 24px;
+      }
+
+      .saved {
+        min-height: 380px;
+        overflow: hidden;
+      }
+
+      .saved-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        min-height: 72px;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .tabs {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        height: 100%;
+      }
+
+      .tab {
+        height: 72px;
+        display: flex;
+        align-items: center;
+        color: #526179;
+        font-size: 15px;
+        font-weight: 850;
+        border-bottom: 3px solid transparent;
+      }
+
+      .tab.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+      }
+
+      .saved-actions {
+        display: flex;
+        gap: 12px;
+      }
+
+      .saved-body {
+        min-height: 300px;
+        padding: 24px;
+      }
+
+      .search {
+        width: 310px;
+        margin-bottom: 26px;
+      }
+
+      .empty {
+        display: grid;
+        place-items: center;
+        min-height: 220px;
+        text-align: center;
+      }
+
+      .empty img {
+        width: 150px;
+        height: auto;
+      }
+
+      .empty strong {
+        display: block;
+        margin-top: 14px;
+        font-size: 17px;
+      }
+
+      .empty p {
+        margin: 8px 0 20px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .empty-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 14px;
+      }
+
+      @media (max-width: 1200px) {
+        .main-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 900px) {
+        .app {
+          grid-template-columns: 88px minmax(0, 1fr);
+        }
+
+        .nav-item span,
+        .proxy div {
+          display: none;
+        }
+
+        .nav-item {
+          justify-content: center;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .app {
+          display: block;
+        }
+
+        .sidebar {
+          display: none;
+        }
+
+        main {
+          padding: 18px;
+        }
+
+        .input-row,
+        .code-panel,
+        .vault-actions {
+          grid-template-columns: 1fr;
+        }
+
+        .totp-code {
+          font-size: 40px;
+          letter-spacing: 7px;
+        }
+
+        .saved-top {
+          flex-direction: column;
+          align-items: stretch;
+          padding-block: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="window-dots">
+          <span class="red"></span>
+          <span class="yellow"></span>
+          <span class="green"></span>
+        </div>
+        <nav class="nav">
+          <div class="nav-item"><svg class="icon"><use href="assets/twofa-icons.svg#icon-dashboard"></use></svg><span>仪表盘</span></div>
+          <div class="nav-item"><svg class="icon"><use href="assets/twofa-icons.svg#icon-quota"></use></svg><span>额度</span></div>
+          <div class="nav-item"><svg class="icon"><use href="assets/twofa-icons.svg#icon-provider"></use></svg><span>服务商</span></div>
+          <div class="nav-item active"><svg class="icon"><use href="assets/twofa-icons.svg#icon-2fa"></use></svg><span>2FA</span></div>
+          <div class="nav-item"><svg class="icon"><use href="assets/twofa-icons.svg#icon-spark"></use></svg><span>智能体</span></div>
+          <div class="nav-item"><svg class="icon"><use href="assets/twofa-icons.svg#icon-key"></use></svg><span>API 密钥</span></div>
+          <div class="nav-item"><svg class="icon"><use href="assets/twofa-icons.svg#icon-search"></use></svg><span>日志</span></div>
+        </nav>
+        <div class="proxy">
+          <div class="proxy-light">●</div>
+          <div>
+            <strong>本地代理</strong>
+            <span>:28317 · 运行中</span>
+          </div>
+        </div>
+      </aside>
+
+      <main>
+        <div class="topline">
+          <h1>2FA 管理</h1>
+          <span class="status-pill"><svg class="icon"><use href="assets/twofa-icons.svg#icon-shield"></use></svg>本地 TOTP</span>
+        </div>
+
+        <section class="panel notice">
+          <svg class="icon"><use href="assets/twofa-icons.svg#icon-2fa"></use></svg>
+          <span>生成并管理本地 TOTP 动态验证码。密钥仅保存在本机，清除应用数据前请先导出备份。</span>
+        </section>
+
+        <section class="main-grid">
+          <article class="panel generator">
+            <h2>生成 TOTP 验证码</h2>
+            <div class="input">
+              <svg class="icon"><use href="assets/twofa-icons.svg#icon-search"></use></svg>
+              <span>名称 / 邮箱（可选）　｜　如：GitHub / me@example.com</span>
+            </div>
+            <div class="input-row">
+              <div class="input">
+                <svg class="icon"><use href="assets/twofa-icons.svg#icon-key"></use></svg>
+                <span>otpauth://totp 或 Base32 Secret</span>
+              </div>
+              <button class="button">查询</button>
+              <button class="button primary">保存</button>
+              <button class="button"><svg class="icon"><use href="assets/twofa-icons.svg#icon-qr"></use></svg>QR</button>
+            </div>
+
+            <div class="code-panel">
+              <div>
+                <div class="code-label">当前验证码 <svg class="icon"><use href="assets/twofa-icons.svg#icon-copy"></use></svg></div>
+                <div class="totp-code">428 916</div>
+              </div>
+              <img class="countdown" src="assets/countdown-ring.svg" alt="28 秒倒计时" />
+            </div>
+            <div class="hint">
+              <svg class="icon"><use href="assets/twofa-icons.svg#icon-shield"></use></svg>
+              验证码每 30 秒更新一次，请及时使用。
+            </div>
+          </article>
+
+          <aside class="panel vault-card">
+            <div class="vault-head">
+              <h2>本地保险箱</h2>
+              <span class="muted">完全本地 · 安全隐私</span>
+            </div>
+            <div class="secure-list">
+              <div class="secure-row">
+                <div class="secure-icon"><svg class="icon"><use href="assets/twofa-icons.svg#icon-2fa"></use></svg></div>
+                <div><strong>本地保存</strong><span>所有密钥与数据仅存储在本机，不会上传到云端。</span></div>
+                <svg class="icon" style="color: var(--vault)"><use href="assets/twofa-icons.svg#icon-shield"></use></svg>
+              </div>
+              <div class="secure-row">
+                <div class="secure-icon purple"><svg class="icon"><use href="assets/twofa-icons.svg#icon-shield"></use></svg></div>
+                <div><strong>加密保险箱</strong><span>密钥使用本地加密存储，应用重启后仍安全可用。</span></div>
+                <svg class="icon" style="color: var(--vault)"><use href="assets/twofa-icons.svg#icon-shield"></use></svg>
+              </div>
+              <div class="secure-row">
+                <div class="secure-icon blue"><svg class="icon"><use href="assets/twofa-icons.svg#icon-download"></use></svg></div>
+                <div><strong>定期备份</strong><span>导出备份文件，防止误删或重装导致数据丢失。</span></div>
+                <span>›</span>
+              </div>
+            </div>
+            <div class="vault-actions">
+              <button class="button"><svg class="icon"><use href="assets/twofa-icons.svg#icon-upload"></use></svg>导入密钥</button>
+              <button class="button"><svg class="icon"><use href="assets/twofa-icons.svg#icon-download"></use></svg>导出备份</button>
+            </div>
+          </aside>
+        </section>
+
+        <section class="panel saved">
+          <div class="saved-top">
+            <div class="tabs">
+              <div class="tab active">已保存</div>
+              <div class="tab">历史</div>
+            </div>
+            <div class="saved-actions">
+              <button class="button"><svg class="icon"><use href="assets/twofa-icons.svg#icon-upload"></use></svg>导入</button>
+              <button class="button"><svg class="icon"><use href="assets/twofa-icons.svg#icon-download"></use></svg>导出</button>
+              <button class="button">•••</button>
+            </div>
+          </div>
+          <div class="saved-body">
+            <div class="input search">
+              <span>搜索名称或邮箱</span>
+              <svg class="icon"><use href="assets/twofa-icons.svg#icon-search"></use></svg>
+            </div>
+            <div class="empty">
+              <div>
+                <img src="assets/vault-empty.svg" alt="空保险箱" />
+                <strong>尚未保存任何密钥</strong>
+                <p>通过上方输入区保存第一个 TOTP 密钥，或导入已有备份。</p>
+                <div class="empty-buttons">
+                  <button class="button primary">新建并保存密钥</button>
+                  <button class="button">导入备份文件</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

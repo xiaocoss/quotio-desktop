@@ -147,6 +147,10 @@ pub struct AppSettings {
     pub proxy_port: u16,
     pub allow_remote: bool,
     pub launch_at_login: bool,
+    /// 退出 Quotio 时保留代理运行(不杀 CLIProxyAPI,也不按端口终止外部代理)。开启后,
+    /// 依赖本地代理常驻的客户端(如 Codex)不会因关闭 Quotio 断连而崩溃;下次启动
+    /// Quotio 会自动接管仍在运行的那个代理。
+    pub keep_proxy_on_exit: bool,
     pub notifications_enabled: bool,
     pub theme: ThemeMode,
     pub language: String,
@@ -199,6 +203,7 @@ impl Default for AppSettings {
             proxy_port: 28317,
             allow_remote: false,
             launch_at_login: false,
+            keep_proxy_on_exit: false,
             notifications_enabled: true,
             theme: ThemeMode::System,
             language: "system".to_string(),

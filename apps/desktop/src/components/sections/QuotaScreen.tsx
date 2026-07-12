@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AccountQuota, AppSettings, AppState, AuthFile, ProviderSummary, QuotaModelUsage, SchedulerOrderItem } from "../../types";
-import { maskEmail, quotaTone, parsePlan, parseResetCredits, planTier, matchAuthFile, servingFile } from "../../lib/format";
-import { RefreshIcon } from "../icons";
+import { maskEmail, quotaTone, parsePlan, parseResetCredits, matchAuthFile, servingFile } from "../../lib/format";
 import { HealthDots } from "../HealthDots";
+import { ProviderLogo } from "../../lib/providerLogos";
 import { useT } from "../../i18n";
 import { invoke } from "../../lib/tauri";
+import "./quota.css";
 
 type CustomProviderBrief = {
   id: string;
@@ -22,6 +23,10 @@ type QuotaScreenProps = {
   onRefreshQuotas: () => void;
   onRunManagementStateAction: (command: string, args?: Record<string, unknown>) => void;
   onSaveSettings: (settings: AppSettings) => void;
+  onAddAccount?: () => void;
+  // 卡片底部两个图标按钮:图表→带该账号跳仪表盘,列表→带该账号跳日志。
+  onViewAccountChart?: (accountLabel: string) => void;
+  onViewAccountLogs?: (accountLabel: string) => void;
 };
 
 type QuotaGroup = {
@@ -31,7 +36,18 @@ type QuotaGroup = {
   accounts: AccountQuota[];
 };
 
-export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSettings, onRunManagementStateAction }: QuotaScreenProps) {
+// 内联的 SVG 符号图标(素材见 public/quota/quota-icons.svg)。
+function Icon({ id }: { id: string }) {
+  return (
+    <svg className="qr-icon" aria-hidden="true">
+      <use href={`/quota/quota-icons.svg#${id}`} />
+    </svg>
+  );
+}
+
+// 各服务商品牌 logo:providerLogoId / ProviderLogo 提到 lib/providerLogos 与服务商页共用。
+
+export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSettings, onRunManagementStateAction, onAddAccount, onViewAccountChart, onViewAccountLogs }: QuotaScreenProps) {
   const t = useT();
   const groups = useMemo(() => buildGroups(appState.quotas, appState.providers), [appState.quotas, appState.providers]);
   const authFiles = appState.management.auth_files ?? appState.auth_files ?? [];
@@ -42,7 +58,13 @@ export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSett
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const active = groups.find((group) => group.id === activeId) ?? groups[0] ?? null;
-  const activeCustom = customProviders.find((cp) => `cp:${cp.id}` === activeId) ?? null;
+  // 选中自定义服务商:显式选中它;或者没有内置分组、也没手动选过时,默认落到第一个自定义服务商
+  // (否则「0 内置 + 1 自定义」且隐藏了 tab 时会没有任何内容可显示)。
+  const activeCustom =
+    customProviders.find((cp) => `cp:${cp.id}` === activeId) ??
+    (groups.length === 0 && !activeId ? customProviders[0] ?? null : null);
+  // 只有一个可选服务商时,设计里没有 tab 行 —— 隐藏它;多于一个才显示,保持切换能力。
+  const showTabs = groups.length + customProviders.length > 1;
 
   // 排序型调度(智能调度 / 顺序故障转移)算出的请求顺序:file_name → 顺序项。用来把额度
   // 卡片按该顺序排 + 画圆圈序号徽章;关闭调度时为空,卡片保持原序、无徽章。
@@ -103,18 +125,19 @@ export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSett
     );
 
   return (
-    <section className="section-page quota-page">
+    <section className="section-page quota-page quota-redesign">
       <header className="page-topbar" data-tauri-drag-region>
         <h1>{t("nav.quota")}</h1>
         <button
-          className="icon-button"
+          className={`button${isQuotaBusy ? " is-busy" : ""}`}
           type="button"
           onClick={onRefreshQuotas}
           disabled={isQuotaBusy}
-          title="刷新额度"
-          aria-label="刷新额度"
+          title={t("quota.refresh", "刷新额度")}
+          aria-label={t("quota.refresh", "刷新额度")}
         >
-          <RefreshIcon />
+          <Icon id="icon-refresh" />
+          {t("quota.refreshShort", "刷新")}
         </button>
       </header>
 
@@ -134,66 +157,136 @@ export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSett
         </div>
       ) : (
         <>
-          <div className="quota-tabs" role="tablist">
-            {groups.map((group) => {
-              const isActive = active?.id === group.id && !activeCustom;
-              return (
-                <button
-                  key={group.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  className={isActive ? "quota-tab quota-tab--active" : "quota-tab"}
-                  style={isActive ? { borderColor: `#${group.colorHex}59`, background: `#${group.colorHex}14` } : undefined}
-                  onClick={() => setActiveId(group.id)}
-                >
-                  <span className="quota-tab-dot" style={{ backgroundColor: `#${group.colorHex}` }} />
-                  <span className="quota-tab-name">{group.label}</span>
-                  <span className="quota-tab-count">{group.accounts.length}</span>
-                </button>
-              );
-            })}
-            {customProviders.map((cp) => {
-              const tabId = `cp:${cp.id}`;
-              const isActive = activeId === tabId;
-              const color = cp.kind === "gemini" ? "#4285F4" : cp.kind === "claude" ? "#D97757" : "#10a37f";
-              const enabledCount = cp.keys.filter((k) => k.enabled).length;
-              return (
-                <button
-                  key={tabId}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  className={isActive ? "quota-tab quota-tab--active" : "quota-tab"}
-                  style={isActive ? { borderColor: `${color}59`, background: `${color}14` } : undefined}
-                  onClick={() => setActiveId(tabId)}
-                >
-                  <span className="quota-tab-dot" style={{ backgroundColor: color }} />
-                  <span className="quota-tab-name">{cp.name}</span>
-                  <span className="quota-tab-count">{enabledCount}/{cp.keys.length}</span>
-                </button>
-              );
-            })}
-          </div>
+          {showTabs ? (
+            <div className="quota-tabs" role="tablist">
+              {groups.map((group) => {
+                const isActive = !activeCustom && active?.id === group.id;
+                return (
+                  <button
+                    key={group.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    className={isActive ? "quota-tab quota-tab--active" : "quota-tab"}
+                    style={isActive ? { borderColor: `#${group.colorHex}59`, background: `#${group.colorHex}14` } : undefined}
+                    onClick={() => setActiveId(group.id)}
+                  >
+                    <span className="quota-tab-dot" style={{ backgroundColor: `#${group.colorHex}` }} />
+                    <span className="quota-tab-name">{group.label}</span>
+                    <span className="quota-tab-count">{group.accounts.length}</span>
+                  </button>
+                );
+              })}
+              {customProviders.map((cp) => {
+                const tabId = `cp:${cp.id}`;
+                const isActive = activeCustom?.id === cp.id;
+                const color = cp.kind === "gemini" ? "#4285F4" : cp.kind === "claude" ? "#D97757" : "#10a37f";
+                const enabledCount = cp.keys.filter((k) => k.enabled).length;
+                return (
+                  <button
+                    key={tabId}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    className={isActive ? "quota-tab quota-tab--active" : "quota-tab"}
+                    style={isActive ? { borderColor: `${color}59`, background: `${color}14` } : undefined}
+                    onClick={() => setActiveId(tabId)}
+                  >
+                    <span className="quota-tab-dot" style={{ backgroundColor: color }} />
+                    <span className="quota-tab-name">{cp.name}</span>
+                    <span className="quota-tab-count">{enabledCount}/{cp.keys.length}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
 
           {activeCustom ? (
             <CustomProviderKeyPool provider={activeCustom} />
-          ) : (
-          <div className="quota-accounts">
-            {sortedAccounts.map((account) => (
-              <AccountQuotaCard
-                key={account.account_key}
-                account={account}
-                authFiles={authFiles}
-                order={orderForAccount(account)}
-                colorHex={active?.colorHex ?? "8a8a8e"}
-                onRefreshQuotas={onRefreshQuotas}
-              />
-            ))}
-          </div>
-          )}
+          ) : active ? (
+            <>
+              <QuotaSummary accounts={active.accounts} authFiles={authFiles} />
+
+              <div className="provider-head">
+                <div className="provider-title">
+                  <div className="provider-mark">
+                    <ProviderLogo providerId={active.id} />
+                  </div>
+                  <span>{active.label}</span>
+                  <span className="count">{active.accounts.length}</span>
+                </div>
+                {/* 「添加账号」在「服务商」页操作,本页点它直接跳到服务商页。 */}
+                <button className="button" type="button" onClick={onAddAccount}>
+                  <Icon id="icon-plus" />
+                  {t("quota.addAccount", "添加账号")}
+                </button>
+              </div>
+
+              <div className="cards">
+                {sortedAccounts.map((account, index) => (
+                  <AccountQuotaCard
+                    key={account.account_key}
+                    account={account}
+                    authFiles={authFiles}
+                    order={orderForAccount(account)}
+                    index={index}
+                    onRefreshQuotas={onRefreshQuotas}
+                    onViewChart={onViewAccountChart}
+                    onViewLogs={onViewAccountLogs}
+                  />
+                ))}
+              </div>
+            </>
+          ) : null}
         </>
       )}
+    </section>
+  );
+}
+
+// 汇总四格:健康 / 风险 / 待命 / 全部,按当前服务商分组的账号(经 matchAuthFile 关联 AuthFile)计算。
+function QuotaSummary({ accounts, authFiles }: { accounts: AccountQuota[]; authFiles: AuthFile[] }) {
+  const t = useT();
+  let idle = 0;
+  let risk = 0;
+  for (const account of accounts) {
+    const file = matchAuthFile(account, authFiles);
+    // 待命:AuthFile 被智能调度置为 standby。
+    if (file?.quotio_scheduler_standby === true) {
+      idle += 1;
+      continue;
+    }
+    // 风险(非待命号中):被封禁 / 需重新授权 / 任一模型剩余 ≤10%。
+    const atRisk =
+      account.is_forbidden ||
+      account.status_message === "auth_failed" ||
+      account.models.some((model) => model.remaining_percent <= 10);
+    if (atRisk) risk += 1;
+  }
+  const total = accounts.length;
+  const healthy = Math.max(0, total - idle - risk);
+
+  const items: { key: string; icon: string; cls: string; label: string; value: number; note: string }[] = [
+    { key: "healthy", icon: "icon-shield", cls: "healthy", label: t("quota.summary.healthy", "健康账号"), value: healthy, note: t("quota.summary.healthyNote", "可正常使用") },
+    { key: "risk", icon: "icon-alert", cls: "warning", label: t("quota.summary.risk", "风险账号"), value: risk, note: t("quota.summary.riskNote", "额度即将耗尽") },
+    { key: "idle", icon: "icon-clock", cls: "idle", label: t("quota.summary.idle", "待命账号"), value: idle, note: t("quota.summary.idleNote", "不参与调度") },
+    { key: "total", icon: "icon-stack", cls: "", label: t("quota.summary.total", "全部账号"), value: total, note: t("quota.summary.totalNote", "已配置") },
+  ];
+
+  return (
+    <section className="panel summary-grid">
+      {items.map((item) => (
+        <article className="summary-item" key={item.key}>
+          <div className={item.cls ? `summary-icon ${item.cls}` : "summary-icon"}>
+            <Icon id={item.icon} />
+          </div>
+          <div>
+            <div className="summary-label">{item.label}</div>
+            <div className="summary-value">{item.value}</div>
+            <div className="summary-note">{item.note}</div>
+          </div>
+        </article>
+      ))}
     </section>
   );
 }
@@ -353,33 +446,36 @@ function SchedulerCard({
     { id: "reset_soonest", label: t("quota.scheduler.modeResetSoonest", "智能调度") },
     { id: "priority_failover", label: t("quota.scheduler.modeFailover", "顺序故障转移") },
   ];
+  const activeModeLabel = modes.find((m) => m.id === rule)?.label ?? "";
 
   return (
-    <div className="scheduler-block">
-      <div className="scheduler-head">
-        <strong>{t("quota.scheduler.cardTitle", "账号调度")}</strong>
-        {tagText && <span className="scheduler-tag">{tagText}</span>}
-        <div
-          className="scheduler-modes"
-          role="group"
-          aria-label={t("quota.scheduler.cardTitle", "账号调度")}
-        >
-          {modes.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              className={`scheduler-mode-btn${rule === m.id ? " is-active" : ""}${switchingTo === m.id ? " is-loading" : ""}`}
-              onClick={() => selectMode(m.id)}
-              disabled={switchingTo !== null}
-            >
-              {switchingTo === m.id ? <span className="scheduler-mode-spinner" aria-hidden="true" /> : null}
-              {m.label}
-            </button>
-          ))}
-        </div>
+    <section className="panel strategy">
+      <div className="strategy-icon">
+        <Icon id="icon-refresh" />
       </div>
-      <p className="scheduler-desc">{statusText}</p>
-    </div>
+      <div className="strategy-body">
+        <h2>
+          {t("quota.scheduler.cardTitle", "账号调度")}
+          {activeModeLabel ? <span className="pill">{activeModeLabel}</span> : null}
+        </h2>
+        <p>{statusText}</p>
+        {tagText ? <small>{tagText}</small> : null}
+      </div>
+      <div className="strategy-actions" role="group" aria-label={t("quota.scheduler.cardTitle", "账号调度")}>
+        {modes.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            className={`button${rule === m.id ? " primary" : ""}${switchingTo === m.id ? " is-loading" : ""}`}
+            onClick={() => selectMode(m.id)}
+            disabled={switchingTo !== null}
+          >
+            {switchingTo === m.id ? <span className="btn-spinner" aria-hidden="true" /> : null}
+            {m.label}
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -387,14 +483,18 @@ function AccountQuotaCard({
   account,
   authFiles,
   order,
-  colorHex,
+  index,
   onRefreshQuotas,
+  onViewChart,
+  onViewLogs,
 }: {
   account: AccountQuota;
   authFiles: AuthFile[];
   order?: SchedulerOrderItem | null;
-  colorHex?: string;
+  index: number;
   onRefreshQuotas: () => void;
+  onViewChart?: (accountLabel: string) => void;
+  onViewLogs?: (accountLabel: string) => void;
 }) {
   const t = useT();
   // The Codex fetcher encodes the subscription tier + expiry + reset credits into
@@ -435,54 +535,75 @@ function AccountQuotaCard({
   // Codex accounts whose 401 couldn't be refreshed are flagged "auth_failed" by
   // the backend — mark them here too (matches the Providers list).
   const authFailed = statusMessage === "auth_failed";
-  // Each tier gets its own badge color; Plus is the base style.
-  const tier = plan ? planTier(plan) : null;
-  const planClass =
-    tier && tier !== "plus"
-      ? `quota-type-pill quota-plan-pill quota-plan-pill--${tier}`
-      : "quota-type-pill quota-plan-pill";
   const file = matchAuthFile(account, authFiles);
   const isCodexLoginOnly = file?.quotio_bound_login_only === true;
   const isSchedulerStandby = file?.quotio_scheduler_standby === true && file?.disabled === true;
+  // 待命(用于灰序号 / 底部「待命中」/ 灰点阵):跟汇总口径一致,只看 standby 标记。
+  const isStandby = file?.quotio_scheduler_standby === true;
   const recent = file?.recent_requests ?? [];
+  const success = file?.success ?? 0;
+  const failed = file?.failed ?? 0;
+  const position = order?.position ?? index + 1;
+
+  // Session / Weekly 两个主窗口 + 其余模型(不丢数据)。Session 优先按名字匹配,匹配不到就取
+  // 「非 Weekly 的那个」当作 Session。
+  const weeklyModel = account.models.find((m) => /weekly/i.test(m.model)) ?? null;
+  let sessionModel = account.models.find((m) => /session|5h|5\s*hour/i.test(m.model)) ?? null;
+  if (!sessionModel) sessionModel = account.models.find((m) => m !== weeklyModel) ?? null;
+  const lines: { model: QuotaModelUsage; label: string }[] = [];
+  if (sessionModel) lines.push({ model: sessionModel, label: "Session" });
+  if (weeklyModel) lines.push({ model: weeklyModel, label: "Weekly" });
+  for (const m of account.models) {
+    if (m === sessionModel || m === weeklyModel) continue;
+    lines.push({ model: m, label: m.model });
+  }
+  // 有 warn/bad 额度且非待命 / 未封禁 → 卡片加暖色阴影(对应设计的 .warning-card)。
+  const warningCard = !isStandby && !account.is_forbidden && account.models.some((m) => quotaTone(m.remaining_percent) !== "good");
+
+  const orderTitle = order
+    ? order.active
+      ? `当前主用 · 请求顺序 #${order.position}`
+      : order.eligible
+        ? `请求顺序 #${order.position}`
+        : `请求顺序 #${order.position} · 暂不可用,本轮跳过`
+    : undefined;
+
   return (
-    <article className="panel quota-card">
-      <div className="quota-card-head">
-        {order ? (
+    <article className={warningCard ? "quota-card warning-card" : "quota-card"}>
+      <div className="card-top">
+        <div className="rank-plan">
           <span
-            className={`account-order-badge${order.active ? " account-order-badge--active" : order.eligible ? " account-order-badge--eligible" : " account-order-badge--skipped"}`}
-            style={order.active ? { background: `#${colorHex}`, borderColor: `#${colorHex}` } : { borderColor: `#${colorHex}`, color: `#${colorHex}` }}
-            title={order.active ? `当前主用 · 请求顺序 #${order.position}` : order.eligible ? `请求顺序 #${order.position}` : `请求顺序 #${order.position} · 暂不可用,本轮跳过`}
-            aria-label={`请求顺序 ${order.position}`}
+            className={isStandby ? "rank idle" : "rank"}
+            title={orderTitle}
+            aria-label={`请求顺序 ${position}`}
           >
-            {order.position}
+            {position}
           </span>
-        ) : null}
-        {plan ? (
-          <span className={planClass}>{plan.toUpperCase()}</span>
-        ) : account.account_type ? (
-          <span className="quota-type-pill">{account.account_type}</span>
-        ) : null}
-        <span className="quota-account-label">{maskEmail(account.account_label)}</span>
-        <div className="quota-card-actions">
+          {plan ? (
+            <span className="plan">{plan.toUpperCase()}</span>
+          ) : account.account_type ? (
+            <span className="plan">{account.account_type}</span>
+          ) : null}
+        </div>
+        <div className="card-top-meta">
           {expiry ? (
-            <span className="quota-expiry">
+            <span className="expiry">
               {t("quota.expires")} {expiry}
             </span>
           ) : null}
-          {authFailed ? <span className="quota-pill quota-pill--bad">{t("providers.stateNeedsReauth", "需重新授权")}</span> : null}
-          {account.is_forbidden ? <span className="quota-pill quota-pill--bad">{t("quota.forbidden")}</span> : null}
+          {authFailed ? <span className="flag flag--bad">{t("providers.stateNeedsReauth", "需重新授权")}</span> : null}
+          {account.is_forbidden ? <span className="flag flag--bad">{t("quota.forbidden")}</span> : null}
           {/* Weekly window maxed but the account still serves via the session
               window — a soft heads-up, not the alarming "exhausted" pill. */}
           {!account.is_forbidden &&
           account.models.some((model) => /weekly/i.test(model.model) && model.remaining_percent <= 0) ? (
-            <span className="quota-pill quota-pill--warn">{t("quota.weeklyUsedUp", "本周已用尽")}</span>
+            <span className="flag flag--warn">{t("quota.weeklyUsedUp", "本周已用尽")}</span>
           ) : null}
-          {account.warming_up ? <span className="quota-pill quota-pill--warn">{t("quota.warmup")}</span> : null}
-          {account.in_use ? <span className="quota-pill quota-pill--blue">{t("quota.useInIde")}</span> : null}
+          {account.warming_up ? <span className="flag flag--warn">{t("quota.warmup")}</span> : null}
+          {account.in_use ? <span className="flag flag--blue">{t("quota.useInIde")}</span> : null}
           {isCodexLoginOnly ? (
             <span
-              className="quota-pill quota-pill--blue"
+              className="flag flag--blue"
               title={t("quota.codexLoginOnly.desc", "该账号仅用于启动 Codex，不参与 Quotio 代理池调用。")}
             >
               {t("quota.codexLoginOnly", "Codex 登录专用")}
@@ -490,7 +611,7 @@ function AccountQuotaCard({
           ) : null}
           {isSchedulerStandby ? (
             <span
-              className="quota-pill quota-pill--blue"
+              className="flag flag--idle"
               title={t("quota.schedulerStandby.desc", "被智能调度临时移出代理池;轮到它或关闭调度时自动恢复。")}
             >
               {t("quota.schedulerStandby", "调度待命")}
@@ -499,55 +620,45 @@ function AccountQuotaCard({
         </div>
       </div>
 
-      {recent.length > 0 ? (
-        <div className="quota-health">
-          <div className="quota-health-head">
-            <span>{t("quota.health", "健康状态")}</span>
-            <span className="quota-health-counts">
-              ✓{file?.success ?? 0} ·{" "}
-              <span className={(file?.failed ?? 0) > 0 ? "quota-health-fail" : undefined}>✗{file?.failed ?? 0}</span>
-            </span>
-          </div>
-          <HealthDots recent={recent} />
+      <div className="email">{maskEmail(account.account_label)}</div>
+
+      <div className="health-row">
+        <span className="health-label">{t("quota.health", "健康状态")}</span>
+        <span className="counts">
+          <span className="ok">✓ {success}</span>
+          <span className="bad">× {failed}</span>
+        </span>
+      </div>
+      {recent.length > 0 ? <HealthDots recent={recent} /> : <div className="quota-dots-empty" aria-hidden="true" />}
+
+      {hasResetCredits ? (
+        <div className="reset-row">
+          <span>
+            {t("quota.resetCredits", "主动重置次数")} {resetCredits}
+          </span>
+          <button
+            type="button"
+            className={confirmReset ? "mini-button is-confirm" : "mini-button"}
+            disabled={resetting || (resetCredits ?? 0) <= 0}
+            onClick={handleReset}
+            title={
+              (resetCredits ?? 0) <= 0
+                ? t("quota.resetNoCredits", "没有可用的主动重置次数")
+                : t("quota.resetButton", "重置")
+            }
+          >
+            {resetting
+              ? t("quota.resetting", "重置中…")
+              : confirmReset
+                ? t("quota.resetConfirm", "确认重置?")
+                : t("quota.resetButton", "重置")}
+          </button>
         </div>
       ) : null}
+      {resetError ? <p className="quota-reset-error">{resetError}</p> : null}
 
-      {account.models.length > 0 ? (
-        <>
-          <div className="quota-usage-head">
-            <span>{t("quota.usage")}</span>
-            {hasResetCredits ? (
-              <span className="quota-reset-group">
-                <span className="quota-reset-credits" title={t("quota.resetCredits", "主动重置次数")}>
-                  {t("quota.resetCredits", "主动重置次数")} {resetCredits}
-                </span>
-                <button
-                  type="button"
-                  className={confirmReset ? "quota-reset-button quota-reset-button--confirm" : "quota-reset-button"}
-                  disabled={resetting || (resetCredits ?? 0) <= 0}
-                  onClick={handleReset}
-                  title={
-                    (resetCredits ?? 0) <= 0
-                      ? t("quota.resetNoCredits", "没有可用的主动重置次数")
-                      : t("quota.resetButton", "重置")
-                  }
-                >
-                  {resetting
-                    ? t("quota.resetting", "重置中…")
-                    : confirmReset
-                      ? t("quota.resetConfirm", "确认重置?")
-                      : t("quota.resetButton", "重置")}
-                </button>
-              </span>
-            ) : null}
-          </div>
-          {resetError ? <p className="quota-reset-error">{resetError}</p> : null}
-          <div className="quota-models">
-            {account.models.map((model) => (
-              <ModelQuotaRow key={model.model} model={model} />
-            ))}
-          </div>
-        </>
+      {lines.length > 0 ? (
+        lines.map(({ model, label }) => <ModelQuotaRow key={model.model} model={model} label={label} />)
       ) : (
         <p className="quota-empty-note">
           {authFailed || account.is_forbidden
@@ -557,24 +668,64 @@ function AccountQuotaCard({
               : t("quota.noUsageData", "暂无额度数据,账号健康")}
         </p>
       )}
+
+      <div className="card-actions">
+        <div className="icon-buttons">
+          {/* 图表→带该账号跳仪表盘;列表→带该账号跳日志。 */}
+          <button
+            type="button"
+            className="icon-button"
+            title={t("quota.viewChart", "查看该账号用量")}
+            aria-label={t("quota.viewChart", "查看该账号用量")}
+            onClick={() => onViewChart?.(account.account_label)}
+          >
+            <Icon id="icon-chart" />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            title={t("quota.viewLogs", "查看该账号日志")}
+            aria-label={t("quota.viewLogs", "查看该账号日志")}
+            onClick={() => onViewLogs?.(account.account_label)}
+          >
+            <Icon id="icon-list" />
+          </button>
+        </div>
+        {isStandby ? (
+          <span className="status-pill idle">
+            <i className="dot" />
+            {t("quota.statusIdle", "待命中")}
+          </span>
+        ) : (
+          <span className="status-pill">
+            <i className="dot" />
+            {t("quota.statusRunning", "运行中")}
+          </span>
+        )}
+      </div>
     </article>
   );
 }
 
-function ModelQuotaRow({ model }: { model: QuotaModelUsage }) {
+function ModelQuotaRow({ model, label }: { model: QuotaModelUsage; label: string }) {
   const t = useT();
   const tone = quotaTone(model.remaining_percent);
+  const pct = Math.round(model.remaining_percent);
+  const width = Math.max(0, Math.min(100, model.remaining_percent));
 
   return (
-    <div className="quota-model">
-      <div className="quota-model-head">
-        <span className="quota-model-name">{model.model}</span>
-        {model.count != null ? <span className="quota-model-count">{model.count}</span> : null}
-        <span className={`quota-model-left quota-model-left--${tone}`}>{Math.round(model.remaining_percent)}% {t("quota.left")}</span>
-        {model.reset_at ? <span className="quota-model-reset">{model.reset_at}</span> : null}
+    <div className="quota-line">
+      <div className="line-meta">
+        <span className="line-label">{label}</span>
+        <span className="line-right">
+          <span className={`remaining remaining--${tone}`}>
+            {pct}% {t("quota.left", "剩余")}
+          </span>
+          {model.reset_at ? <span className="reset-at">{model.reset_at}</span> : null}
+        </span>
       </div>
-      <div className="quota-bar">
-        <div className={`quota-bar-fill quota-bar-fill--${tone}`} style={{ width: `${Math.max(0, Math.min(100, model.remaining_percent))}%` }} />
+      <div className="track">
+        <div className={`bar bar--${tone}`} style={{ width: `${width}%` }} />
       </div>
     </div>
   );

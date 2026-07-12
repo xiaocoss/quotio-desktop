@@ -1,0 +1,6 @@
+<svg width="112" height="112" viewBox="0 0 112 112" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="56" cy="56" r="43" stroke="#FFE4B8" stroke-width="12"/>
+  <path d="M56 13a43 43 0 1 1-30.4 73.4" stroke="#FF9F1C" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="56" cy="56" r="32" fill="#FFF8EC"/>
+  <text x="56" y="63" text-anchor="middle" font-family="SF Pro Rounded, Arial, sans-serif" font-size="20" font-weight="800" fill="#FF9F1C">28s</text>
+</svg>

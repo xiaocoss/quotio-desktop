@@ -1,0 +1,23 @@
+<svg width="2560" height="1306" viewBox="0 0 2560 1306" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="2560" height="1306" fill="#F7F3EA"/>
+  <g opacity=".9" filter="url(#blurA)">
+    <circle cx="510" cy="84" r="260" fill="#EAF2FF"/>
+    <circle cx="1820" cy="160" r="310" fill="#FFF1DC"/>
+    <circle cx="2220" cy="1030" r="290" fill="#EEF7FF"/>
+  </g>
+  <g opacity=".35">
+    <path d="M280 220H2420" stroke="#DCE5F3" stroke-width="1"/>
+    <path d="M280 420H2420" stroke="#DCE5F3" stroke-width="1"/>
+    <path d="M280 620H2420" stroke="#DCE5F3" stroke-width="1"/>
+    <path d="M280 820H2420" stroke="#DCE5F3" stroke-width="1"/>
+    <path d="M280 1020H2420" stroke="#DCE5F3" stroke-width="1"/>
+    <path d="M420 40V1240" stroke="#E9EEF7" stroke-width="1"/>
+    <path d="M860 40V1240" stroke="#E9EEF7" stroke-width="1"/>
+    <path d="M1300 40V1240" stroke="#E9EEF7" stroke-width="1"/>
+    <path d="M1740 40V1240" stroke="#E9EEF7" stroke-width="1"/>
+    <path d="M2180 40V1240" stroke="#E9EEF7" stroke-width="1"/>
+  </g>
+  <filter id="blurA" x="0" y="-360" width="2700" height="1740" color-interpolation-filters="sRGB">
+    <feGaussianBlur stdDeviation="120"/>
+  </filter>
+</svg>

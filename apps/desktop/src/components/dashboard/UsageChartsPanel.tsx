@@ -31,10 +31,10 @@ type ModelChartRow = UsageModelBreakdownRow & {
   cost_value: number;
 };
 
-const COST_COLOR = "#f59e0b";
-const UNCACHED_COLOR = "#3b82f6";
+const COST_COLOR = "#ff8a00";
+const UNCACHED_COLOR = "#2e7bff";
 const CACHED_COLOR = "#8b5cf6";
-const OUTPUT_COLOR = "#10b981";
+const OUTPUT_COLOR = "#20b86e";
 
 function numeric(value: unknown): number {
   const next = typeof value === "number" ? value : Number(value);
@@ -91,20 +91,20 @@ export function UsageChartsPanel({ timeseries, modelBreakdown, loading }: UsageC
   ];
 
   return (
-    <article className={loading ? "panel usage-charts-panel usage-charts-panel--loading" : "panel usage-charts-panel"}>
-      <div className="usage-charts-head">
+    <article className={loading ? "panel chart-panel chart-panel--loading" : "panel chart-panel"}>
+      <div className="panel-head">
         <div>
-          <span className="eyebrow">{t("dash.charts.title")}</span>
-          <p>{t("dash.charts.desc")}</p>
+          <h2 className="panel-title">{t("dash.charts.title")}</h2>
+          <p className="panel-desc">{t("dash.charts.desc")}</p>
         </div>
-        <div className="usage-chart-tabs" role="tablist" aria-label={t("dash.charts.title")}>
+        <div className="segmented" role="tablist" aria-label={t("dash.charts.title")}>
           {tabs.map((item) => (
             <button
               key={item.key}
               type="button"
               role="tab"
               aria-selected={tab === item.key}
-              className={tab === item.key ? "usage-chart-tab usage-chart-tab--active" : "usage-chart-tab"}
+              className={tab === item.key ? "active" : undefined}
               onClick={() => setTab(item.key)}
             >
               {item.label}
@@ -114,9 +114,9 @@ export function UsageChartsPanel({ timeseries, modelBreakdown, loading }: UsageC
       </div>
 
       {isEmpty ? (
-        <div className="usage-chart-empty">{t("dash.charts.empty")}</div>
+        <div className="chart-empty">{t("dash.charts.empty")}</div>
       ) : (
-        <div className="usage-chart-canvas">
+        <div className="chart-canvas">
           {tab === "trend" ? <CostTrendChart data={trendData} costLabel={t("dash.kpi.cost")} /> : null}
           {tab === "tokens" ? (
             <TokenMixChart
@@ -139,8 +139,8 @@ function CostTrendChart({ data, costLabel }: { data: TrendPoint[]; costLabel: st
       <AreaChart data={data} margin={{ top: 10, right: 18, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="costTrendFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={COST_COLOR} stopOpacity={0.32} />
-            <stop offset="95%" stopColor={COST_COLOR} stopOpacity={0.02} />
+            <stop offset="5%" stopColor={COST_COLOR} stopOpacity={0.24} />
+            <stop offset="95%" stopColor={COST_COLOR} stopOpacity={0.03} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -153,7 +153,9 @@ function CostTrendChart({ data, costLabel }: { data: TrendPoint[]; costLabel: st
           dataKey="estimated_cost"
           stroke={COST_COLOR}
           fill="url(#costTrendFill)"
-          strokeWidth={2.5}
+          strokeWidth={3}
+          dot={{ r: 4, fill: COST_COLOR, stroke: "#fff", strokeWidth: 2 }}
+          activeDot={{ r: 6 }}
           connectNulls
         />
       </AreaChart>
