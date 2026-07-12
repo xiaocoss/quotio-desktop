@@ -1,0 +1,199 @@
+{
+  "meta": {
+    "name": "quotio-floating-window-redesign",
+    "target": "desktop-floating-window",
+    "canvas": {
+      "logical": {
+        "width": 360,
+        "height": 960,
+        "unit": "px"
+      },
+      "render": {
+        "width": 720,
+        "height": 1920,
+        "unit": "px",
+        "orientation": "portrait"
+      },
+      "windowAspectRatio": "3:8"
+    }
+  },
+  "colors": {
+    "page": "#F6F3EC",
+    "surface": "#FFFFFF",
+    "surfaceMuted": "#F7F9FC",
+    "text": "#1F2937",
+    "textSecondary": "#667085",
+    "textMuted": "#98A2B3",
+    "border": "#DDE3EB",
+    "divider": "#E7EBF1",
+    "track": "#E9EDF3",
+    "dotIdle": "#D7DEE8",
+    "primary": "#3978F6",
+    "primarySoft": "#EDF3FF",
+    "success": "#35B96B",
+    "successSoft": "#ECF9F1",
+    "warning": "#F59E0B",
+    "warningSoft": "#FFF7E6",
+    "danger": "#EF4444",
+    "dangerSoft": "#FEF0F0",
+    "plan": "#6D6BFF",
+    "focusRing": "rgba(57, 120, 246, 0.22)"
+  },
+  "typography": {
+    "unit": "px",
+    "fontFamilies": {
+      "sans": "HarmonyOS Sans SC, MiSans, PingFang SC, Inter, Segoe UI, Microsoft YaHei, sans-serif",
+      "mono": "SFMono-Regular, Consolas, Liberation Mono, monospace"
+    },
+    "weights": {
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700
+    },
+    "fontSizes": {
+      "micro": 10,
+      "caption": 11,
+      "bodySmall": 12,
+      "body": 13,
+      "brand": 14,
+      "account": 14
+    },
+    "lineHeights": {
+      "micro": 14,
+      "caption": 16,
+      "bodySmall": 18,
+      "body": 20,
+      "brand": 20,
+      "account": 20
+    },
+    "letterSpacing": {
+      "default": 0,
+      "brand": 0.1,
+      "badge": 0.2
+    }
+  },
+  "spacing": {
+    "unit": "px",
+    "2xs": 2,
+    "xs": 4,
+    "sm": 6,
+    "md": 8,
+    "lg": 10,
+    "xl": 12,
+    "2xl": 16,
+    "3xl": 20,
+    "4xl": 24
+  },
+  "radii": {
+    "unit": "px",
+    "window": 18,
+    "card": 14,
+    "control": 10,
+    "small": 8,
+    "pill": 999
+  },
+  "shadows": {
+    "window": "0 14px 36px rgba(31, 41, 55, 0.16), 0 2px 8px rgba(31, 41, 55, 0.08)",
+    "card": "0 1px 3px rgba(31, 41, 55, 0.06)",
+    "raisedControl": "0 1px 2px rgba(31, 41, 55, 0.08)",
+    "focus": "0 0 0 3px rgba(57, 120, 246, 0.22)"
+  },
+  "components": {
+    "window": {
+      "width": 360,
+      "height": 960,
+      "unit": "px",
+      "background": "#F6F3EC",
+      "borderWidth": 1,
+      "borderColor": "#DDE3EB",
+      "radius": 18,
+      "layout": "grid",
+      "rows": [
+        "auto",
+        "minmax(0, 1fr)",
+        "144px"
+      ]
+    },
+    "header": {
+      "topRowHeight": 48,
+      "paddingX": 12,
+      "paddingTop": 8,
+      "paddingBottom": 10,
+      "dividerWidth": 1,
+      "addressMaxWidth": 156,
+      "stopButton": {
+        "height": 28,
+        "paddingX": 12,
+        "radius": 999
+      }
+    },
+    "tabs": {
+      "wrap": true,
+      "rowHeight": 24,
+      "gapX": 4,
+      "gapY": 4,
+      "paddingX": 10,
+      "radius": 8,
+      "activeBackground": "#EDF3FF",
+      "activeText": "#3978F6"
+    },
+    "accountCard": {
+      "width": "calc(100% - 24px)",
+      "height": 156,
+      "unit": "px",
+      "marginX": 12,
+      "padding": 12,
+      "listGap": 10,
+      "radius": 14,
+      "borderWidth": 1,
+      "borderColor": "#E7EBF1",
+      "emailMaxWidth": 190,
+      "titleGap": 8,
+      "sectionGap": 8
+    },
+    "progress": {
+      "height": 6,
+      "unit": "px",
+      "radius": 999,
+      "trackColor": "#E9EDF3",
+      "healthyColor": "#35B96B",
+      "warningColor": "#F59E0B",
+      "dangerColor": "#EF4444",
+      "labelRowHeight": 18
+    },
+    "healthDots": {
+      "dotSize": 7,
+      "gap": 4,
+      "unit": "px",
+      "radius": 999,
+      "idleColor": "#D7DEE8",
+      "healthyColor": "#35B96B",
+      "warningColor": "#F59E0B",
+      "dangerColor": "#EF4444"
+    },
+    "scrollbar": {
+      "width": 4,
+      "unit": "px",
+      "thumbMinHeight": 40,
+      "radius": 999,
+      "trackColor": "transparent",
+      "thumbColor": "#C6CED9",
+      "thumbHoverColor": "#AEB9C7",
+      "edgeInset": 3
+    },
+    "footer": {
+      "rowHeight": 48,
+      "rowCount": 3,
+      "totalHeight": 144,
+      "unit": "px",
+      "paddingX": 16,
+      "iconSize": 18,
+      "iconLabelGap": 10,
+      "dividerWidth": 1,
+      "background": "rgba(255, 255, 255, 0.94)",
+      "openColor": "#3978F6",
+      "exitColor": "#EF4444"
+    }
+  }
+}
