@@ -1,5 +1,9 @@
 # Logs
 logs
+# 例外:public/logs/ 是「日志」页的运行时素材目录(图标/背景 svg),
+# 不能被上面的 logs 规则忽略,否则打包时缺这些资源、页面图标 404。
+!/public/logs/
+!/public/logs/**
 *.log
 npm-debug.log*
 yarn-debug.log*

@@ -418,9 +418,9 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
                         <th>{t("logs.colProviderAccount", "服务商 / 账号")}</th>
                         <th>{t("logs.colModelMode", "模型 / 模式")}</th>
                         <th>{t("logs.colDuration")}</th>
-                        <th>{t("logs.colInput", "输入 Tokens")}</th>
-                        <th>{t("logs.colOutput", "输出 Tokens")}</th>
-                        <th>{t("logs.colTotal", "总计")}</th>
+                        <th className="lr-th-num">{t("logs.colInput", "输入 Tokens")}</th>
+                        <th className="lr-th-num">{t("logs.colOutput", "输出 Tokens")}</th>
+                        <th className="lr-th-num">{t("logs.colTotal", "总计")}</th>
                         <th>{t("logs.colActions", "操作")}</th>
                       </tr>
                     </thead>

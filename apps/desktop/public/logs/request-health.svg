@@ -1,0 +1,17 @@
+<svg width="720" height="64" viewBox="0 0 720 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0.5" y="0.5" width="719" height="63" rx="15.5" fill="white" fill-opacity="0.84" stroke="#8A99B1" stroke-opacity="0.22"/>
+  <text x="20" y="25" fill="#172033" font-family="PingFang SC, sans-serif" font-size="13" font-weight="700">请求健康</text>
+  <rect x="102" y="18" width="286" height="7" rx="3.5" fill="#E8EDF5"/>
+  <path d="M105.5 21.5H299" stroke="#20B86E" stroke-width="7" stroke-linecap="round"/>
+  <path d="M307 21.5H336" stroke="#FF9F1C" stroke-width="7" stroke-linecap="round"/>
+  <path d="M344 21.5H384.5" stroke="#EF4444" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="424" cy="21.5" r="4" fill="#20B86E"/>
+  <text x="436" y="25" fill="#43516A" font-family="SFMono-Regular, monospace" font-size="12">2xx 206</text>
+  <circle cx="510" cy="21.5" r="4" fill="#FF9F1C"/>
+  <text x="522" y="25" fill="#43516A" font-family="SFMono-Regular, monospace" font-size="12">4xx 31</text>
+  <circle cx="584" cy="21.5" r="4" fill="#EF4444"/>
+  <text x="596" y="25" fill="#43516A" font-family="SFMono-Regular, monospace" font-size="12">5xx 62</text>
+  <path d="M102 43h516" stroke="#D9E0EA" stroke-opacity="0.8"/>
+  <text x="102" y="55" fill="#8B98AD" font-family="PingFang SC, sans-serif" font-size="10">成功率 68.9%</text>
+  <text x="642" y="55" text-anchor="end" fill="#C97900" font-family="PingFang SC, sans-serif" font-size="10" font-weight="700">最慢 107.03s</text>
+</svg>

@@ -744,6 +744,11 @@
   text-align: right;
 }
 
+/* Tokens 数字列(输入/输出/总计)表头也右对齐,与下方数字对齐(默认 th 是左对齐)。 */
+.logs-redesign .lr-table th.lr-th-num {
+  text-align: right;
+}
+
 .logs-redesign .lr-actions-cell {
   display: flex;
   align-items: center;
