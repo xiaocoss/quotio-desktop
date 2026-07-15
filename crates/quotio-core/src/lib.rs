@@ -1311,9 +1311,14 @@ impl AppCore {
             if session.miss_count < 2 {
                 return false;
             }
-        } else if session.started_at.elapsed() < Duration::from_secs(60) {
-            // 启动宽限期：商店版 shell 激活可能要几秒进程才出现。
-            // 60 秒还没见到进程就当启动失败，同样还原配置。
+        } else {
+            // seen_running 从未为真 = 从头到尾没探测到进程。这更可能是「检测方法」本身的
+            // 问题（商店版 Codex 进程名叫 ChatGPT.exe、MSIX shell 激活拿不到子进程句柄等），
+            // 而不是真没启动 —— 启动前已探测到应用路径、也发了启动命令，就信任它起来了，
+            // **绝不当「启动失败」去还原配置 / 清会话**。否则会把明明在跑的 Codex 判死、把
+            // 配置改回，用户就用不成了（实测：路径探测到、Codex 起来了，却因进程名对不上被
+            // 误判关闭）。只有「先明确见到在跑、之后连续丢失」（上面 seen_running 分支）才
+            // 认定是用户手动退出、才自动还原。这样即便进程名再对不上也不会误伤。
             return false;
         }
         self.codex_session = None;
