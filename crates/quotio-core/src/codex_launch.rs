@@ -517,15 +517,20 @@ impl CodexSession {
 pub fn codex_app_process_running() -> bool {
     #[cfg(target_os = "windows")]
     {
-        let Ok(output) = quiet_command("tasklist")
-            .args(["/FI", "IMAGENAME eq codex*", "/NH"])
-            .output()
-        else {
-            return true;
-        };
-        String::from_utf8_lossy(&output.stdout)
-            .to_lowercase()
-            .contains("codex")
+        // 商店版 Codex 的进程名可能是 Codex 或 ChatGPT(见 close_codex_app 注释),两者都探。
+        for pat in ["codex*", "ChatGPT*"] {
+            let Ok(output) = quiet_command("tasklist")
+                .args(["/FI", &format!("IMAGENAME eq {pat}"), "/NH"])
+                .output()
+            else {
+                return true;
+            };
+            let text = String::from_utf8_lossy(&output.stdout).to_lowercase();
+            if text.contains("codex") || text.contains("chatgpt") {
+                return true;
+            }
+        }
+        false
     }
     #[cfg(target_os = "macos")]
     {
@@ -685,10 +690,15 @@ pub fn kill_process(pid: u32) {
 pub fn close_codex_app() {
     #[cfg(target_os = "windows")]
     {
-        // `codex*` 覆盖桌面应用 `Codex.exe` + 原生 CLI `codex*.exe`（含平台后缀）；/T 连子进程一起杀。
-        let _ = quiet_command("taskkill")
-            .args(["/F", "/T", "/FI", "IMAGENAME eq codex*"])
-            .output();
+        // `codex*` 覆盖桌面应用 `Codex.exe` + 原生 CLI `codex*.exe`（含平台后缀）；`ChatGPT.exe`
+        // 覆盖商店版 Codex —— OpenAI 把商店应用的进程名叫 `ChatGPT`（与 macOS 上 `Codex.app` 里
+        // 主程序叫 `ChatGPT` 是同源的交叉命名）。只按 `codex*` 匹配根本杀不掉商店版,旧实例会残留
+        // 累积、单实例激活失败导致「启动不起来」。/T 连子进程一起杀。
+        for pat in ["codex*", "ChatGPT.exe"] {
+            let _ = quiet_command("taskkill")
+                .args(["/F", "/T", "/FI", &format!("IMAGENAME eq {pat}")])
+                .output();
+        }
         // 兜底：node 起的 codex CLI（按进程名抓不到，按命令行含 codex 抓）。
         let _ = quiet_command("powershell")
             .args([
@@ -848,7 +858,7 @@ fn resolve_codex_app_pid_within(timeout: std::time::Duration) -> Option<u32> {
     let started = std::time::Instant::now();
     loop {
         if let Ok(output) = run_powershell(
-            "(Get-Process -Name Codex -ErrorAction SilentlyContinue | Select-Object -First 1).Id",
+            "(Get-Process -Name Codex,ChatGPT -ErrorAction SilentlyContinue | Select-Object -First 1).Id",
         ) {
             if let Ok(pid) = String::from_utf8_lossy(&output.stdout)
                 .trim()
