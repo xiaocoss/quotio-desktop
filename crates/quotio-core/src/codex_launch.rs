@@ -735,6 +735,22 @@ pub fn launch_codex_app(exe: &Path) -> Result<Option<u32>, String> {
     if !exe.exists() {
         return Err(format!("Codex 应用不存在: {}", exe.display()));
     }
+    // 商店版（WindowsApps/MSIX）：直接 spawn / CreateProcess 这个 exe 会拉起一个**不完整
+    // 的实例**——在部分系统（实测 Windows LTSC 精简版）上起来一下就自退，Codex 根本用不成；
+    // 有时 spawn 甚至「假成功」返回一个转瞬即逝的 pid。MSIX 必须用
+    // `shell:AppsFolder\<AppUserModelId>` 激活（见 launch_codex_app_via_shell）。所以
+    // WindowsApps 路径一律走 shell 激活、不再尝试直接 spawn。shell 激活拿不到子进程句柄，
+    // 启动后 best-effort 轻探最多 1.5 秒按进程名取 pid（只作停止时精确杀进程的额外保险）。
+    #[cfg(target_os = "windows")]
+    {
+        if is_windowsapps_path(exe) {
+            launch_codex_app_via_shell(exe)?;
+            return Ok(resolve_codex_app_pid_within(
+                std::time::Duration::from_millis(1500),
+            ));
+        }
+    }
+    // 非商店（绿色版 / 直接 exe / CLI 二进制）：独立于 Quotio 进程直接 spawn。
     let mut command = Command::new(exe);
     #[cfg(target_os = "windows")]
     {
@@ -745,18 +761,6 @@ pub fn launch_codex_app(exe: &Path) -> Result<Option<u32>, String> {
     }
     match command.spawn() {
         Ok(child) => Ok(Some(child.id())),
-        #[cfg(target_os = "windows")]
-        Err(err)
-            if err.kind() == std::io::ErrorKind::PermissionDenied && is_windowsapps_path(exe) =>
-        {
-            launch_codex_app_via_shell(exe)?;
-            // 商店版 shell 激活拿不到子进程句柄。pid 只是「停止」时精确杀进程的额外保险
-            // （App 模式停止/监控本就按进程名兜底），所以只 best-effort 轻探最多 1.5 秒：
-            // 进程出现得快就记下 pid，否则返回 None（绝不再像以前那样空转 8 秒）。
-            Ok(resolve_codex_app_pid_within(
-                std::time::Duration::from_millis(1500),
-            ))
-        }
         Err(err) => Err(format!("启动 Codex 应用失败: {err}")),
     }
 }
@@ -798,30 +802,46 @@ fn run_powershell_expect_success(script: &str) -> Result<std::process::Output, S
     })
 }
 
-/// WindowsApps 直接 spawn 被拒后的 shell 启动：
-/// 先 `Start-Process` exe 路径（走 ShellExecute），再退到商店应用入口激活。
+/// WindowsApps 直接 spawn 被拒后的 shell 启动：**优先**用 `shell:AppsFolder\<AppUserModelId>`
+/// 激活商店应用，探测不到入口或激活失败时才退回直接 `Start-Process` exe 路径。
+///
+/// 为什么 AppsFolder 优先：`shell:AppsFolder` 是把 MSIX 商店应用**完整拉起**的正规方式。
+/// 之前先试「exe 路径 Start-Process」，在某些系统（实测 **Windows LTSC 精简版**）上会
+/// 「假成功」——`Start-Process` 不报错、进程也起来一下，但按 exe 路径拉起的 MSIX 实例
+/// 不完整、随即自退；又因为返回成功就 `return`、不再走 AppsFolder，于是 Codex 永远起不来
+/// （用户实测：手动 `Start-Process shell:AppsFolder\OpenAI.Codex_…!App` 能干净启动，
+/// 而 Quotio 一键启动只闪一下）。故把顺序倒过来。
 #[cfg(target_os = "windows")]
 fn launch_codex_app_via_shell(exe: &Path) -> Result<(), String> {
-    let script = format!(
-        "Start-Process -FilePath '{}' -ErrorAction Stop | Out-Null",
-        escape_powershell_single_quoted(&exe.to_string_lossy())
-    );
-    let direct_error = match run_powershell_expect_success(&script) {
-        Ok(_) => return Ok(()),
-        Err(error) => error,
-    };
-    let app_id = detect_codex_store_app_id().ok_or_else(|| {
+    let exe_script = || {
         format!(
-            "启动 Codex 应用失败（商店版需 shell 启动）: {direct_error}；且未检测到商店应用入口"
+            "Start-Process -FilePath '{}' -ErrorAction Stop | Out-Null",
+            escape_powershell_single_quoted(&exe.to_string_lossy())
         )
-    })?;
-    let script = format!(
-        "Start-Process -FilePath ('shell:AppsFolder\\' + '{}') -ErrorAction Stop | Out-Null",
-        escape_powershell_single_quoted(&app_id)
-    );
-    run_powershell_expect_success(&script)
+    };
+    if let Some(app_id) = detect_codex_store_app_id() {
+        let script = format!(
+            "Start-Process -FilePath ('shell:AppsFolder\\' + '{}') -ErrorAction Stop | Out-Null",
+            escape_powershell_single_quoted(&app_id)
+        );
+        match run_powershell_expect_success(&script) {
+            Ok(_) => return Ok(()),
+            Err(store_error) => {
+                // 商店入口激活失败：兜底试直接 exe 路径（绿色版 / 非 MSIX 就靠这个）。
+                return run_powershell_expect_success(&exe_script())
+                    .map(|_| ())
+                    .map_err(|exe_error| {
+                        format!(
+                            "启动 Codex 应用失败（商店入口 {app_id}: {store_error}；exe 路径: {exe_error}）"
+                        )
+                    });
+            }
+        }
+    }
+    // 没探测到商店入口（非 MSIX / 绿色版）：直接 exe 路径。
+    run_powershell_expect_success(&exe_script())
         .map(|_| ())
-        .map_err(|error| format!("启动 Codex 应用失败（商店入口 {app_id}）: {error}"))
+        .map_err(|error| format!("启动 Codex 应用失败: {error}"))
 }
 
 /// 探测商店版 Codex 的 AppUserModelId（`<PackageFamilyName>!<AppId>`）：

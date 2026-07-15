@@ -7,6 +7,14 @@
      从本文件抽取对应段作为 Release 正文 + 应用内更新弹窗内容；标题对不上就抽不到，
      这些改动不会出现在更新提示里。 -->
 
+## v0.6.4 - 2026-07-15
+
+修复商店版 Codex 在部分系统(尤其 Windows LTSC 精简版)上一键启动"起来一下就退、根本用不成"的问题。
+
+### 修复
+
+- **商店版(MSIX)Codex 一键启动改为一律走 `shell:AppsFolder` 激活,不再直接 spawn / 按 exe 路径拉起**。此前启动是多层兜底:先直接 `spawn` exe(被 ACL 拒才走 shell)、shell 里又先试 exe 路径 `Start-Process`(失败才用商店入口)。问题在于:部分系统(实测 **Windows LTSC**)上,直接按 exe 路径拉起 MSIX 会起一个**不完整的实例、随即自退**,而 `spawn`/`Start-Process` 却"假成功"返回 —— Quotio 于是以为启动成功、不再走正确的 `shell:AppsFolder\<AppUserModelId>` 激活,结果 Codex 永远"闪一下就没"。现在 WindowsApps 路径直接用商店入口激活(用户在 LTSC 上实测该方式能干净启动),`spawn`/exe 路径仅作非 MSIX / 绿色版的兜底。承接 0.6.2(进程名)、0.6.3(监控)一起,彻底解决 LTSC 上"Codex 启动不了"。
+
 ## v0.6.3 - 2026-07-15
 
 进一步加固 Codex 一键启动的稳健性(承接 0.6.2)。
