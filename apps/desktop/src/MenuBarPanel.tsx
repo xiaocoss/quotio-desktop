@@ -62,7 +62,7 @@ function Icon({ id }: { id: string }) {
   );
 }
 
-/// The tray "menu bar" floating quota panel (see 设计图/悬浮窗). Rendered in a
+/// The tray "menu bar" floating quota panel (see 设计图/原版/悬浮窗). Rendered in a
 /// separate always-on-top frameless transparent window; toggled from the tray icon.
 export default function MenuBarPanel() {
   const app = useAppState();

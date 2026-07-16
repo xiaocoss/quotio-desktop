@@ -1,5 +1,5 @@
 /* ============================================================================
-   智能体页重设计 —— 严格按 设计图/智能体 的参考实现(agent-reference.html)落地。
+   智能体页重设计 —— 严格按 设计图/原版/智能体 的参考实现(agent-reference.html)落地。
    全部选择器挂在 .agents-redesign 作用域下,自带暖色玻璃拟态调色板,
    既不依赖也不污染全局 --quotio-* 主题变量。设计令牌见 design-tokens.json。
    素材在 apps/desktop/public/agents/(通过 /agents/xxx.svg 引用)。
