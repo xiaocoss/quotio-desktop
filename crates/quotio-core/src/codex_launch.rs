@@ -3,6 +3,7 @@
 //! 「绑定账号」只为让 Codex 桌面应用能登录启动；实际请求走 Quotio 代理
 //! （`~/.codex/config.toml` 的 cliproxyapi provider），绑定的号本身不参与额度调用。
 
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -17,7 +18,7 @@ const PREVIOUS_DISABLED_FIELD: &str = "quotio_previous_disabled";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 /// 新建一个不弹控制台窗口的 Command（仅 Windows 加标志；其它平台原样）。
-fn quiet_command(program: &str) -> Command {
+fn quiet_command(program: impl AsRef<OsStr>) -> Command {
     let mut command = Command::new(program);
     #[cfg(target_os = "windows")]
     {
@@ -25,6 +26,87 @@ fn quiet_command(program: &str) -> Command {
         command.creation_flags(CREATE_NO_WINDOW);
     }
     command
+}
+
+#[cfg(target_os = "windows")]
+fn push_unique_powershell_candidate(
+    candidates: &mut Vec<PathBuf>,
+    seen: &mut std::collections::BTreeSet<String>,
+    candidate: PathBuf,
+) {
+    let key = candidate
+        .to_string_lossy()
+        .replace('/', "\\")
+        .to_lowercase();
+    if seen.insert(key) {
+        candidates.push(candidate);
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn powershell_candidates_from_roots(
+    system_root: Option<&Path>,
+    program_files: Option<&Path>,
+) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    let mut seen = std::collections::BTreeSet::new();
+    if let Some(root) = system_root {
+        for directory in ["System32", "Sysnative"] {
+            let candidate = root
+                .join(directory)
+                .join("WindowsPowerShell/v1.0/powershell.exe");
+            if candidate.is_file() {
+                push_unique_powershell_candidate(&mut candidates, &mut seen, candidate);
+            }
+        }
+    }
+    push_unique_powershell_candidate(&mut candidates, &mut seen, PathBuf::from("powershell.exe"));
+    if let Some(root) = program_files {
+        let candidate = root.join("PowerShell/7/pwsh.exe");
+        if candidate.is_file() {
+            push_unique_powershell_candidate(&mut candidates, &mut seen, candidate);
+        }
+    }
+    push_unique_powershell_candidate(&mut candidates, &mut seen, PathBuf::from("pwsh.exe"));
+    candidates
+}
+
+#[cfg(target_os = "windows")]
+fn windows_powershell_candidates() -> Vec<PathBuf> {
+    let system_root = std::env::var_os("SystemRoot")
+        .or_else(|| std::env::var_os("WINDIR"))
+        .map(PathBuf::from);
+    let program_files = std::env::var_os("ProgramFiles").map(PathBuf::from);
+    powershell_candidates_from_roots(system_root.as_deref(), program_files.as_deref())
+}
+
+#[cfg(target_os = "windows")]
+fn try_powershell_candidates<T, F>(
+    candidates: &[PathBuf],
+    mut execute: F,
+) -> Result<(PathBuf, T), String>
+where
+    F: FnMut(&Path) -> std::io::Result<T>,
+{
+    let mut attempted = Vec::new();
+    for candidate in candidates {
+        attempted.push(candidate.display().to_string());
+        match execute(candidate) {
+            Ok(value) => return Ok((candidate.clone(), value)),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => {
+                return Err(format!(
+                    "调用 PowerShell 失败（{}）: {}",
+                    candidate.display(),
+                    error
+                ));
+            }
+        }
+    }
+    Err(format!(
+        "未找到可用的 PowerShell（已尝试：{}）。请启用 Windows PowerShell 或安装 PowerShell 7。",
+        attempted.join("、")
+    ))
 }
 
 // ---------- 路径 ----------
@@ -1054,6 +1136,100 @@ mod tests {
     fn escapes_powershell_single_quotes() {
         assert_eq!(escape_powershell_single_quoted("plain"), "plain");
         assert_eq!(escape_powershell_single_quoted("it's"), "it''s");
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn powershell_candidates_prefer_system_paths_and_include_pwsh() {
+        let root = temp_codex_home("ql_powershell_candidates_system");
+        let system_root = root.join("Windows");
+        let program_files = root.join("Program Files");
+        let system32 = system_root.join("System32/WindowsPowerShell/v1.0/powershell.exe");
+        let sysnative = system_root.join("Sysnative/WindowsPowerShell/v1.0/powershell.exe");
+        let pwsh = program_files.join("PowerShell/7/pwsh.exe");
+        for path in [&system32, &sysnative, &pwsh] {
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, b"").unwrap();
+        }
+
+        assert_eq!(
+            powershell_candidates_from_roots(Some(&system_root), Some(&program_files)),
+            vec![
+                system32,
+                sysnative,
+                PathBuf::from("powershell.exe"),
+                pwsh,
+                PathBuf::from("pwsh.exe"),
+            ]
+        );
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn powershell_candidates_fall_back_to_path_names_when_absolute_files_are_missing() {
+        assert_eq!(
+            powershell_candidates_from_roots(None, None),
+            vec![PathBuf::from("powershell.exe"), PathBuf::from("pwsh.exe")]
+        );
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn powershell_candidates_are_case_insensitively_deduplicated() {
+        let mut candidates = Vec::new();
+        let mut seen = std::collections::BTreeSet::new();
+        push_unique_powershell_candidate(
+            &mut candidates,
+            &mut seen,
+            PathBuf::from("PowerShell.exe"),
+        );
+        push_unique_powershell_candidate(
+            &mut candidates,
+            &mut seen,
+            PathBuf::from("powershell.exe"),
+        );
+
+        assert_eq!(candidates, vec![PathBuf::from("PowerShell.exe")]);
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn powershell_candidate_runner_retries_only_not_found() {
+        use std::io::{Error, ErrorKind};
+
+        let candidates = vec![PathBuf::from("missing.exe"), PathBuf::from("available.exe")];
+        let mut attempted = Vec::new();
+        let (program, value) = try_powershell_candidates(&candidates, |candidate| {
+            attempted.push(candidate.to_path_buf());
+            if candidate == Path::new("missing.exe") {
+                Err(Error::new(ErrorKind::NotFound, "missing"))
+            } else {
+                Ok(42)
+            }
+        })
+        .unwrap();
+
+        assert_eq!(program, PathBuf::from("available.exe"));
+        assert_eq!(value, 42);
+        assert_eq!(attempted, candidates);
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn powershell_candidate_runner_preserves_other_errors() {
+        use std::io::{Error, ErrorKind};
+
+        let candidates = vec![PathBuf::from("denied.exe"), PathBuf::from("unused.exe")];
+        let mut attempted = Vec::new();
+        let error = try_powershell_candidates(&candidates, |candidate| -> std::io::Result<()> {
+            attempted.push(candidate.to_path_buf());
+            Err(Error::new(ErrorKind::PermissionDenied, "denied"))
+        })
+        .unwrap_err();
+
+        assert_eq!(attempted, vec![PathBuf::from("denied.exe")]);
+        assert!(error.contains("denied.exe"));
     }
 
     #[test]
