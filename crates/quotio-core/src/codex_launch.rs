@@ -224,15 +224,9 @@ fn parse_version_from_dir_name(name: &str) -> Vec<u64> {
 /// （比直接扫 WindowsApps 更可靠，后者子目录常被 ACL 挡）。
 #[cfg(target_os = "windows")]
 fn detect_codex_via_appx() -> Option<PathBuf> {
-    let output = quiet_command("powershell")
-        .args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            "(Get-AppxPackage -Name *Codex* | Select-Object -First 1).InstallLocation",
-        ])
-        .output()
-        .ok()?;
+    let output =
+        run_powershell("(Get-AppxPackage -Name *Codex* | Select-Object -First 1).InstallLocation")
+            .ok()?;
     let location = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if location.is_empty() {
         return None;
@@ -782,14 +776,9 @@ pub fn close_codex_app() {
                 .output();
         }
         // 兜底：node 起的 codex CLI（按进程名抓不到，按命令行含 codex 抓）。
-        let _ = quiet_command("powershell")
-            .args([
-                "-NoProfile",
-                "-NonInteractive",
-                "-Command",
-                "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -like '*codex*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }",
-            ])
-            .output();
+        let _ = run_powershell(
+            "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -like '*codex*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }",
+        );
     }
     #[cfg(target_os = "macos")]
     {
@@ -862,11 +851,22 @@ fn escape_powershell_single_quoted(value: &str) -> String {
 }
 
 #[cfg(target_os = "windows")]
+fn run_powershell_with_program(script: &str) -> Result<(PathBuf, std::process::Output), String> {
+    try_powershell_candidates(&windows_powershell_candidates(), |program| {
+        quiet_command(program)
+            .args(["-NoProfile", "-NonInteractive", "-Command", script])
+            .output()
+    })
+}
+
+#[cfg(target_os = "windows")]
 fn run_powershell(script: &str) -> Result<std::process::Output, String> {
-    quiet_command("powershell")
-        .args(["-NoProfile", "-NonInteractive", "-Command", script])
-        .output()
-        .map_err(|e| format!("调用 PowerShell 失败: {e}"))
+    run_powershell_with_program(script).map(|(_, output)| output)
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_powershell_program() -> Result<PathBuf, String> {
+    run_powershell_with_program("$null").map(|(program, _)| program)
 }
 
 #[cfg(target_os = "windows")]
@@ -986,21 +986,18 @@ pub fn launch_codex_cli() -> Result<Option<u32>, String> {
     let codex_cmd = build_cli_launch_command();
     #[cfg(target_os = "windows")]
     {
+        let powershell_program = resolve_powershell_program()?;
         if let Ok(child) = Command::new("wt")
-            .args(["powershell", "-NoExit", "-Command", &codex_cmd])
+            .arg(&powershell_program)
+            .args(["-NoExit", "-Command", &codex_cmd])
             .spawn()
         {
             return Ok(Some(child.id()));
         }
         Command::new("cmd")
-            .args([
-                "/c",
-                "start",
-                "powershell",
-                "-NoExit",
-                "-Command",
-                &codex_cmd,
-            ])
+            .args(["/d", "/s", "/c", "start", ""])
+            .arg(&powershell_program)
+            .args(["-NoExit", "-Command", &codex_cmd])
             .spawn()
             .map_err(|e| format!("打开终端失败: {e}"))?;
         Ok(None)
