@@ -67,6 +67,7 @@ Thumbs.db
 .claude/
 .cargo/
 .worktrees/
+.codex-vpn-check/
 
 # npm / package manager logs
 npm-debug.log*

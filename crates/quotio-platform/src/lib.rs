@@ -140,11 +140,61 @@ pub fn kiro_resource_dir() -> PathBuf {
 
     if let Some(root) = configured_proxy_resource_root() {
         // root = <Resource>/resources/proxy → sibling <Resource>/resources/kiro.
-        let base = root.parent().map(|parent| parent.to_path_buf()).unwrap_or(root);
+        let base = root
+            .parent()
+            .map(|parent| parent.to_path_buf())
+            .unwrap_or(root);
         return base.join("kiro").join(platform);
     }
 
     let relative = PathBuf::from("resources").join("kiro").join(platform);
+
+    if let Ok(current_dir) = std::env::current_dir() {
+        for base in current_dir.ancestors() {
+            let candidate = base.join(&relative);
+            if candidate.exists() {
+                return candidate;
+            }
+        }
+    }
+
+    if let Ok(current_exe) = std::env::current_exe() {
+        if let Some(exe_dir) = current_exe.parent() {
+            for base in exe_dir.ancestors().take(4) {
+                let candidate = base.join(&relative);
+                if candidate.exists() {
+                    return candidate;
+                }
+            }
+        }
+    }
+
+    std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(|parent| parent.to_path_buf()))
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(relative)
+}
+
+/// Bundled Codex Dream Skin runtime. It lives beside the proxy and Kiro
+/// resources so the same Tauri resource root works in installed and portable
+/// layouts.
+pub fn dream_skin_resource_dir() -> PathBuf {
+    if let Some(path) = std::env::var_os("QUOTIO_DREAM_SKIN_RESOURCE_DIR") {
+        return PathBuf::from(path);
+    }
+
+    let platform = current_proxy_platform();
+
+    if let Some(root) = configured_proxy_resource_root() {
+        let base = root
+            .parent()
+            .map(|parent| parent.to_path_buf())
+            .unwrap_or(root);
+        return base.join("dream-skin").join(platform);
+    }
+
+    let relative = PathBuf::from("resources").join("dream-skin").join(platform);
 
     if let Ok(current_dir) = std::env::current_dir() {
         for base in current_dir.ancestors() {

@@ -6,11 +6,13 @@
     "desktop:install": "npm --prefix apps/desktop install",
     "desktop:dev": "npm --prefix apps/desktop run tauri dev",
     "desktop:build": "npm --prefix apps/desktop run tauri build",
+    "desktop:build:portable": "npm --prefix apps/desktop run tauri -- build --no-bundle",
     "web:dev": "npm --prefix apps/desktop run dev",
     "web:build": "npm --prefix apps/desktop run build",
     "cargo:check": "cargo check --workspace",
     "version:set": "pwsh -NoProfile -File scripts/set-version.ps1",
     "package:portable": "pwsh -NoProfile -File scripts/package-portable.ps1",
-    "release": "npm run desktop:build && npm run package:portable"
+    "package:portable:assemble": "pwsh -NoProfile -File scripts/package-portable.ps1 -SkipBuild",
+    "release": "npm run desktop:build && npm run package:portable:assemble"
   }
 }

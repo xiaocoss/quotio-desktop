@@ -4,6 +4,7 @@ pub mod bridge;
 pub mod codex_catalog;
 pub mod codex_launch;
 pub mod codex_session_visibility;
+pub mod dream_skin;
 pub mod kiro_idc;
 pub mod kiro_sidecar;
 pub mod management;
@@ -354,11 +355,17 @@ impl AppCore {
                 codex_launch::kill_process(pid);
             }
             codex_launch::close_codex_app();
+            if let Err(err) = dream_skin::cleanup_if_present() {
+                eprintln!("[shutdown] cleanup Dream Skin failed: {err}");
+            }
             if let Err(err) = codex_launch::restore_codex_state_from_launch_backup_unlocked() {
                 eprintln!("[shutdown] restore codex state failed: {err}");
             }
         } else if codex_launch::launch_backup_exists() {
             codex_launch::close_codex_app();
+            if let Err(err) = dream_skin::cleanup_if_present() {
+                eprintln!("[shutdown] cleanup Dream Skin failed: {err}");
+            }
             if let Err(err) = codex_launch::restore_codex_state_from_launch_backup_unlocked() {
                 eprintln!("[shutdown] restore codex state failed: {err}");
             }
@@ -1061,12 +1068,19 @@ impl AppCore {
         if codex_launch::launch_backup_exists() {
             codex_launch::close_codex_app();
             thread::sleep(Duration::from_millis(400));
+            let dream_skin_cleanup_error = dream_skin::cleanup_if_present().err();
             codex_launch::restore_codex_state_from_launch_backup_unlocked().map_err(|error| {
                 ManagementCoreError::Unavailable(format!(
                     "检测到上次 Codex 启动未完成，自动恢复失败：{}",
                     error
                 ))
             })?;
+            if let Some(error) = dream_skin_cleanup_error {
+                return Err(ManagementCoreError::Unavailable(format!(
+                    "已恢复上次 Codex 配置，但 Dream Skin 残留清理失败：{}",
+                    error
+                )));
+            }
         }
 
         // 绑定的启动账号默认走 login-only：写 disabled 排除出代理池，避免它被轮换。
@@ -1105,6 +1119,9 @@ impl AppCore {
                 codex_launch::close_codex_app();
                 thread::sleep(Duration::from_millis(500));
             }
+            dream_skin::cleanup_if_present().map_err(|error| {
+                ManagementCoreError::Unavailable(format!("清理旧 Dream Skin 会话失败：{error}"))
+            })?;
             // 此刻把 ~/.codex 原样写进固定备份文件（停止/关软件时从这个文件还原）。
             codex_launch::write_launch_backup_unlocked()
                 .map_err(ManagementCoreError::Unavailable)?;
@@ -1152,6 +1169,8 @@ impl AppCore {
             } else {
                 profile.launch_mode.trim()
             };
+            let use_dream_skin =
+                mode == "app" && profile.dream_skin_enabled && cfg!(target_os = "windows");
             let pid = if mode == "cli" {
                 codex_launch::launch_codex_cli().map_err(ManagementCoreError::Unavailable)?
             } else {
@@ -1164,13 +1183,32 @@ impl AppCore {
                             "未找到 Codex 应用，请在 Codex 卡片里手填应用路径".to_string(),
                         )
                     })?;
-                codex_launch::launch_codex_app(&exe).map_err(ManagementCoreError::Unavailable)?
+                if use_dream_skin {
+                    dream_skin::validate_codex_target(&exe)
+                        .map_err(ManagementCoreError::Unavailable)?;
+                    if let Err(error) = dream_skin::start(&profile.dream_skin_theme_id) {
+                        codex_launch::close_codex_app();
+                        thread::sleep(Duration::from_millis(400));
+                        if let Err(cleanup_error) = dream_skin::cleanup_if_present() {
+                            eprintln!(
+                                "[codex_start] Dream Skin 启动失败后的清理也失败: {cleanup_error}"
+                            );
+                        }
+                        return Err(ManagementCoreError::Unavailable(error));
+                    }
+                    None
+                } else {
+                    codex_launch::launch_codex_app(&exe)
+                        .map_err(ManagementCoreError::Unavailable)?
+                }
             };
             self.codex_session = Some(codex_launch::CodexSession::new(pid, mode));
             self.codex_session_generation = self.codex_session_generation.wrapping_add(1);
             self.codex_active_profile_id = Some(profile_id.to_string());
             Ok(if mode == "cli" {
                 "已在终端启动 Codex（停止会还原配置）".to_string()
+            } else if use_dream_skin {
+                "已启动 Codex 应用并启用 Dream Skin".to_string()
             } else {
                 match pid {
                     Some(pid) => format!("已启动 Codex 应用（pid={pid}）"),
@@ -1186,6 +1224,9 @@ impl AppCore {
             if let Err(err) = codex_launch::release_bound_account_login_only_unlocked(&account_key)
             {
                 eprintln!("[codex_start] 回滚释放绑定失败: {err}");
+            }
+            if let Err(err) = dream_skin::cleanup_if_present() {
+                eprintln!("[codex_start] 回滚清理 Dream Skin 失败: {err}");
             }
             if codex_launch::launch_backup_exists() {
                 if let Err(err) = codex_launch::restore_codex_state_from_launch_backup_unlocked() {
@@ -1217,6 +1258,7 @@ impl AppCore {
         }
         codex_launch::close_codex_app();
         thread::sleep(Duration::from_millis(400));
+        let dream_skin_cleanup_error = dream_skin::cleanup_if_present().err();
         // 先解除绑定占用，再还原配置：release 依赖 codex_active_profile_id，必须在清空它之前；
         // 且即使还原失败(Windows 上 Codex 残留进程仍持文件句柄等)也已把账号放回代理池，
         // 不让它卡在 login-only 禁用态被踢出池子。次序对齐 codex_monitor_apply。
@@ -1224,7 +1266,10 @@ impl AppCore {
         let restore = codex_launch::restore_codex_state_from_launch_backup_unlocked();
         self.codex_active_profile_id = None;
         restore.map_err(ManagementCoreError::Unavailable)?;
-        Ok("已停止 Codex 并还原配置".to_string())
+        Ok(match dream_skin_cleanup_error {
+            Some(error) => format!("已停止 Codex 并还原配置；Dream Skin 清理警告：{error}"),
+            None => "已停止 Codex 并还原配置".to_string(),
+        })
     }
 
     /// 当前是否有 Codex 一键启动会话在运行。
@@ -1328,6 +1373,9 @@ impl AppCore {
         }
         self.codex_session = None;
         self.release_active_profile_binding();
+        if let Err(err) = dream_skin::cleanup_if_present() {
+            eprintln!("[codex_monitor] cleanup Dream Skin failed: {err}");
+        }
         if let Err(err) = codex_launch::restore_codex_state_from_launch_backup_unlocked() {
             eprintln!("[codex_monitor] restore codex state failed: {err}");
         }
@@ -3166,6 +3214,8 @@ fn migrate_codex_profiles(settings: &mut AppSettings) {
             model: settings.codex_model.trim().to_string(),
             reasoning,
             api_key: settings.codex_api_key.trim().to_string(),
+            dream_skin_enabled: false,
+            dream_skin_theme_id: dream_skin::DEFAULT_THEME_ID.to_string(),
         });
     // 清空旧平铺字段：迁移后以 codex_profiles 为唯一数据源。
     settings.codex_launch_mode = "app".to_string();
@@ -4754,6 +4804,8 @@ mod tests {
             "codex-user@example.com"
         );
         assert_eq!(settings.codex_profiles[0].proxy_url, "");
+        assert!(!settings.codex_profiles[0].dream_skin_enabled);
+        assert_eq!(settings.codex_profiles[0].dream_skin_theme_id, "dream");
     }
 
     #[test]

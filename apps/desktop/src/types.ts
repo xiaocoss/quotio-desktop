@@ -90,11 +90,21 @@ export type CodexAccountRef = {
   disabled: boolean;
 };
 
+export type DreamSkinThemeSummary = {
+  id: string;
+  name: string;
+  built_in: boolean;
+};
+
 // 一套 Codex 一键启动方案。镜像 crates/quotio-types `CodexLaunchProfile`。
 export type CodexLaunchProfile = {
   id: string;
   name: string;
   launch_mode: string; // app / cli
+  // Optional only for compatibility with old persisted/mock payloads; missing = disabled.
+  dream_skin_enabled?: boolean;
+  // Missing legacy value falls back to the bundled dream theme.
+  dream_skin_theme_id?: string;
   bound_account: string;
   proxy_url: string; // 代理地址（base_url）；留空 = 本机端点
   model: string;

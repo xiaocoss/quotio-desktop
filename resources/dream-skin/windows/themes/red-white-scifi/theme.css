@@ -1,0 +1,294 @@
+:root.codex-dream-skin {
+  --dream-theme-name: "red-white-scifi";
+  --dream-ink: #191919;
+  --dream-purple: #b71925;
+  --dream-violet: #d92c37;
+  --dream-pink: #ee6a72;
+  --dream-blush: #fff7f7;
+  --dream-pearl: rgba(255, 255, 255, .97);
+  --dream-line: rgba(183, 25, 37, .22);
+  --gallery-bg: #fffafa;
+  --gallery-bg-alt: #f8e9ea;
+  --gallery-panel: #ffffff;
+  --gallery-text: #202020;
+  --gallery-accent: #c71925;
+  --gallery-accent-alt: #ee5963;
+  --gallery-glow: rgba(239, 96, 104, .25);
+  --gallery-art-size: auto 480%;
+  --gallery-art-position: 50% 9%;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] body {
+  background:
+    radial-gradient(circle at 74% 2%, rgba(238, 86, 96, .15), transparent 29%),
+    linear-gradient(145deg, #ffffff, #fff8f8 58%, #f8eeee) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] body::before {
+  opacity: .12;
+  background-image:
+    linear-gradient(rgba(197, 28, 40, .12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(197, 28, 40, .09) 1px, transparent 1px);
+  background-size: 38px 38px;
+  background-position: 0 0;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-panel {
+  position: relative;
+  color: #252525 !important;
+  background: rgba(255, 255, 255, .985) !important;
+  border: 0 !important;
+  border-right: 1px solid #ece4e5 !important;
+  border-radius: 0 !important;
+  box-shadow: 5px 0 22px rgba(93, 27, 33, .035) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-panel::before,
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-panel::after {
+  content: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-panel div:has(> button:is([aria-label^="切换模式"], [aria-label^="Switch mode"])) {
+  min-height: 50px;
+  align-items: center;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) {
+  width: min(190px, calc(100% - 42px));
+  height: 46px !important;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 2px 5px !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"])::before {
+  content: "C";
+  width: 22px;
+  height: 22px;
+  display: grid;
+  flex: 0 0 22px;
+  place-items: center;
+  border-radius: 5px;
+  color: white;
+  background: #c71925;
+  font: 800 13px/1 "Segoe UI", sans-serif;
+  box-shadow: 0 4px 9px rgba(183, 25, 37, .18);
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: visible;
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 1 !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span::before {
+  content: "Codex";
+  color: #1e1e1e;
+  font: 750 17px/1.05 "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  letter-spacing: -.02em;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span::after {
+  content: "RED / WHITE SYSTEM";
+  margin-top: 4px;
+  color: #a14f55;
+  font: 650 8px/1 "Segoe UI", sans-serif;
+  letter-spacing: .12em;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > svg,
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"])::after {
+  display: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-panel button:is([aria-label="搜索"], [aria-label="Search"]) {
+  color: #8c1e27 !important;
+  border: 1px solid #eee4e5 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-panel button:hover,
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-panel [aria-current="page"],
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-panel [class~="bg-token-list-hover-background"] {
+  color: #9e1d27 !important;
+  background: linear-gradient(90deg, rgba(203, 31, 43, .11), rgba(255, 255, 255, .78)) !important;
+  border-color: rgba(195, 28, 40, .15) !important;
+  box-shadow: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] main.main-surface {
+  background:
+    radial-gradient(circle at 78% 3%, rgba(235, 71, 82, .10), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, .995), rgba(255, 248, 248, .985)) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] main.main-surface > header.app-header-tint {
+  background: rgba(255, 255, 255, .96) !important;
+  border-bottom: 1px solid #eee5e6 !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] #codex-dream-skin-chrome .dream-brand,
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] #codex-dream-skin-chrome .dream-signature,
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] #codex-dream-skin-chrome .dream-ribbon,
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] #codex-dream-skin-chrome .dream-polaroid,
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] #codex-dream-skin-chrome .dream-sparkles {
+  display: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] #codex-dream-skin-chrome.dream-home-shell::before {
+  content: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home > div:first-child {
+  padding-top: 18px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home > div:first-child > div:first-child {
+  flex-basis: 364px !important;
+  min-height: 364px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home > div:first-child > div:first-child > div:first-child {
+  height: 210px !important;
+  min-height: 210px !important;
+  border: 0 !important;
+  border-bottom: 2px solid rgba(199, 25, 37, .46) !important;
+  border-radius: 7px !important;
+  background-image: var(--dream-art) !important;
+  background-size: auto 480% !important;
+  background-position: 50% 9% !important;
+  box-shadow: 0 10px 24px rgba(133, 30, 38, .08) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home > div:first-child > div:first-child > div:first-child::before {
+  width: 62%;
+  border-radius: 7px 0 0 7px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, .995) 0%, rgba(255, 252, 252, .98) 52%, rgba(255, 249, 249, .82) 78%, transparent 100%);
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home > div:first-child > div:first-child > div:first-child > div:first-child {
+  padding-left: 34px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child {
+  width: 52% !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home [data-feature="game-source"] {
+  color: #161616 !important;
+  font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif !important;
+  font-size: clamp(23px, 2.1vw, 32px) !important;
+  font-weight: 760 !important;
+  line-height: 1.2 !important;
+  letter-spacing: -.025em;
+  text-shadow: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home [data-feature="game-source"]::after {
+  content: "用先进的工具，为每一个人创造更多可能。";
+  margin-top: 12px;
+  color: #555158;
+  font: 500 13px/1.5 "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  text-shadow: none;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home [data-feature="game-source"] button {
+  color: #b21d28 !important;
+  border-color: rgba(193, 26, 38, .24) !important;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .78) !important;
+  box-shadow: none;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home .group\/home-suggestions button {
+  min-height: 112px !important;
+  border: 1px solid #eee5e6 !important;
+  border-radius: 8px !important;
+  color: #272326 !important;
+  background: linear-gradient(160deg, rgba(255, 255, 255, .99), rgba(255, 247, 247, .97)) !important;
+  box-shadow: 0 7px 16px rgba(119, 31, 38, .055) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home .group\/home-suggestions button:hover {
+  transform: translateY(-2px) !important;
+  border-color: rgba(196, 29, 41, .26) !important;
+  box-shadow: 0 9px 19px rgba(119, 31, 38, .09) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home .group\/home-suggestions button > span:first-child > span:first-child {
+  border-radius: 8px;
+  background: linear-gradient(145deg, #ef727a, #c51d29);
+  box-shadow: 0 0 0 5px rgba(252, 225, 227, .76), 0 5px 11px rgba(155, 27, 37, .16);
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .composer-surface-chrome {
+  border: 1px solid rgba(190, 27, 39, .25) !important;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, .985) !important;
+  box-shadow: 0 9px 22px rgba(109, 30, 36, .075) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .composer-surface-chrome::before {
+  content: ">";
+  width: 24px;
+  height: 24px;
+  left: -11px;
+  top: -11px;
+  border-radius: 6px;
+  color: white;
+  font: 800 14px/1 "Consolas", monospace;
+  background: #c71925;
+  box-shadow: 0 4px 10px rgba(160, 25, 35, .18);
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home div:has(> .horizontal-scroll-fade-mask .group\/project-selector) {
+  border: 0;
+  border-top: 1px solid #eee5e6;
+  background: rgba(255, 255, 255, .96) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home div:has(> .horizontal-scroll-fade-mask .group\/project-selector)::before {
+  content: "项目";
+  color: #a51d27;
+  letter-spacing: .08em;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home .group\/project-selector > button {
+  color: #3a3437 !important;
+  border-color: #e9dfe0 !important;
+  border-radius: 6px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .ProseMirror {
+  color: #202020 !important;
+  caret-color: #c71925 !important;
+}
+
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] .composer-surface-chrome button[class~="bg-token-foreground"] {
+  background: linear-gradient(145deg, #e3404b, #b91723) !important;
+  box-shadow: 0 5px 12px rgba(159, 25, 35, .20) !important;
+}
+
+@media (max-width: 900px) {
+  html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home > div:first-child > div:first-child > div:first-child {
+    height: 198px !important;
+    min-height: 198px !important;
+    background-size: auto 500% !important;
+  }
+}

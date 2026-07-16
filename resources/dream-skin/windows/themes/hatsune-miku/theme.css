@@ -1,0 +1,354 @@
+:root.codex-dream-skin {
+  --dream-theme-name: "hatsune-miku";
+  --dream-ink: #214f59;
+  --dream-purple: #12aeb0;
+  --dream-violet: #77bff0;
+  --dream-pink: #ef7fc1;
+  --dream-blush: #effdfc;
+  --dream-pearl: rgba(248, 255, 254, .94);
+  --dream-line: rgba(70, 196, 197, .34);
+  --gallery-bg: #eafcfb;
+  --gallery-bg-alt: #d6f5f1;
+  --gallery-panel: #f8fffe;
+  --gallery-text: #1e4e53;
+  --gallery-accent: #12aeb0;
+  --gallery-accent-alt: #5ee1cf;
+  --gallery-glow: rgba(94, 225, 207, .5);
+  --gallery-art-size: auto 285%;
+  --gallery-art-position: right 23%;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] body {
+  background:
+    radial-gradient(circle at 88% 8%, rgba(117, 234, 226, .28), transparent 30%),
+    radial-gradient(circle at 65% 16%, rgba(255, 166, 221, .22), transparent 28%),
+    linear-gradient(145deg, #efffff, #e7fafa 58%, #f7f1ff) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] body::before {
+  opacity: .26;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, .98) 0 1px, transparent 2px),
+    radial-gradient(circle, rgba(72, 211, 208, .68) 0 1px, transparent 2px),
+    radial-gradient(circle, rgba(242, 118, 194, .48) 0 1px, transparent 2px);
+  background-position: 0 0, 23px 31px, 42px 15px;
+  background-size: 53px 53px, 67px 67px, 79px 79px;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] aside.app-shell-left-panel {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(246, 255, 255, .98), rgba(225, 248, 248, .96)) !important;
+  border: 1px solid rgba(70, 196, 197, .30) !important;
+  border-left: 0 !important;
+  box-shadow:
+    10px 0 32px rgba(42, 164, 170, .09),
+    inset -1px 0 rgba(255, 255, 255, .92) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] main.main-surface {
+  background:
+    radial-gradient(circle at 82% 8%, rgba(102, 225, 219, .22), transparent 30%),
+    radial-gradient(circle at 24% 0%, rgba(255, 174, 224, .16), transparent 28%),
+    linear-gradient(180deg, rgba(249, 255, 255, .98), rgba(237, 253, 251, .98)) !important;
+  border: 1px solid rgba(70, 196, 197, .28) !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, .96),
+    -8px 0 30px rgba(42, 164, 170, .08) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] main.main-surface > header.app-header-tint {
+  background:
+    linear-gradient(90deg, rgba(247, 255, 255, .96), rgba(235, 253, 251, .90), rgba(247, 240, 255, .82)) !important;
+  border-bottom-color: rgba(70, 196, 197, .24) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] [role="main"] {
+  scrollbar-color: rgba(42, 170, 176, .48) transparent;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] aside.app-shell-left-panel::before,
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] aside.app-shell-left-panel::after {
+  content: none !important;
+}
+
+/* Reuse the native mode switch as the Miku logo. This keeps the whole brand
+   clickable and reserves real layout space instead of covering Search. */
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] aside.app-shell-left-panel div:has(> button:is([aria-label^="切换模式"], [aria-label^="Switch mode"])) {
+  min-height: 52px;
+  align-items: center;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) {
+  width: min(196px, calc(100% - 42px));
+  height: 48px !important;
+  justify-content: flex-start;
+  padding: 2px 6px !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: visible;
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 1 !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span::before {
+  content: "Miku Codex";
+  color: #0caeb0;
+  font: italic 700 18px/1.08 "Segoe Script", "Comic Sans MS", "Microsoft YaHei UI", sans-serif;
+  letter-spacing: -.035em;
+  text-shadow: 0 1px white, 0 0 10px rgba(94, 225, 207, .28);
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span::after {
+  content: "初音未来主题 Codex App";
+  margin-top: 4px;
+  color: #4c858b;
+  font: 600 10px/1.1 "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  letter-spacing: .025em;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > svg,
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"])::after {
+  display: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] aside.app-shell-left-panel button:is([aria-label="搜索"], [aria-label="Search"]) {
+  color: #168b93 !important;
+  border: 1px solid rgba(65, 190, 193, .22) !important;
+  background: rgba(255, 255, 255, .62) !important;
+  box-shadow: 0 4px 12px rgba(42, 164, 170, .08) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] aside.app-shell-left-panel button:hover,
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] aside.app-shell-left-panel [aria-current="page"],
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] aside.app-shell-left-panel [class~="bg-token-list-hover-background"] {
+  background: linear-gradient(90deg, rgba(94, 225, 207, .26), rgba(255, 166, 221, .18)) !important;
+  color: #126d75 !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] #codex-dream-skin-chrome .dream-brand,
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] #codex-dream-skin-chrome .dream-signature,
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] #codex-dream-skin-chrome .dream-ribbon {
+  display: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] #codex-dream-skin-chrome.dream-home-shell::before {
+  content: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home::before {
+  content: "✦  初音未来主题 Codex App  ♫\A你的专属 AI 编程与创作伙伴 ♡";
+  position: absolute;
+  z-index: 3;
+  left: 27px;
+  top: 7px;
+  white-space: pre;
+  color: #178f98;
+  font: 700 15px/1.35 "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  text-shadow: 0 1px white;
+  pointer-events: none;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home > div:first-child {
+  padding-top: 49px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home > div:first-child > div:first-child {
+  flex-basis: 400px !important;
+  min-height: 400px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home > div:first-child > div:first-child > div:first-child {
+  height: 180px !important;
+  min-height: 180px !important;
+  border: 2px solid rgba(103, 221, 216, .72) !important;
+  border-radius: 20px !important;
+  background-image: var(--dream-art) !important;
+  background-size: auto 393% !important;
+  background-position: 88% 22% !important;
+  box-shadow:
+    0 14px 34px rgba(44, 170, 176, .16),
+    inset 0 0 0 4px rgba(255, 255, 255, .36) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home > div:first-child > div:first-child > div:first-child::before {
+  width: 62%;
+  border-radius: 18px 0 0 18px;
+  background:
+    linear-gradient(90deg,
+      rgba(237, 255, 255, .98) 0%,
+      rgba(237, 254, 255, .96) 48%,
+      rgba(239, 249, 255, .78) 72%,
+      transparent 100%);
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home > div:first-child > div:first-child > div:first-child > div:first-child {
+  padding-left: 34px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child {
+  width: 50% !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home [data-feature="game-source"] {
+  color: #174e59 !important;
+  font-size: clamp(20px, 1.75vw, 27px) !important;
+  line-height: 1.24 !important;
+  text-shadow: 0 2px 12px rgba(255, 255, 255, .95) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home [data-feature="game-source"]::after {
+  content: "和初音未来一起，把灵感写成代码与旋律 ♫";
+  margin-top: 10px;
+  color: #3f7c82;
+  font-size: 13px;
+  text-shadow: 0 1px white;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home [data-feature="game-source"] button {
+  color: #167b83 !important;
+  border-color: rgba(71, 194, 197, .42);
+  background: rgba(255, 255, 255, .56);
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home .group\/home-suggestions button {
+  min-height: 142px !important;
+  border: 1px solid rgba(83, 201, 203, .46) !important;
+  border-radius: 21px !important;
+  color: #214f59 !important;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(255, 255, 255, .98), transparent 35%),
+    linear-gradient(145deg, rgba(255, 255, 255, .96), rgba(241, 255, 254, .92)) !important;
+  box-shadow:
+    0 10px 22px rgba(42, 164, 170, .12),
+    inset 0 0 0 3px rgba(255, 255, 255, .58) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home .group\/home-suggestions button:nth-child(even) {
+  border-color: rgba(242, 118, 194, .42) !important;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(255, 255, 255, .98), transparent 35%),
+    linear-gradient(145deg, rgba(255, 255, 255, .96), rgba(255, 242, 250, .94)) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home .group\/home-suggestions button:nth-child(3) {
+  border-color: rgba(112, 156, 239, .42) !important;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(255, 255, 255, .98), transparent 35%),
+    linear-gradient(145deg, rgba(255, 255, 255, .96), rgba(239, 246, 255, .94)) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home .group\/home-suggestions button:nth-child(4) {
+  border-color: rgba(155, 125, 225, .40) !important;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(255, 255, 255, .98), transparent 35%),
+    linear-gradient(145deg, rgba(255, 255, 255, .96), rgba(247, 241, 255, .94)) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home .group\/home-suggestions button > span:first-child > span:first-child {
+  background: linear-gradient(145deg, #69ded5, #21b4bd);
+  box-shadow: 0 0 0 7px rgba(184, 247, 242, .62), 0 5px 12px rgba(36, 167, 174, .22);
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home .group\/home-suggestions button:nth-child(even) > span:first-child > span:first-child {
+  background: linear-gradient(145deg, #ff9ed6, #e567bc);
+  box-shadow: 0 0 0 7px rgba(255, 218, 239, .62), 0 5px 12px rgba(207, 76, 157, .20);
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home .group\/home-suggestions button:nth-child(3) > span:first-child > span:first-child {
+  background: linear-gradient(145deg, #91b8ff, #5689e4);
+  box-shadow: 0 0 0 7px rgba(220, 234, 255, .66), 0 5px 12px rgba(74, 119, 202, .20);
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home .group\/home-suggestions button:nth-child(4) > span:first-child > span:first-child {
+  background: linear-gradient(145deg, #c6a8ff, #8f69dc);
+  box-shadow: 0 0 0 7px rgba(238, 226, 255, .66), 0 5px 12px rgba(113, 77, 178, .19);
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .composer-surface-chrome {
+  border: 2px solid rgba(72, 194, 197, .46) !important;
+  outline: 1px solid rgba(72, 194, 197, .42);
+  outline-offset: -1px;
+  background:
+    radial-gradient(circle at 86% 18%, rgba(255, 182, 225, .18), transparent 24%),
+    linear-gradient(145deg, rgba(255, 255, 255, .97), rgba(239, 255, 254, .95)) !important;
+  box-shadow:
+    0 12px 28px rgba(44, 166, 172, .14),
+    inset 0 0 0 2px rgba(72, 194, 197, .20),
+    inset 0 0 0 5px rgba(255, 255, 255, .55) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .composer-surface-chrome::before {
+  content: "☆";
+  color: white;
+  background: linear-gradient(145deg, #69ded5, #21b4bd);
+  box-shadow: 0 4px 12px rgba(33, 180, 189, .24);
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home div:has(> .horizontal-scroll-fade-mask .group\/project-selector) {
+  border-color: rgba(72, 194, 197, .34);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .95), rgba(237, 255, 253, .92)) !important;
+  box-shadow: inset 0 1px 0 rgba(72, 194, 197, .26);
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home div:has(> .horizontal-scroll-fade-mask .group\/project-selector)::before {
+  content: "☆  选择项目";
+  color: #178f98;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home .group\/project-selector > button {
+  color: #156f77 !important;
+  border-color: rgba(72, 194, 197, .34) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .94), rgba(227, 251, 249, .90)) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .ProseMirror {
+  color: #214f59 !important;
+  caret-color: #18a9b0 !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .composer-surface-chrome button[class~="bg-token-foreground"] {
+  background: linear-gradient(145deg, #69ded5, #21b4bd) !important;
+  box-shadow: 0 5px 13px rgba(33, 180, 189, .26) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] #codex-dream-skin-chrome .dream-polaroid {
+  right: 18px;
+  bottom: 205px;
+  width: 96px;
+  height: 120px;
+  background-size: 780% auto;
+  background-position: 70% 28%;
+  border-color: rgba(255, 255, 255, .98) !important;
+  box-shadow: 0 10px 24px rgba(45, 164, 171, .18), 0 0 0 1px rgba(91, 211, 207, .30) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] #codex-dream-skin-chrome .dream-polaroid::before {
+  content: "🎀";
+  filter: drop-shadow(0 3px 4px rgba(221, 84, 165, .24));
+}
+
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-sparkles i {
+  box-shadow: 0 0 10px 3px rgba(57, 211, 207, .56);
+}
+
+@media (max-width: 900px) {
+  html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home::before {
+    font-size: 12px;
+  }
+  html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home > div:first-child {
+    padding-top: 45px !important;
+  }
+}

@@ -57,7 +57,8 @@
     ],
     "resources": {
       "../../../resources/proxy": "resources/proxy",
-      "../../../resources/kiro": "resources/kiro"
+      "../../../resources/kiro": "resources/kiro",
+      "../../../resources/dream-skin": "resources/dream-skin"
     }
   },
   "plugins": {

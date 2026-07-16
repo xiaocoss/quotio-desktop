@@ -1,0 +1,77 @@
+:root.codex-dream-skin {
+  color-scheme: light !important;
+  --dream-ink: #123f52;
+  --dream-purple: #147d96;
+  --dream-violet: #47b8d1;
+  --dream-pink: #4fd6bd;
+  --dream-blush: #edfdfb;
+  --dream-pearl: rgba(247, 255, 255, .94);
+  --dream-line: rgba(58, 174, 190, .4);
+}
+
+html.codex-dream-skin body {
+  background:
+    radial-gradient(circle at 78% 2%, rgba(94, 224, 204, .5), transparent 26%),
+    radial-gradient(circle at 24% 12%, rgba(91, 181, 238, .42), transparent 30%),
+    linear-gradient(135deg, #f5ffff 0%, #e8f9fb 48%, #e8f3ff 100%) !important;
+}
+
+html.codex-dream-skin aside.app-shell-left-panel {
+  background: linear-gradient(180deg, rgba(247,255,255,.98), rgba(229,249,248,.97)) !important;
+  border-color: rgba(64, 173, 187, .42) !important;
+  box-shadow: 10px 0 32px rgba(24, 109, 133, .1), inset -1px 0 rgba(255,255,255,.9) !important;
+}
+
+html.codex-dream-skin aside.app-shell-left-panel [class~="bg-token-list-hover-background"],
+html.codex-dream-skin aside.app-shell-left-panel [aria-current="page"] {
+  background: linear-gradient(90deg, rgba(163,236,229,.78), rgba(174,220,255,.72)) !important;
+  border-color: rgba(53, 149, 176, .3) !important;
+}
+
+html.codex-dream-skin main.main-surface {
+  background:
+    radial-gradient(circle at 84% 10%, rgba(92,218,196,.28), transparent 30%),
+    radial-gradient(circle at 20% 0%, rgba(92,176,232,.22), transparent 27%),
+    linear-gradient(180deg, #f6ffff 0%, #edfafa 100%) !important;
+  border-color: rgba(80, 181, 191, .42) !important;
+}
+
+html.codex-dream-skin main.main-surface > header.app-header-tint {
+  background: linear-gradient(90deg, rgba(247,255,255,.96), rgba(217,248,245,.88), rgba(211,234,255,.82)) !important;
+  border-bottom-color: rgba(72, 171, 187, .34) !important;
+}
+
+.dream-brand,
+.dream-signature { color: #16889d !important; }
+
+.dream-home > div:first-child > div:first-child > div:first-child {
+  border-color: rgba(106, 222, 210, .92) !important;
+  background-image:
+    linear-gradient(90deg, rgba(18,125,150,.08), rgba(79,214,189,.08)),
+    var(--dream-art) !important;
+  box-shadow: 0 14px 34px rgba(26, 131, 151, .2), inset 0 0 0 4px rgba(255,255,255,.2) !important;
+}
+
+.dream-home > div:first-child > div:first-child > div:first-child::before {
+  background: linear-gradient(90deg, rgba(7,76,104,.97) 0%, rgba(15,116,139,.93) 55%, rgba(44,159,157,.64) 80%, transparent 100%);
+}
+
+.dream-home [data-feature="game-source"]::after { content: "让思路像极光一样舒展开来 ✦"; }
+
+.dream-home .group\/home-suggestions button {
+  border-color: rgba(104, 197, 196, .78) !important;
+  background: radial-gradient(circle at 50% 25%, rgba(255,255,255,.96), transparent 34%), linear-gradient(145deg, rgba(248,255,254,.97), rgba(226,247,249,.97)) !important;
+  color: #16485b !important;
+}
+
+.dream-home .group\/home-suggestions button > span:first-child > span:first-child,
+html.codex-dream-skin .composer-surface-chrome::before,
+html.codex-dream-skin button[class~="bg-token-foreground"] {
+  background: linear-gradient(145deg, #54d7bd, #258fc2) !important;
+}
+
+html.codex-dream-skin .composer-surface-chrome {
+  border-color: rgba(71, 184, 193, .58) !important;
+  background: radial-gradient(circle at 88% 22%, rgba(255,255,255,.92), transparent 24%), linear-gradient(145deg, rgba(249,255,255,.97), rgba(225,247,247,.95)) !important;
+  box-shadow: 0 10px 25px rgba(25, 111, 130, .15), inset 0 0 0 4px rgba(255,255,255,.45) !important;
+}

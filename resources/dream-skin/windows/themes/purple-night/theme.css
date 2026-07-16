@@ -1,0 +1,392 @@
+:root.codex-dream-skin {
+  --dream-theme-name: "purple-night";
+  --dream-ink: #44396f;
+  --dream-purple: #674ce6;
+  --dream-violet: #477cf4;
+  --dream-pink: #df67cf;
+  --dream-blush: #f4f1ff;
+  --dream-pearl: rgba(249, 248, 255, .96);
+  --dream-line: rgba(104, 77, 225, .31);
+  --gallery-bg: #f3f0ff;
+  --gallery-bg-alt: #e7e6ff;
+  --gallery-panel: #f9f8ff;
+  --gallery-text: #44396f;
+  --gallery-accent: #674ce6;
+  --gallery-accent-alt: #45bdf2;
+  --gallery-glow: rgba(96, 113, 255, .40);
+  --gallery-button-text: #ffffff;
+  --gallery-art-size: auto 348%;
+  --gallery-art-position: 82% 17%;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] body {
+  color: #44396f !important;
+  background:
+    radial-gradient(circle at 87% 5%, rgba(82, 194, 247, .22), transparent 28%),
+    radial-gradient(circle at 67% 2%, rgba(109, 82, 235, .20), transparent 26%),
+    radial-gradient(circle at 30% 9%, rgba(229, 112, 210, .13), transparent 24%),
+    linear-gradient(145deg, #f8f6ff 0%, #f1efff 58%, #e7e7ff 100%) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] body::before {
+  opacity: .30;
+  background-image:
+    radial-gradient(circle, rgba(88, 105, 239, .48) 0 1px, transparent 1.7px),
+    radial-gradient(circle, rgba(73, 194, 242, .43) 0 1px, transparent 1.7px),
+    radial-gradient(circle, rgba(225, 100, 205, .33) 0 1px, transparent 1.7px),
+    radial-gradient(circle, rgba(255, 255, 255, .98) 0 1px, transparent 2px);
+  background-position: 5px 7px, 31px 29px, 52px 12px, 20px 51px;
+  background-size: 71px 71px, 87px 87px, 101px 101px, 113px 113px;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] aside.app-shell-left-panel {
+  position: relative;
+  color: #493e77 !important;
+  background:
+    radial-gradient(circle at 14% 6%, rgba(117, 98, 239, .13), transparent 23%),
+    linear-gradient(180deg, rgba(249, 248, 255, .99), rgba(233, 231, 252, .98)) !important;
+  border-color: rgba(104, 77, 225, .25) !important;
+  border-left: 0 !important;
+  border-radius: 0 17px 17px 0 !important;
+  box-shadow: 10px 0 30px rgba(72, 56, 158, .09), inset -1px 0 rgba(255, 255, 255, .93) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] aside.app-shell-left-panel::before,
+html.codex-dream-skin[data-dream-theme="purple-night"] aside.app-shell-left-panel::after {
+  content: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] aside.app-shell-left-panel div:has(> button:is([aria-label^="切换模式"], [aria-label^="Switch mode"])) {
+  min-height: 52px;
+  align-items: center;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) {
+  width: min(196px, calc(100% - 42px));
+  height: 48px !important;
+  justify-content: flex-start;
+  padding: 2px 6px !important;
+  color: transparent !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: visible;
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 1 !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span::before {
+  content: "Codex";
+  color: #6650d8;
+  font: 800 20px/1.05 "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  letter-spacing: -.045em;
+  text-shadow: 0 1px white, 0 3px 13px rgba(103, 77, 225, .24);
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span::after {
+  content: "迪丽热巴 · 紫夜限定";
+  margin-top: 4px;
+  color: #7e70aa;
+  font: 650 9px/1.1 "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  letter-spacing: .045em;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > svg,
+html.codex-dream-skin[data-dream-theme="purple-night"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"])::after {
+  display: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] aside.app-shell-left-panel button {
+  color: #51477c !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] aside.app-shell-left-panel button:is([aria-label="搜索"], [aria-label="Search"]) {
+  color: #6650d8 !important;
+  border: 1px solid rgba(104, 77, 225, .22) !important;
+  background: rgba(255, 255, 255, .62) !important;
+  box-shadow: 0 4px 12px rgba(72, 56, 158, .08) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] aside.app-shell-left-panel button:hover,
+html.codex-dream-skin[data-dream-theme="purple-night"] aside.app-shell-left-panel [aria-current="page"],
+html.codex-dream-skin[data-dream-theme="purple-night"] aside.app-shell-left-panel [class~="bg-token-list-hover-background"] {
+  color: #4c3f82 !important;
+  background: linear-gradient(90deg, rgba(108, 82, 230, .23), rgba(73, 190, 243, .16), rgba(225, 103, 207, .13)) !important;
+  border-color: rgba(104, 77, 225, .18) !important;
+  box-shadow: inset 0 0 0 1px rgba(104, 77, 225, .15) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] main.main-surface {
+  color: #44396f !important;
+  background:
+    radial-gradient(circle at 84% 5%, rgba(78, 187, 241, .15), transparent 29%),
+    radial-gradient(circle at 28% 0%, rgba(111, 83, 234, .12), transparent 25%),
+    linear-gradient(180deg, rgba(249, 248, 255, .99), rgba(241, 239, 255, .99)) !important;
+  border-color: rgba(104, 77, 225, .23) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .98), -8px 0 29px rgba(72, 56, 158, .08) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] main.main-surface > header.app-header-tint {
+  background: linear-gradient(90deg, rgba(249, 248, 255, .97), rgba(232, 232, 255, .91), rgba(232, 245, 255, .86)) !important;
+  border-bottom-color: rgba(104, 77, 225, .21) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] [role="main"] {
+  color: #44396f !important;
+  scrollbar-color: rgba(103, 77, 225, .45) transparent;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] #codex-dream-skin-chrome .dream-brand,
+html.codex-dream-skin[data-dream-theme="purple-night"] #codex-dream-skin-chrome .dream-signature,
+html.codex-dream-skin[data-dream-theme="purple-night"] #codex-dream-skin-chrome .dream-ribbon {
+  display: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] #codex-dream-skin-chrome.dream-home-shell::before {
+  content: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home::before {
+  content: "✦  迪丽热巴专属定制皮肤\A Codex App · 紫夜限定版";
+  position: absolute;
+  z-index: 3;
+  left: 27px;
+  top: 7px;
+  color: #6650d8;
+  white-space: pre;
+  pointer-events: none;
+  font: 750 14px/1.35 "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  letter-spacing: .018em;
+  text-shadow: 0 1px white;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home > div:first-child {
+  padding-top: 49px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home > div:first-child > div:first-child {
+  flex-basis: 425px !important;
+  min-height: 425px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home > div:first-child > div:first-child > div:first-child {
+  height: 210px !important;
+  min-height: 210px !important;
+  border: 2px solid rgba(98, 91, 244, .66) !important;
+  border-radius: 21px !important;
+  background-image: var(--dream-art) !important;
+  background-size: auto 348% !important;
+  background-position: 82% 17% !important;
+  box-shadow: 0 15px 34px rgba(80, 64, 190, .20), 0 0 0 3px rgba(90, 198, 246, .10), inset 0 0 0 4px rgba(255, 255, 255, .23) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home > div:first-child > div:first-child > div:first-child::before {
+  width: 61%;
+  border-radius: 19px 0 0 19px;
+  background:
+    radial-gradient(circle at 23% 22%, rgba(82, 205, 255, .32), transparent 28%),
+    linear-gradient(90deg, rgba(45, 48, 189, .98) 0%, rgba(72, 55, 207, .95) 49%, rgba(105, 67, 226, .72) 76%, transparent 100%);
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home > div:first-child > div:first-child > div:first-child::after {
+  content: "Dilraba  ♡";
+  position: absolute;
+  z-index: 2;
+  left: 31px;
+  top: 15px;
+  color: rgba(241, 247, 255, .96);
+  pointer-events: none;
+  font: italic 19px/1.1 "Segoe Script", "Comic Sans MS", cursive;
+  text-shadow: 0 0 10px rgba(91, 210, 255, .72), 0 2px 6px rgba(24, 24, 120, .38);
+  transform: rotate(-3deg);
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home > div:first-child > div:first-child > div:first-child > div:first-child {
+  padding-left: 35px !important;
+  padding-top: 18px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child {
+  width: 53% !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home [data-feature="game-source"] {
+  color: white !important;
+  font-size: clamp(21px, 1.9vw, 29px) !important;
+  line-height: 1.23 !important;
+  text-shadow: 0 2px 13px rgba(25, 20, 119, .52), 0 0 10px rgba(89, 207, 255, .22) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home [data-feature="game-source"]::after {
+  content: "与你一起，用灵感创造无限可能  ♡";
+  margin-top: 10px;
+  color: rgba(238, 247, 255, .95);
+  font-size: 14px;
+  font-weight: 550;
+  text-shadow: 0 2px 8px rgba(25, 20, 119, .48);
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home [data-feature="game-source"] button {
+  color: #f2f6ff !important;
+  border-color: rgba(184, 220, 255, .48) !important;
+  background: rgba(118, 103, 240, .27) !important;
+  box-shadow: inset 0 0 12px rgba(93, 208, 255, .14);
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home .group\/home-suggestions button {
+  min-height: 134px !important;
+  color: #4a4077 !important;
+  border-radius: 20px !important;
+  box-shadow: 0 10px 23px rgba(75, 59, 166, .12), inset 0 0 0 3px rgba(255, 255, 255, .58) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home .group\/home-suggestions button:nth-child(1) {
+  border: 1px solid rgba(80, 130, 241, .46) !important;
+  background: radial-gradient(circle at 50% 20%, white, transparent 37%), linear-gradient(145deg, #fafaff, #eaf1ff) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home .group\/home-suggestions button:nth-child(2) {
+  border: 1px solid rgba(120, 83, 226, .45) !important;
+  background: radial-gradient(circle at 50% 20%, white, transparent 37%), linear-gradient(145deg, #fbfaff, #efe9ff) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home .group\/home-suggestions button:nth-child(3) {
+  border: 1px solid rgba(80, 191, 236, .45) !important;
+  background: radial-gradient(circle at 50% 20%, white, transparent 37%), linear-gradient(145deg, #fbfbff, #e9f8ff) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home .group\/home-suggestions button:nth-child(4) {
+  border: 1px solid rgba(220, 102, 204, .42) !important;
+  background: radial-gradient(circle at 50% 20%, white, transparent 37%), linear-gradient(145deg, #fcfaff, #f9eafd) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home .group\/home-suggestions button:hover {
+  box-shadow: 0 14px 29px rgba(75, 59, 166, .18), 0 0 0 2px rgba(91, 103, 240, .16) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home .group\/home-suggestions button:nth-child(1) > span:first-child > span:first-child {
+  background: linear-gradient(145deg, #7ca8ff, #4d72e8) !important;
+  box-shadow: 0 0 0 7px rgba(219, 231, 255, .74), 0 5px 13px rgba(67, 99, 203, .23) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home .group\/home-suggestions button:nth-child(2) > span:first-child > span:first-child {
+  background: linear-gradient(145deg, #a98cff, #7052dc) !important;
+  box-shadow: 0 0 0 7px rgba(231, 222, 255, .76), 0 5px 13px rgba(92, 63, 184, .22) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home .group\/home-suggestions button:nth-child(3) > span:first-child > span:first-child {
+  background: linear-gradient(145deg, #77d6f7, #3da9dd) !important;
+  box-shadow: 0 0 0 7px rgba(216, 244, 255, .78), 0 5px 13px rgba(49, 146, 190, .21) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home .group\/home-suggestions button:nth-child(4) > span:first-child > span:first-child {
+  background: linear-gradient(145deg, #ee99df, #cb58bb) !important;
+  box-shadow: 0 0 0 7px rgba(249, 222, 245, .78), 0 5px 13px rgba(185, 72, 166, .20) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .composer-surface-chrome {
+  border: 2px solid rgba(105, 79, 225, .46) !important;
+  outline: 1px solid rgba(76, 185, 240, .30);
+  outline-offset: -1px;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(84, 195, 244, .17), transparent 25%),
+    radial-gradient(circle at 72% 14%, rgba(222, 102, 204, .12), transparent 20%),
+    linear-gradient(145deg, rgba(252, 251, 255, .98), rgba(238, 236, 255, .96)) !important;
+  box-shadow: 0 12px 28px rgba(73, 57, 164, .13), inset 0 0 0 4px rgba(255, 255, 255, .56) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .composer-surface-chrome::before {
+  content: "✦";
+  color: white;
+  background: linear-gradient(145deg, #75cfff, #6650df);
+  box-shadow: 0 4px 13px rgba(77, 85, 204, .25);
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home div:has(> .horizontal-scroll-fade-mask .group\/project-selector) {
+  border-color: rgba(105, 79, 225, .33);
+  background: linear-gradient(180deg, rgba(250, 249, 255, .97), rgba(235, 233, 255, .93)) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .94);
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home div:has(> .horizontal-scroll-fade-mask .group\/project-selector)::before {
+  content: "✦  选择项目";
+  color: #654ed4;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home .group\/project-selector > button {
+  color: #5c49b8 !important;
+  border-color: rgba(105, 79, 225, .35) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .96), rgba(226, 224, 255, .91)) !important;
+  box-shadow: 0 3px 11px rgba(72, 56, 158, .11) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .ProseMirror {
+  color: #44396f !important;
+  caret-color: #6650dd !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .composer-surface-chrome button[class~="bg-token-foreground"] {
+  color: white !important;
+  background: linear-gradient(145deg, #7f8eff, #6249dc 58%, #d25bc0) !important;
+  box-shadow: 0 5px 14px rgba(83, 62, 190, .27) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] #codex-dream-skin-chrome .dream-polaroid {
+  right: 14px;
+  bottom: 190px;
+  width: 78px;
+  height: 101px;
+  background-size: 850% auto;
+  background-position: 72% 27%;
+  border: 6px solid rgba(251, 249, 255, .98) !important;
+  border-bottom-width: 17px !important;
+  box-shadow: 0 10px 23px rgba(71, 53, 163, .20), 0 0 0 1px rgba(109, 84, 228, .26) !important;
+  transform: rotate(6deg);
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] #codex-dream-skin-chrome .dream-polaroid::before {
+  content: "♡";
+  left: -17px;
+  top: -21px;
+  color: #da65c8;
+  font-size: 27px;
+  filter: drop-shadow(0 3px 4px rgba(105, 66, 187, .23));
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-sparkles i {
+  background: white;
+  box-shadow: 0 0 11px 3px rgba(83, 191, 245, .58);
+}
+
+html.codex-dream-skin[data-dream-theme="purple-night"] .dream-sparkles i:nth-child(even) {
+  box-shadow: 0 0 11px 3px rgba(197, 91, 224, .48);
+}
+
+@media (max-width: 900px) {
+  html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home::before {
+    font-size: 12px;
+  }
+
+  html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home > div:first-child {
+    padding-top: 45px !important;
+  }
+
+  html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home > div:first-child > div:first-child > div:first-child::after {
+    display: none;
+  }
+}
+
+@media (max-width: 1380px) {
+  html.codex-dream-skin[data-dream-theme="purple-night"] #codex-dream-skin-chrome .dream-polaroid {
+    display: none !important;
+  }
+}

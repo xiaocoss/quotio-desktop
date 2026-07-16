@@ -725,6 +725,26 @@ export async function mockInvoke<T>(command: string, args?: Record<string, unkno
         { key: "codex-demo@example.com-plus", email: "demo@example.com", disabled: false },
         { key: "codex-spare@example.com-free", email: "spare@example.com", disabled: true },
       ] as unknown as T;
+    case "list_dream_skin_themes":
+      return [
+        { id: "dream", name: "梦境粉紫", built_in: true },
+        { id: "aurora", name: "极光青蓝", built_in: true },
+        { id: "midnight", name: "午夜星河", built_in: true },
+        { id: "pink-custom", name: "粉系定制", built_in: true },
+        { id: "wealth-worker", name: "财神打工版", built_in: true },
+        { id: "red-white-scifi", name: "红白科幻", built_in: true },
+        { id: "clear-custom", name: "清透定制", built_in: true },
+        { id: "inspiration-cosmos", name: "灵感小宇宙", built_in: true },
+        { id: "purple-night", name: "紫夜限定", built_in: true },
+        { id: "hatsune-miku", name: "初音未来", built_in: true },
+        { id: "stage-black-gold", name: "舞台黑金", built_in: true },
+      ] as unknown as T;
+    case "import_dream_skin_theme":
+      return {
+        id: `user-${Date.now()}`,
+        name: "自定义主题",
+        built_in: false,
+      } as unknown as T;
     case "codex_start":
       return "已启动 Codex 应用（mock）" as unknown as T;
     case "codex_stop":

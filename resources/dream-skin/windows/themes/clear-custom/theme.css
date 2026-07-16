@@ -1,0 +1,360 @@
+:root.codex-dream-skin {
+  --dream-theme-name: "clear-custom";
+  --dream-ink: #3e4938;
+  --dream-purple: #77865a;
+  --dream-violet: #a8b284;
+  --dream-pink: #c7b89a;
+  --dream-blush: #f7f6ed;
+  --dream-pearl: rgba(253, 252, 246, .96);
+  --dream-line: rgba(127, 139, 93, .31);
+  --gallery-bg: #f4f3e9;
+  --gallery-bg-alt: #e8eadc;
+  --gallery-panel: #fbfaf3;
+  --gallery-text: #3e4938;
+  --gallery-accent: #7b875c;
+  --gallery-accent-alt: #b7aa83;
+  --gallery-glow: rgba(181, 190, 147, .42);
+  --gallery-button-text: #fffdf6;
+  --gallery-art-size: auto 342%;
+  --gallery-art-position: 78% 17%;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] body {
+  color: #3e4938 !important;
+  background:
+    radial-gradient(circle at 84% 7%, rgba(196, 202, 166, .30), transparent 29%),
+    radial-gradient(circle at 34% 5%, rgba(255, 255, 255, .76), transparent 25%),
+    linear-gradient(145deg, #faf9f2 0%, #f2f2e8 57%, #e8eadc 100%) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] body::before {
+  opacity: .22;
+  background-image:
+    radial-gradient(circle, rgba(117, 130, 82, .34) 0 1px, transparent 1.5px),
+    radial-gradient(circle, rgba(255, 255, 255, .96) 0 1px, transparent 2px);
+  background-position: 7px 9px, 31px 28px;
+  background-size: 69px 69px, 83px 83px;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] aside.app-shell-left-panel {
+  position: relative;
+  color: #3f4938 !important;
+  background: linear-gradient(180deg, rgba(251, 250, 243, .99), rgba(238, 240, 227, .98)) !important;
+  border-color: rgba(126, 139, 91, .28) !important;
+  border-left: 0 !important;
+  border-radius: 0 16px 16px 0 !important;
+  box-shadow: 9px 0 28px rgba(84, 94, 62, .08), inset -1px 0 rgba(255, 255, 255, .92) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] aside.app-shell-left-panel::before,
+html.codex-dream-skin[data-dream-theme="clear-custom"] aside.app-shell-left-panel::after {
+  content: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] aside.app-shell-left-panel div:has(> button:is([aria-label^="切换模式"], [aria-label^="Switch mode"])) {
+  min-height: 52px;
+  align-items: center;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) {
+  width: min(196px, calc(100% - 42px));
+  height: 48px !important;
+  justify-content: flex-start;
+  padding: 2px 6px !important;
+  color: transparent !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: visible;
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 1 !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span::before {
+  content: "Codex";
+  color: #586446;
+  font: 700 20px/1.05 Georgia, "Times New Roman", serif;
+  letter-spacing: -.035em;
+  text-shadow: 0 1px white, 0 3px 12px rgba(102, 115, 75, .17);
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span::after {
+  content: "清透定制 · CODEX APP";
+  margin-top: 4px;
+  color: #81886c;
+  font: 600 9px/1.1 "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  letter-spacing: .055em;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > svg,
+html.codex-dream-skin[data-dream-theme="clear-custom"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"])::after {
+  display: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] aside.app-shell-left-panel button {
+  color: #4b5542 !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] aside.app-shell-left-panel button:is([aria-label="搜索"], [aria-label="Search"]) {
+  color: #6b7853 !important;
+  border: 1px solid rgba(126, 139, 91, .22) !important;
+  background: rgba(255, 255, 250, .65) !important;
+  box-shadow: 0 4px 12px rgba(87, 99, 64, .07) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] aside.app-shell-left-panel button:hover,
+html.codex-dream-skin[data-dream-theme="clear-custom"] aside.app-shell-left-panel [aria-current="page"],
+html.codex-dream-skin[data-dream-theme="clear-custom"] aside.app-shell-left-panel [class~="bg-token-list-hover-background"] {
+  color: #3f4937 !important;
+  background: linear-gradient(90deg, rgba(184, 192, 151, .34), rgba(229, 225, 207, .48)) !important;
+  border-color: rgba(126, 139, 91, .20) !important;
+  box-shadow: inset 0 0 0 1px rgba(126, 139, 91, .15) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] main.main-surface {
+  color: #3e4938 !important;
+  background:
+    radial-gradient(circle at 84% 6%, rgba(196, 202, 166, .20), transparent 29%),
+    linear-gradient(180deg, rgba(253, 252, 246, .99), rgba(245, 245, 236, .99)) !important;
+  border-color: rgba(126, 139, 91, .25) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .97), -8px 0 28px rgba(84, 94, 62, .07) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] main.main-surface > header.app-header-tint {
+  background: linear-gradient(90deg, rgba(253, 252, 246, .97), rgba(242, 243, 233, .93)) !important;
+  border-bottom-color: rgba(126, 139, 91, .22) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] [role="main"] {
+  color: #3e4938 !important;
+  scrollbar-color: rgba(112, 126, 78, .42) transparent;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] #codex-dream-skin-chrome .dream-brand,
+html.codex-dream-skin[data-dream-theme="clear-custom"] #codex-dream-skin-chrome .dream-signature,
+html.codex-dream-skin[data-dream-theme="clear-custom"] #codex-dream-skin-chrome .dream-ribbon {
+  display: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] #codex-dream-skin-chrome.dream-home-shell::before {
+  content: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home::before {
+  content: "✧  易烊千玺专属定制皮肤\A Codex App · 清透版";
+  position: absolute;
+  z-index: 3;
+  left: 27px;
+  top: 7px;
+  color: #687453;
+  white-space: pre;
+  pointer-events: none;
+  font: 700 14px/1.35 "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  letter-spacing: .02em;
+  text-shadow: 0 1px white;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home > div:first-child {
+  padding-top: 49px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home > div:first-child > div:first-child {
+  flex-basis: 420px !important;
+  min-height: 420px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home > div:first-child > div:first-child > div:first-child {
+  height: 205px !important;
+  min-height: 205px !important;
+  border: 2px solid rgba(151, 160, 113, .55) !important;
+  border-radius: 20px !important;
+  background-image: var(--dream-art) !important;
+  background-size: auto 342% !important;
+  background-position: 78% 17% !important;
+  box-shadow: 0 14px 30px rgba(89, 99, 64, .14), inset 0 0 0 4px rgba(255, 255, 255, .43) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home > div:first-child > div:first-child > div:first-child::before {
+  width: 58%;
+  border-radius: 18px 0 0 18px;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(177, 188, 141, .22), transparent 27%),
+    linear-gradient(90deg, rgba(248, 247, 237, .99) 0%, rgba(246, 245, 234, .96) 55%, rgba(244, 243, 229, .72) 78%, transparent 100%);
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home > div:first-child > div:first-child > div:first-child::after {
+  content: "Jackson Yee  ✧";
+  position: absolute;
+  z-index: 2;
+  right: 28px;
+  top: 14px;
+  color: rgba(91, 101, 67, .88);
+  pointer-events: none;
+  font: italic 17px/1.1 "Segoe Script", "Comic Sans MS", cursive;
+  text-shadow: 0 1px 8px rgba(255, 255, 255, .92);
+  transform: rotate(-3deg);
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home > div:first-child > div:first-child > div:first-child > div:first-child {
+  padding-left: 34px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child {
+  width: 51% !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home [data-feature="game-source"] {
+  color: #35402f !important;
+  font-size: clamp(20px, 1.8vw, 27px) !important;
+  line-height: 1.25 !important;
+  text-shadow: 0 2px 12px rgba(255, 255, 249, .98) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home [data-feature="game-source"]::after {
+  content: "与你一起，把专注写进每一次构建  ✧";
+  margin-top: 10px;
+  color: #697259;
+  font-size: 13px;
+  font-weight: 550;
+  text-shadow: 0 1px white;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home [data-feature="game-source"] button {
+  color: #66734f !important;
+  border-color: rgba(126, 139, 91, .38) !important;
+  background: rgba(255, 255, 249, .58) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home .group\/home-suggestions button {
+  min-height: 132px !important;
+  color: #414b39 !important;
+  border: 1px solid rgba(151, 160, 113, .48) !important;
+  border-radius: 20px !important;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(255, 255, 252, .98), transparent 37%),
+    linear-gradient(145deg, rgba(253, 252, 246, .98), rgba(239, 240, 226, .96)) !important;
+  box-shadow: 0 9px 20px rgba(83, 94, 60, .10), inset 0 0 0 3px rgba(255, 255, 255, .58) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home .group\/home-suggestions button:nth-child(even) {
+  border-color: rgba(186, 169, 132, .46) !important;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(255, 255, 252, .98), transparent 37%),
+    linear-gradient(145deg, rgba(253, 252, 246, .98), rgba(245, 239, 224, .96)) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home .group\/home-suggestions button:hover {
+  box-shadow: 0 13px 27px rgba(83, 94, 60, .16), 0 0 0 2px rgba(151, 160, 113, .14) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home .group\/home-suggestions button > span:first-child > span:first-child {
+  background: linear-gradient(145deg, #a9b27f, #737e53) !important;
+  box-shadow: 0 0 0 7px rgba(226, 230, 207, .72), 0 5px 12px rgba(93, 105, 66, .18) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home .group\/home-suggestions button:nth-child(even) > span:first-child > span:first-child {
+  background: linear-gradient(145deg, #cfc2a5, #9d8e6f) !important;
+  box-shadow: 0 0 0 7px rgba(241, 235, 219, .76), 0 5px 12px rgba(126, 108, 77, .16) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .composer-surface-chrome {
+  border: 2px solid rgba(137, 149, 101, .42) !important;
+  outline: 1px solid rgba(137, 149, 101, .24);
+  outline-offset: -1px;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(214, 218, 187, .23), transparent 25%),
+    linear-gradient(145deg, rgba(255, 255, 250, .98), rgba(244, 244, 233, .96)) !important;
+  box-shadow: 0 11px 26px rgba(82, 93, 59, .11), inset 0 0 0 4px rgba(255, 255, 255, .55) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .composer-surface-chrome::before {
+  content: "✧";
+  color: white;
+  background: linear-gradient(145deg, #a9b27f, #737e53);
+  box-shadow: 0 4px 12px rgba(93, 105, 66, .20);
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home div:has(> .horizontal-scroll-fade-mask .group\/project-selector) {
+  border-color: rgba(137, 149, 101, .31);
+  background: linear-gradient(180deg, rgba(253, 252, 246, .96), rgba(240, 241, 228, .92)) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .92);
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home div:has(> .horizontal-scroll-fade-mask .group\/project-selector)::before {
+  content: "✧  选择项目";
+  color: #697653;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home .group\/project-selector > button {
+  color: #5d684b !important;
+  border-color: rgba(137, 149, 101, .34) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 250, .95), rgba(232, 235, 215, .90)) !important;
+  box-shadow: 0 3px 10px rgba(82, 93, 59, .10) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .ProseMirror {
+  color: #3e4938 !important;
+  caret-color: #748157 !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .composer-surface-chrome button[class~="bg-token-foreground"] {
+  color: white !important;
+  background: linear-gradient(145deg, #a7b17c, #717d51) !important;
+  box-shadow: 0 5px 13px rgba(87, 99, 62, .23) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] #codex-dream-skin-chrome .dream-polaroid {
+  right: 14px;
+  bottom: 190px;
+  width: 78px;
+  height: 101px;
+  background-size: 900% auto;
+  background-position: 66% 23%;
+  border: 6px solid rgba(255, 254, 248, .98) !important;
+  border-bottom-width: 17px !important;
+  box-shadow: 0 9px 21px rgba(79, 89, 57, .17), 0 0 0 1px rgba(141, 153, 104, .24) !important;
+  transform: rotate(-6deg);
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] #codex-dream-skin-chrome .dream-polaroid::before {
+  content: "✧";
+  left: -17px;
+  top: -21px;
+  color: #89966a;
+  font-size: 25px;
+  filter: drop-shadow(0 2px 3px rgba(93, 105, 66, .20));
+}
+
+html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-sparkles i {
+  background: #fffef8;
+  box-shadow: 0 0 9px 2px rgba(151, 164, 112, .42);
+}
+
+@media (max-width: 900px) {
+  html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home::before {
+    font-size: 12px;
+  }
+
+  html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home > div:first-child {
+    padding-top: 45px !important;
+  }
+
+  html.codex-dream-skin[data-dream-theme="clear-custom"] .dream-home > div:first-child > div:first-child > div:first-child::after {
+    display: none;
+  }
+}
+
+@media (max-width: 1380px) {
+  html.codex-dream-skin[data-dream-theme="clear-custom"] #codex-dream-skin-chrome .dream-polaroid {
+    display: none !important;
+  }
+}

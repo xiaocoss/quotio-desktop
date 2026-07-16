@@ -143,6 +143,23 @@ fn list_codex_launch_accounts() -> Vec<quotio_core::codex_launch::CodexAccountRe
     quotio_core::codex_launch::list_codex_accounts()
 }
 
+#[tauri::command]
+fn list_dream_skin_themes() -> Result<Vec<quotio_core::dream_skin::DreamSkinThemeSummary>, String> {
+    quotio_core::dream_skin::list_themes()
+}
+
+#[tauri::command]
+async fn import_dream_skin_theme(
+    image_path: String,
+    name: Option<String>,
+) -> Result<quotio_core::dream_skin::DreamSkinThemeSummary, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        quotio_core::dream_skin::import_theme(std::path::Path::new(&image_path), name.as_deref())
+    })
+    .await
+    .map_err(|error| format!("导入 Dream Skin 主题任务异常：{error}"))?
+}
+
 /// 某个 Codex 模型支持的推理档位(从本机 codex 二进制内置的模型目录里读)。
 /// 二进制扫描可能较慢，放到 blocking 线程跑，避免卡住 IPC / UI 线程。
 #[tauri::command]
@@ -1843,6 +1860,8 @@ pub fn run() {
             reset_agent_configuration,
             detect_codex_app,
             list_codex_launch_accounts,
+            list_dream_skin_themes,
+            import_dream_skin_theme,
             codex_start,
             codex_stop,
             codex_launch_active,
