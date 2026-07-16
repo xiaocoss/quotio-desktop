@@ -215,3 +215,96 @@ html {
 .app-shell--v2 .sidebar .proxy-card {
   background: rgba(255, 255, 255, 0.86);
 }
+
+/* ============================================================================
+   深色模式适配 —— 仅在 :root[data-theme="dark"] 且限定 .app-shell--v2 作用域下,
+   覆盖上方硬编码的浅色框架(页底 / 正文 / 侧栏 / 导航 / 底部本地代理卡)。
+   不触碰 App.css 的全局深色变量;不新增 backdrop-filter —— 侧栏改用不透明深底,
+   原有玻璃模糊在实底下自然失效,规避 webview 多面板 blur 的坑。
+   统一深色配色板(与各页共用):
+     页底 #0f1116 · 卡片/面板 #1a1d25 · 主文字 #e6e9ef · 次文字 #9aa4b6 ·
+     边框 rgba(255,255,255,0.10) · 分隔线 rgba(255,255,255,0.08) · 主蓝 #4d8bff。
+   ⚠️ 特意用 .app-shell.app-shell--v2(元素同时带两个 class)把页底那条抬到
+      (0,4,0),稳压 App.css 里 :root[data-theme="dark"] .app-shell(0,3,0),
+      不再依赖 import 先后顺序。
+   ========================================================================== */
+
+/* ---------- 页底 & 正文容器:#fbfafa → #0f1116 ---------- */
+:root[data-theme="dark"] .app-shell.app-shell--v2 {
+  background: #0f1116;
+}
+:root[data-theme="dark"] .app-shell--v2 .content {
+  background: #0f1116;
+}
+
+/* ---------- 侧栏容器:半透明玻璃底 → 不透明深底 ---------- */
+:root[data-theme="dark"] .app-shell--v2 .sidebar {
+  color: #e6e9ef;
+  background: #12141a;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 12px 0 42px rgba(0, 0, 0, 0.32);
+}
+
+/* ---------- 导航:文字改浅、hover 浅底、选中态主蓝 ---------- */
+:root[data-theme="dark"] .app-shell--v2 .nav-list button {
+  color: #e6e9ef;
+}
+:root[data-theme="dark"] .app-shell--v2 .nav-list button:hover:not(.active) {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+}
+:root[data-theme="dark"] .app-shell--v2 .nav-list button.active {
+  color: #4d8bff;
+  background: rgba(77, 139, 255, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(77, 139, 255, 0.22);
+}
+:root[data-theme="dark"] .app-shell--v2 .nav-badge {
+  color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.22);
+}
+
+/* ---------- 底部本地代理卡:浅底 → 深底 #1a1d25 + 浅文字 ---------- */
+:root[data-theme="dark"] .app-shell--v2 .proxy-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #1a1d25;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+}
+:root[data-theme="dark"] .app-shell--v2 .proxy-card-icon--good {
+  color: #4ade80;
+  background: rgba(52, 199, 89, 0.16);
+}
+:root[data-theme="dark"] .app-shell--v2 .proxy-card-icon--warn {
+  color: #fbbf24;
+  background: rgba(255, 159, 10, 0.16);
+}
+:root[data-theme="dark"] .app-shell--v2 .proxy-card-icon--bad {
+  color: #f87171;
+  background: rgba(255, 69, 58, 0.18);
+}
+:root[data-theme="dark"] .app-shell--v2 .proxy-card-text strong {
+  color: #e6e9ef;
+}
+:root[data-theme="dark"] .app-shell--v2 .proxy-card-text span {
+  color: #9aa4b6;
+}
+:root[data-theme="dark"] .app-shell--v2 .proxy-card-chevron {
+  color: #9aa4b6;
+}
+:root[data-theme="dark"] .app-shell--v2 .proxy-status-bar {
+  color: #9aa4b6;
+}
+
+/* ---------- 优先级加固 ----------
+   对齐上方 (0,4,1)/(0,3,0) 的浅色加固层,并压过 App.css 里
+   :root[data-theme="dark"] 的旧侧栏/代理卡规则(含 .proxy-card:hover)。 */
+:root[data-theme="dark"] .app-shell--v2 .sidebar .nav-list button.active,
+:root[data-theme="dark"] .app-shell--v2 .sidebar .nav-list button.active .nav-label,
+:root[data-theme="dark"] .app-shell--v2 .sidebar .nav-list button.active .nav-symbol {
+  color: #4d8bff;
+}
+:root[data-theme="dark"] .app-shell--v2 .sidebar .proxy-card {
+  background: #1a1d25;
+}
+:root[data-theme="dark"] .app-shell--v2 .sidebar .proxy-card:hover:not(:disabled) {
+  background: #20232c;
+}

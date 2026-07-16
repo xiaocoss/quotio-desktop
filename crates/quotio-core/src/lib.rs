@@ -1069,11 +1069,16 @@ impl AppCore {
             })?;
         }
 
-        codex_launch::mark_bound_account_login_only_unlocked(&account_key)
-            .map_err(ManagementCoreError::Unavailable)?;
-        // 绑定占用可能正好拿走了调度器当前选中的账号：立刻重选，
-        // 避免「目标被绑定 + 其余都在待命」导致代理池空窗。
-        let _ = self.scheduler_reconcile();
+        // 绑定的启动账号默认走 login-only：写 disabled 排除出代理池，避免它被轮换。
+        // 但「吸收」开关开启时跳过这步——让它照常留在池里参与轮换，把它闲置的额度也用上
+        // （代价：该号 token 同时用于 Codex 登录与代理轮换，用户已在设置里知情开启）。
+        if !self.settings.absorb_bound_account {
+            codex_launch::mark_bound_account_login_only_unlocked(&account_key)
+                .map_err(ManagementCoreError::Unavailable)?;
+            // 绑定占用可能正好拿走了调度器当前选中的账号：立刻重选，
+            // 避免「目标被绑定 + 其余都在待命」导致代理池空窗。
+            let _ = self.scheduler_reconcile();
+        }
 
         // 从 mark 之后到会话建立之间任何一步 `?` 失败,都必须回滚 login-only 占用,
         // 否则绑定账号会卡在 disabled、被踢出代理池,而用户只看到「启动失败」。

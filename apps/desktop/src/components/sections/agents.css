@@ -980,3 +980,215 @@
     transform: rotate(360deg);
   }
 }
+
+/* ============================================================================
+   深色模式适配 —— 仅覆盖 .agents-redesign 作用域,绝不影响别页。
+   ① 先把设计令牌变量整体改写为统一深色板;② 再对文件内硬编码的浅色
+   (白底卡片/页底/深色文字/边框/薄荷渐变选中卡)逐一覆盖(因为面板/输入等
+   多处用 #fff/#ffffff 硬编码而非 var(--surface),仅改变量盖不住)。
+   统一深色板:页底 #0f1116 / 卡面 #1a1d25 / 强表面 #20242e /
+   主文字 #e6e9ef / 次 #9aa4b6 / 更淡 #6b7488 / 边框 rgba(255,255,255,.10) /
+   强边框 .17 / 分隔线 .08 / 主蓝 #4d8bff / 薄荷 accent #2dd4bf。
+   不引入 backdrop-filter。
+   ========================================================================== */
+:root[data-theme="dark"] .agents-redesign {
+  --page: #0f1116;
+  --surface: #1a1d25;
+  --surface-strong: #20242e;
+  --surface-soft: #20242e;
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.17);
+  --text: #e6e9ef;
+  --muted: #9aa4b6;
+  --soft: #6b7488;
+  --primary: #4d8bff;
+  --primary-strong: #4d8bff;
+  --primary-soft: rgba(77, 139, 255, 0.18);
+  --runtime: #2dd4bf;
+  --runtime-soft: rgba(45, 212, 191, 0.14);
+  --success: #35c07a;
+  --success-soft: rgba(53, 192, 122, 0.14);
+  --warning: #ffb340;
+  --warning-soft: rgba(255, 179, 64, 0.14);
+  --danger: #f76a6a;
+  --danger-soft: rgba(247, 106, 106, 0.14);
+  --lavender: #a78bfa;
+  --lavender-soft: rgba(167, 139, 250, 0.14);
+  --shadow-panel: 0 3px 10px rgba(0, 0, 0, 0.42), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-running: 0 20px 48px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* 页底 / 滚动容器 / 顶栏遮罩:统一深色页底,消除浅色缝隙 */
+:root[data-theme="dark"] .agents-redesign.section-page {
+  background-color: #0f1116;
+}
+:root[data-theme="dark"] .app-shell--v2 .content:has(.agents-redesign):not(.content--dashboard) {
+  background: #0f1116;
+}
+:root[data-theme="dark"] .agents-redesign .page-topbar::before {
+  background: #0f1116;
+}
+
+/* 通用按钮(仅中性款:白底 → 强表面,深字 → 亮字,阴影转黑;
+   .primary/.danger 保留自身彩色渐变,故用 :not() 排除) */
+:root[data-theme="dark"] .agents-redesign .btn:not(.primary):not(.danger) {
+  color: #e6e9ef;
+  background: #20242e;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+:root[data-theme="dark"] .agents-redesign .btn:not(.primary):not(.danger):hover:not(:disabled) {
+  border-color: rgba(77, 139, 255, 0.5);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.42);
+}
+:root[data-theme="dark"] .agents-redesign .btn.ghost-danger {
+  border-color: rgba(247, 106, 106, 0.28);
+  background: rgba(247, 106, 106, 0.06);
+}
+
+/* 面板 / 指标卡:纯白 → 卡面深色 */
+:root[data-theme="dark"] .agents-redesign .panel,
+:root[data-theme="dark"] .agents-redesign .metric {
+  background: #1a1d25;
+}
+/* 指标「已安装」的浅蓝底块 → 蓝色低透明度 tint */
+:root[data-theme="dark"] .agents-redesign .metric.installed {
+  --metric-color: #6b9bff;
+  --metric-soft: rgba(77, 139, 255, 0.16);
+  --glow: rgba(77, 139, 255, 0.16);
+}
+
+/* 分隔线 / 细边框:统一柔白(border-color 一处收敛,连带媒体查询里的
+   border-top / border-left 一并改色) */
+:root[data-theme="dark"] .agents-redesign .agent-row,
+:root[data-theme="dark"] .agents-redesign .panel-footer-link,
+:root[data-theme="dark"] .agents-redesign .scheme-field,
+:root[data-theme="dark"] .agents-redesign .scheme-actions {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+/* 智能体标记(浅蓝细框)略提亮以在深底可见 */
+:root[data-theme="dark"] .agents-redesign .agent-mark {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* 状态徽标:深色文字 → 各自亮色(底色走 var(--*-soft) 已转半透明) */
+:root[data-theme="dark"] .agents-redesign .badge.success {
+  color: #35c07a;
+}
+:root[data-theme="dark"] .agents-redesign .badge.warning {
+  color: #ffb340;
+}
+:root[data-theme="dark"] .agents-redesign .badge.running {
+  color: #2dd4bf;
+}
+
+/* 运行概览行:浅底 → 极浅白块,图标改次文字色 */
+:root[data-theme="dark"] .agents-redesign .runtime-row {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+:root[data-theme="dark"] .agents-redesign .runtime-row .icon {
+  color: #9aa4b6;
+}
+
+/* 方案区:路径 code、字段值等深色文字提亮 */
+:root[data-theme="dark"] .agents-redesign .app-path code {
+  color: #aab4c4;
+}
+:root[data-theme="dark"] .agents-redesign .field-value {
+  color: #c3cbd8;
+}
+
+/* 方案卡(选中/运行):浅色薄荷渐变 → 深色带薄荷 accent + 边框 */
+:root[data-theme="dark"] .agents-redesign .scheme-card {
+  background: linear-gradient(120deg, rgba(45, 212, 191, 0.14), rgba(45, 212, 191, 0.03)), #1c232c;
+  border-color: rgba(45, 212, 191, 0.5);
+}
+/* 非运行方案(idle):白卡 → 强表面 */
+:root[data-theme="dark"] .agents-redesign .scheme-card--idle {
+  background: #20242e;
+  border-color: rgba(255, 255, 255, 0.10);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+/* idle 播放球:亮灰 → 暗灰,读作未激活 */
+:root[data-theme="dark"] .agents-redesign .play-orb--idle {
+  background: linear-gradient(145deg, #3a4150, #2b303b);
+}
+
+/* 启动/切换确认(warning):奶油底 → 暖橙低透明度 */
+:root[data-theme="dark"] .agents-redesign .scheme-confirm {
+  border-color: rgba(255, 179, 64, 0.35);
+  background: rgba(255, 179, 64, 0.10);
+}
+:root[data-theme="dark"] .agents-redesign .scheme-warn-list {
+  color: #ffb340;
+}
+
+/* 方案空态 / 状态条 */
+:root[data-theme="dark"] .agents-redesign .scheme-empty {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+:root[data-theme="dark"] .agents-redesign .scheme-status.ok {
+  color: #35c07a;
+  border-color: rgba(53, 192, 122, 0.35);
+}
+:root[data-theme="dark"] .agents-redesign .scheme-status.err {
+  color: #f76a6a;
+  border-color: rgba(247, 106, 106, 0.35);
+}
+
+/* 发现更多:卡片浅底 → 极浅白块;检测按钮白底 → 蓝色低透明度 */
+:root[data-theme="dark"] .agents-redesign .discovery-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+:root[data-theme="dark"] .agents-redesign .discovery-card:hover {
+  border-color: rgba(77, 139, 255, 0.4);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.4);
+}
+:root[data-theme="dark"] .agents-redesign .detect-btn {
+  background: rgba(77, 139, 255, 0.10);
+  border-color: rgba(77, 139, 255, 0.28);
+}
+:root[data-theme="dark"] .agents-redesign .detect-btn:hover:not(:disabled) {
+  background: rgba(77, 139, 255, 0.18);
+  border-color: rgba(77, 139, 255, 0.45);
+}
+
+/* 表单 / 配置面板:白底 → 强表面子面板;输入内嵌更深一层 */
+:root[data-theme="dark"] .agents-redesign .scheme-form,
+:root[data-theme="dark"] .agents-redesign .agent-config-panel {
+  background: #20242e;
+}
+:root[data-theme="dark"] .agents-redesign .settings-form-grid label {
+  color: #aab4c4;
+}
+:root[data-theme="dark"] .agents-redesign .settings-form-grid input,
+:root[data-theme="dark"] .agents-redesign .qselect-button,
+:root[data-theme="dark"] .agents-redesign .agent-config-panel textarea {
+  background: #13161d;
+}
+:root[data-theme="dark"] .agents-redesign .settings-form-grid input:focus {
+  border-color: rgba(77, 139, 255, 0.6);
+  box-shadow: 0 0 0 3px rgba(77, 139, 255, 0.16);
+}
+:root[data-theme="dark"] .agents-redesign .qselect-button:hover:not(:disabled) {
+  background: #181c24;
+  border-color: rgba(77, 139, 255, 0.45);
+}
+
+/* 行内动作按钮:白底 → 强表面,深字 → 亮字(.primary-action 保留蓝色渐变,
+   故只覆盖 secondary / danger;danger 文字走 var(--danger) 已转亮红) */
+:root[data-theme="dark"] .agents-redesign .secondary-action,
+:root[data-theme="dark"] .agents-redesign .danger-action {
+  background: #20242e;
+}
+:root[data-theme="dark"] .agents-redesign .secondary-action {
+  color: #e6e9ef;
+}
+
+/* 配置面板内嵌只读卡片 / 备份块:白底 → 更深内嵌块 */
+:root[data-theme="dark"] .agents-redesign .agent-config-panel .record-card,
+:root[data-theme="dark"] .agents-redesign .agent-config-panel .stacked-form {
+  background: rgba(255, 255, 255, 0.03);
+}

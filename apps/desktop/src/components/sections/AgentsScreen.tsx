@@ -893,7 +893,7 @@ export function AgentsScreen({
   return (
     <section className="section-page agents-page agents-redesign">
       <header className="page-topbar" data-tauri-drag-region>
-        <h1>{t("nav.agents")}</h1>
+        <h1 data-tauri-drag-region="false">{t("nav.agents")}</h1>
         <button
           className={`btn${isBusy ? " is-busy" : ""}`}
           type="button"

@@ -717,8 +717,8 @@ function AboutScreen({
   return (
     <section className="dashboard-content dashboard-content--fixed about-redesign">
       <header className="page-topbar" data-tauri-drag-region>
-        <h1>{t("nav.about")}</h1>
-        <p className="about-subtitle">{t("about.pageSubtitle", "Quotio 产品信息与运行环境")}</p>
+        <h1 data-tauri-drag-region="false">{t("nav.about")}</h1>
+        <p className="about-subtitle" data-tauri-drag-region="false">{t("about.pageSubtitle", "Quotio 产品信息与运行环境")}</p>
       </header>
 
       <div className="about-scroll">

@@ -809,3 +809,145 @@
     transform: rotate(360deg);
   }
 }
+
+/* ============================================================================
+   深色模式适配 —— 仅追加 :root[data-theme="dark"] .quota-redesign 作用域下的覆盖,
+   不改动上方任何浅色规则,也绝不影响别的页面(全部挂在 .quota-redesign 内,
+   页底兜底用 :has(.quota-redesign))。配色板与其它页面统一。
+   ⚠️ webview 性能:不加 backdrop-filter、不加重滤镜。
+   ========================================================================== */
+
+/* 1) 变量整体覆盖(顶部 :root 里那批设计令牌) */
+:root[data-theme="dark"] .quota-redesign {
+  --page: #0f1116;
+  --surface: rgba(255, 255, 255, 0.045);
+  --surface-strong: #20242e;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.17);
+  --text: #e6e9ef;
+  --muted: #9aa4b6;
+  --soft: #6b7488;
+  --primary: #7b83ff;
+  --primary-blue: #4d8bff;
+  --primary-soft: rgba(94, 103, 242, 0.2);
+  --provider: #2dd4bf;
+  --provider-soft: rgba(45, 212, 191, 0.14);
+  --healthy: #35c07a;
+  --warning: #ffb340;
+  --danger: #f76a6a;
+  --idle: #98a3b6;
+  --idle-soft: rgba(255, 255, 255, 0.05);
+  --track: #2b303b;
+  --shadow-panel: 0 3px 10px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 16px 36px rgba(0, 0, 0, 0.45), 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* 2) 页底 / 顶栏 / 滚动容器兜底 —— 硬编码 #fbfafa → 深底 */
+:root[data-theme="dark"] .quota-redesign.section-page {
+  background-color: #0f1116;
+}
+:root[data-theme="dark"] .app-shell--v2 .content:has(.quota-redesign):not(.content--dashboard) {
+  background: #0f1116;
+}
+:root[data-theme="dark"] .quota-redesign .page-topbar,
+:root[data-theme="dark"] .quota-redesign .page-topbar::before {
+  background: #0f1116;
+}
+
+/* 3) 面板 / 账号卡白底(#ffffff)→ 深卡底 */
+:root[data-theme="dark"] .quota-redesign .panel,
+:root[data-theme="dark"] .quota-redesign .quota-card {
+  background: #1a1d25;
+}
+/* 调度横幅(.panel 变体):近白双渐变 → 深色渐变 + 提亮强调边框(须在 .panel 之后) */
+:root[data-theme="dark"] .quota-redesign .strategy {
+  border-color: rgba(123, 131, 255, 0.35);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(123, 131, 255, 0.22), transparent 40%),
+    linear-gradient(135deg, #1d2130, #171a23);
+}
+:root[data-theme="dark"] .quota-redesign .strategy small {
+  color: #8a94a8;
+}
+
+/* 4) 通用按钮 / 服务商 tab / mini / icon / count 的白或半透明白底(rgba(255,255,255,.7~.9))
+      + 深色文字(#526179/#718096/#64748b)→ 低亮白底 + 浅字 */
+:root[data-theme="dark"] .quota-redesign .button {
+  background: rgba(255, 255, 255, 0.06);
+  color: #c7cede;
+}
+:root[data-theme="dark"] .quota-redesign .quota-tab {
+  background: rgba(255, 255, 255, 0.05);
+  color: #c7cede;
+}
+:root[data-theme="dark"] .quota-redesign .mini-button {
+  background: rgba(255, 255, 255, 0.06);
+  color: #aab4c6;
+}
+:root[data-theme="dark"] .quota-redesign .icon-button {
+  background: rgba(255, 255, 255, 0.05);
+  color: #aab4c6;
+}
+:root[data-theme="dark"] .quota-redesign .count {
+  background: rgba(255, 255, 255, 0.06);
+  color: #aab4c6;
+}
+
+/* 5) 品牌 logo 白圆底(.provider-mark background:#fff + 浅边)→ 略亮于卡底的深圆底 */
+:root[data-theme="dark"] .quota-redesign .provider-mark {
+  color: #b8c2d4;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #20242e;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* 6) 四格汇总图标浅色底(#e9f9f1/#fff4df/#f1f4f8)→ 主色/中性低透明度底(色值走变量) */
+:root[data-theme="dark"] .quota-redesign .summary-icon.healthy {
+  background: rgba(53, 192, 122, 0.16);
+}
+:root[data-theme="dark"] .quota-redesign .summary-icon.warning {
+  background: rgba(255, 179, 64, 0.16);
+}
+:root[data-theme="dark"] .quota-redesign .summary-icon.idle {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* 7) 状态徽标浅底深字(.flag--bad/.flag--warn)→ 深透明底 + 亮字
+      (.flag--blue/.flag--idle 走变量,已由第 1 节覆盖) */
+:root[data-theme="dark"] .quota-redesign .flag--bad {
+  color: #ff9090;
+  background: rgba(247, 106, 106, 0.18);
+}
+:root[data-theme="dark"] .quota-redesign .flag--warn {
+  color: #ffc274;
+  background: rgba(255, 159, 28, 0.18);
+}
+
+/* 8) 卡片底部状态胶囊浅底(#e9f9f1/#f1f4f8)→ 深透明底(色值走变量) */
+:root[data-theme="dark"] .quota-redesign .status-pill {
+  background: rgba(53, 192, 122, 0.16);
+}
+:root[data-theme="dark"] .quota-redesign .status-pill.idle {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* 9) 健康点阵灰点 / 无流量占位点阵(#d7dee8/#dde3ec)→ 深灰 */
+:root[data-theme="dark"] .quota-redesign .health-dot,
+:root[data-theme="dark"] .quota-redesign .health-dot--idle {
+  background: #3a414f;
+}
+:root[data-theme="dark"] .quota-redesign .quota-dots-empty {
+  background: radial-gradient(circle at 4.5px 50%, #333b48 0 4.5px, transparent 5px) left center / 16px 100% repeat-x;
+}
+
+/* 10) 状态横幅 / 自定义池行 白或半透明白底 → 深底 */
+:root[data-theme="dark"] .quota-redesign .state-banner {
+  background: #1a1d25;
+}
+:root[data-theme="dark"] .quota-redesign .state-banner--warn {
+  border-color: rgba(255, 159, 28, 0.4);
+  background: rgba(255, 159, 28, 0.1);
+}
+:root[data-theme="dark"] .quota-redesign .cp-quota-key-row {
+  background: rgba(255, 255, 255, 0.04);
+}

@@ -117,6 +117,11 @@ pub fn fetch_all_quotas_streaming(
         emit(&account);
         quotas.push(account);
     }
+    // Grok / xAI：x.ai 是按量付费、没有「剩余额度」查询 API,只产出占位卡(不打网络)。
+    for account in fetch_grok_quotas() {
+        emit(&account);
+        quotas.push(account);
+    }
     quotas
 }
 
@@ -479,6 +484,91 @@ fn fetch_gemini_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Option<
         is_forbidden: false,
         status_message: None,
         models,
+    })
+}
+
+// ===================== Grok / xAI =====================
+
+/// Grok/xAI 是**按量付费**、没有「剩余额度」查询 API(x.ai 只在请求响应头给瞬时
+/// rate limit,不是月度额度)。所以这里**不打任何网络请求**,只从账号文件读身份,
+/// 产出一张「占位」额度卡:`models` 为空 + `status_message = "pay_as_you_go"`,
+/// 前端据此显示「按量付费·无额度概念」说明,而不是额度条或「获取失败」。
+fn fetch_grok_quotas() -> Vec<AccountQuota> {
+    list_xai_auth_files()
+        .iter()
+        .filter_map(|(path, name)| fetch_grok_one(path, name))
+        .collect()
+}
+
+/// 列出 Grok/xAI 账号文件。**优先认文件里的 `type=="xai"`**(与服务商页 `list_local_accounts`
+/// 同口径),再兜底 `xai-`/`grok-` 文件名前缀 —— 只按文件名前缀会漏掉命名被 sanitize / 大小写 /
+/// 别的工具写入导致前缀不是纯 `xai-` 的账号(真机额度页看不到 Grok 就是栽在这)。
+fn list_xai_auth_files() -> Vec<(PathBuf, String)> {
+    let Some(dir) = auth_dir() else {
+        return Vec::new();
+    };
+    let Ok(entries) = fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+    let mut files = Vec::new();
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        let lower = name.to_ascii_lowercase();
+        if !lower.ends_with(".json") {
+            continue;
+        }
+        let is_xai = lower.starts_with("xai-")
+            || lower.starts_with("grok-")
+            || fs::read_to_string(entry.path())
+                .ok()
+                .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+                .and_then(|value| {
+                    value
+                        .get("type")
+                        .or_else(|| value.get("provider"))
+                        .and_then(|kind| kind.as_str())
+                        .map(|kind| kind.eq_ignore_ascii_case("xai"))
+                })
+                .unwrap_or(false);
+        if is_xai {
+            files.push((entry.path(), name));
+        }
+    }
+    files
+}
+
+fn fetch_grok_one(path: &Path, filename: &str) -> Option<AccountQuota> {
+    // key:去掉 .json 与 xai-/grok- 前缀(哪种前缀都兼容)。
+    let key = {
+        let base = filename.strip_suffix(".json").unwrap_or(filename);
+        base.strip_prefix("xai-")
+            .or_else(|| base.strip_prefix("grok-"))
+            .unwrap_or(base)
+            .to_string()
+    };
+    // 读身份用 email > id_token 的邮箱 > key 兜底;读取/解析失败也不 return None,
+    // 照样产出占位卡(账号确实存在,只是没额度概念)。
+    let value = fs::read_to_string(path)
+        .ok()
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok());
+    let label = value
+        .as_ref()
+        .and_then(|v| v.get("email").and_then(|email| email.as_str()).map(str::to_string))
+        .or_else(|| {
+            value
+                .as_ref()
+                .and_then(|v| v.get("id_token").and_then(|token| token.as_str()))
+                .and_then(decode_jwt_email)
+        })
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| key.clone());
+    Some(AccountQuota {
+        provider_id: "xai".to_string(),
+        account_label: label,
+        account_key: key,
+        is_forbidden: false,
+        status_message: Some("pay_as_you_go".to_string()),
+        models: Vec::new(),
     })
 }
 

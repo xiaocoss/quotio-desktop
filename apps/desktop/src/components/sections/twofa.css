@@ -686,3 +686,153 @@
     letter-spacing: 7px;
   }
 }
+
+/* ============================================================================
+   深色模式适配 —— 仅作用于本页 root(.twofa-redesign)及其承载的 .content 容器,
+   绝不外溢到别页。统一深色配色板(全站共用):页底 #0f1116 / 面板 #1a1d25 /
+   强表面 #20242e / 主文字 #e6e9ef / 次文字 #9aa4b6 / 更淡 #6b7488 /
+   边框 rgba(255,255,255,.10) / 分隔 rgba(255,255,255,.08) / 环底 #2b303b /
+   主蓝 #4d8bff。保持不叠 backdrop-filter。
+   ========================================================================== */
+
+/* ① 覆盖设计令牌为深色值(所有 var(--…) 引用随之切换) */
+:root[data-theme="dark"] .twofa-redesign {
+  --page: #0f1116;
+  --surface: #1a1d25;
+  --surface-strong: #20242e;
+  --surface-soft: #20242e;
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text: #e6e9ef;
+  --muted: #9aa4b6;
+  --soft: #6b7488;
+  --primary: #4d8bff;
+  --primary-soft: rgba(77, 139, 255, 0.18);
+  --vault: #2dd4bf;
+  --vault-soft: rgba(45, 212, 191, 0.16);
+  --secure: #35c07a;
+  --secure-soft: rgba(53, 192, 122, 0.16);
+  --warning: #ffb340;
+  --warning-soft: rgba(255, 179, 64, 0.16);
+  --danger: #f76a6a;
+  --danger-soft: rgba(247, 106, 106, 0.16);
+  --lavender: #a99bff;
+  --lavender-soft: rgba(169, 155, 255, 0.16);
+  --shadow-panel: 0 3px 10px rgba(0, 0, 0, 0.42), 0 1px 2px rgba(0, 0, 0, 0.32);
+  --shadow-code: 0 18px 46px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ② 逐一覆盖硬编码浅色 */
+
+/* 页底 + 滚动容器兜底(盖住 scrollbar-gutter 的冷缝) */
+:root[data-theme="dark"] .twofa-redesign.section-page {
+  background-color: #0f1116;
+}
+:root[data-theme="dark"] .app-shell--v2 .content:has(.twofa-redesign):not(.content--dashboard) {
+  background: #0f1116;
+}
+
+/* 顶栏 */
+:root[data-theme="dark"] .twofa-redesign .page-topbar,
+:root[data-theme="dark"] .twofa-redesign .page-topbar::before {
+  background: #0f1116;
+}
+
+/* 状态徽标(文字/底色走 --vault / --vault-soft,仅补边框) */
+:root[data-theme="dark"] .twofa-redesign .tf-status-pill {
+  border-color: rgba(45, 212, 191, 0.30);
+}
+
+/* 玻璃面板白底 → 深色卡片底 */
+:root[data-theme="dark"] .twofa-redesign .panel {
+  background: #1a1d25;
+}
+
+/* 顶部说明横幅(蓝调半透明,叠在面板上有层次) */
+:root[data-theme="dark"] .twofa-redesign .tf-notice {
+  color: #d6e0f2;
+  border-color: rgba(77, 139, 255, 0.30);
+  background: linear-gradient(135deg, rgba(77, 139, 255, 0.16), rgba(77, 139, 255, 0.05));
+}
+
+/* 输入胶囊 → 强表面 */
+:root[data-theme="dark"] .twofa-redesign .tf-input {
+  background: #20242e;
+}
+:root[data-theme="dark"] .twofa-redesign .tf-input:focus-within {
+  border-color: rgba(77, 139, 255, 0.60);
+  box-shadow: 0 0 0 3px rgba(77, 139, 255, 0.20);
+}
+
+/* 次级按钮(主按钮 .primary 是蓝色渐变,深浅通用,不动) */
+:root[data-theme="dark"] .twofa-redesign .button {
+  color: #c3ccdb;
+  background: #20242e;
+}
+:root[data-theme="dark"] .twofa-redesign .button:hover:not(:disabled) {
+  border-color: rgba(77, 139, 255, 0.40);
+}
+
+/* 当前验证码高光卡(大数字走 --primary 已自动提亮到 #4d8bff) */
+:root[data-theme="dark"] .twofa-redesign .tf-code-panel {
+  border-color: rgba(77, 139, 255, 0.35);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(77, 139, 255, 0.22), transparent 42%),
+    linear-gradient(135deg, #20242e, #1a1d25);
+}
+:root[data-theme="dark"] .twofa-redesign .tf-code-label {
+  color: #cdd9f0;
+}
+:root[data-theme="dark"] .twofa-redesign .tf-code-copy:hover:not(:disabled) {
+  background: rgba(77, 139, 255, 0.20);
+}
+
+/* 倒计时圆环:环底转中性深灰、弧线与读数用提亮暖橙、静止态读数用次文字 */
+:root[data-theme="dark"] .twofa-redesign .tf-countdown-track,
+:root[data-theme="dark"] .twofa-redesign .tf-countdown--idle .tf-countdown-track {
+  stroke: #2b303b;
+}
+:root[data-theme="dark"] .twofa-redesign .tf-countdown-arc {
+  stroke: #ffb340;
+}
+:root[data-theme="dark"] .twofa-redesign .tf-countdown-text {
+  fill: #ffb340;
+}
+:root[data-theme="dark"] .twofa-redesign .tf-countdown--idle .tf-countdown-text {
+  fill: #9aa4b6;
+}
+
+/* 本地保险箱行 → 强表面 + 柔和青边 */
+:root[data-theme="dark"] .twofa-redesign .tf-secure-row {
+  border-color: rgba(45, 212, 191, 0.22);
+  background: #20242e;
+}
+
+/* 列表 Tab 未选中文字 */
+:root[data-theme="dark"] .twofa-redesign .tf-tab {
+  color: #9aa4b6;
+}
+
+/* 已保存 / 历史 记录行 + 内联编辑框 */
+:root[data-theme="dark"] .twofa-redesign .tf-record {
+  background: #20242e;
+}
+:root[data-theme="dark"] .twofa-redesign .tf-record-main input {
+  background: #20242e;
+}
+:root[data-theme="dark"] .twofa-redesign .tf-record-main input:focus {
+  border-color: rgba(77, 139, 255, 0.60);
+  box-shadow: 0 0 0 3px rgba(77, 139, 255, 0.20);
+}
+
+/* 小图标按钮(复制 / 编辑 / 刷新 / 删除) */
+:root[data-theme="dark"] .twofa-redesign .tf-icon-btn {
+  color: #9aa4b6;
+  background: #20242e;
+}
+:root[data-theme="dark"] .twofa-redesign .tf-icon-btn:hover:not(:disabled) {
+  border-color: rgba(77, 139, 255, 0.40);
+}
+:root[data-theme="dark"] .twofa-redesign .tf-icon-btn--danger:hover:not(:disabled) {
+  border-color: rgba(247, 106, 106, 0.45);
+}

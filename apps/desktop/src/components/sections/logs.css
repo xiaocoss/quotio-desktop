@@ -1264,3 +1264,166 @@
     border-left: 0;
   }
 }
+
+/* ════════════════════════════ 深色模式 ════════════════════════════
+   统一深色板(与 quota/dashboard 等页一致):页底 #0f1116 / 面板 #1a1d25 /
+   强表面 #20242e。全部限定在 .logs-redesign 作用域,仅在文件末尾追加,
+   不改动上面任何浅色规则。 */
+:root[data-theme="dark"] .logs-redesign {
+  --page: #0f1116;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-strong: #20242e;
+  --surface-soft: #20242e;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.17);
+  --text: #e6e9ef;
+  --muted: #9aa4b6;
+  --soft: #6b7488;
+  --primary: #4d8bff;
+  --primary-strong: #6f9dff;
+  --primary-soft: rgba(77, 139, 255, 0.18);
+  --success: #35c07a;
+  --success-soft: rgba(53, 192, 122, 0.16);
+  --warning: #ffb340;
+  --warning-soft: rgba(255, 179, 64, 0.16);
+  --danger: #f76a6a;
+  --danger-soft: rgba(247, 106, 106, 0.16);
+  --token: #2dd4bf;
+  --token-soft: rgba(45, 212, 191, 0.14);
+  --lavender: #a99bff;
+  --lavender-soft: rgba(169, 155, 255, 0.16);
+  --track: #2b303b;
+  --shadow-panel: 0 3px 12px rgba(0, 0, 0, 0.38), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-table: 0 20px 48px rgba(0, 0, 0, 0.5), 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+/* 页底 / 顶栏 / 滚动容器兜底 → 深 */
+:root[data-theme="dark"] .logs-redesign.section-page {
+  background-color: #0f1116;
+}
+:root[data-theme="dark"] .logs-redesign .lr-header {
+  background: #0f1116;
+}
+:root[data-theme="dark"] .app-shell--v2 .content:has(.logs-redesign):not(.content--dashboard) {
+  background: #0f1116;
+}
+
+/* 面板玻璃卡白渐变 → 深实底 */
+:root[data-theme="dark"] .logs-redesign .lr-panel {
+  background: #1a1d25;
+}
+
+/* 近白表面控件(tab / segment / 搜索 / 按钮 / 筛选 / 分页)→ 深表面 */
+:root[data-theme="dark"] .logs-redesign .lr-tabs,
+:root[data-theme="dark"] .logs-redesign .lr-segmented,
+:root[data-theme="dark"] .logs-redesign .lr-search,
+:root[data-theme="dark"] .logs-redesign .lr-btn,
+:root[data-theme="dark"] .logs-redesign .lr-level,
+:root[data-theme="dark"] .logs-redesign .lr-filter-select .qselect-button,
+:root[data-theme="dark"] .logs-redesign .lr-page-btn,
+:root[data-theme="dark"] .logs-redesign .lr-page-size {
+  background: rgba(255, 255, 255, 0.06);
+}
+:root[data-theme="dark"] .logs-redesign .lr-btn--danger {
+  background: rgba(255, 255, 255, 0.04);
+}
+:root[data-theme="dark"] .logs-redesign .lr-tab--active,
+:root[data-theme="dark"] .logs-redesign .lr-segment--active {
+  background: #20242e;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+}
+:root[data-theme="dark"] .logs-redesign .lr-page-btn:disabled {
+  background: rgba(255, 255, 255, 0.03);
+}
+:root[data-theme="dark"] .logs-redesign .lr-mode {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* 普通中性深字统一提亮 */
+:root[data-theme="dark"] .logs-redesign .lr-search .lr-icon,
+:root[data-theme="dark"] .logs-redesign .lr-btn,
+:root[data-theme="dark"] .logs-redesign .lr-health-legend,
+:root[data-theme="dark"] .logs-redesign .lr-filter-select .qselect-button,
+:root[data-theme="dark"] .logs-redesign .lr-table th,
+:root[data-theme="dark"] .logs-redesign .lr-model,
+:root[data-theme="dark"] .logs-redesign .lr-mode,
+:root[data-theme="dark"] .logs-redesign .lr-token,
+:root[data-theme="dark"] .logs-redesign .lr-page-btn,
+:root[data-theme="dark"] .logs-redesign .lr-page-info,
+:root[data-theme="dark"] .logs-redesign .lr-page-size,
+:root[data-theme="dark"] .logs-redesign .lr-log-line,
+:root[data-theme="dark"] .logs-redesign .lr-detail dd {
+  color: #c2ccdb;
+}
+:root[data-theme="dark"] .logs-redesign .lr-line-time,
+:root[data-theme="dark"] .logs-redesign .lr-line-source {
+  color: #97a3b8;
+}
+
+/* 状态色文字(badge)→ 亮版,配深色 soft 底 */
+:root[data-theme="dark"] .logs-redesign .lr-level--info,
+:root[data-theme="dark"] .logs-redesign .lr-status--ok,
+:root[data-theme="dark"] .logs-redesign .lr-line-level--info {
+  color: #35c07a;
+}
+:root[data-theme="dark"] .logs-redesign .lr-level--warn,
+:root[data-theme="dark"] .logs-redesign .lr-status--warn,
+:root[data-theme="dark"] .logs-redesign .lr-line-level--warn,
+:root[data-theme="dark"] .logs-redesign td.lr-duration-slow {
+  color: #ffb340;
+}
+:root[data-theme="dark"] .logs-redesign .lr-level--error,
+:root[data-theme="dark"] .logs-redesign .lr-status--error,
+:root[data-theme="dark"] .logs-redesign .lr-line-level--error {
+  color: #f76a6a;
+}
+:root[data-theme="dark"] .logs-redesign .lr-mode--deep {
+  color: #a99bff;
+}
+:root[data-theme="dark"] .logs-redesign .lr-details--open {
+  color: #6f9dff;
+}
+
+/* 表格:表头 / 行 hover / 慢行 / 表尾 / 详情行 / 详情错误框 */
+:root[data-theme="dark"] .logs-redesign .lr-table thead,
+:root[data-theme="dark"] .logs-redesign .lr-table-footer,
+:root[data-theme="dark"] .logs-redesign .lr-detail-row td {
+  background: rgba(255, 255, 255, 0.03);
+}
+:root[data-theme="dark"] .logs-redesign .lr-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+:root[data-theme="dark"] .logs-redesign .lr-table tbody tr.lr-row-slow {
+  background: linear-gradient(90deg, rgba(255, 179, 64, 0.13), rgba(255, 255, 255, 0) 70%);
+}
+:root[data-theme="dark"] .logs-redesign .lr-detail-error {
+  background: rgba(247, 106, 106, 0.13);
+  color: #f7a3a3;
+}
+
+/* 自动滚动开关滑块保持亮白点 */
+:root[data-theme="dark"] .logs-redesign .lr-switch::after {
+  background: #e6e9ef;
+}
+
+/* 实时日志流:head / scroll / 每行状态底 / 行号 / footer */
+:root[data-theme="dark"] .logs-redesign .lr-stream-head,
+:root[data-theme="dark"] .logs-redesign .lr-stream-footer {
+  background: rgba(255, 255, 255, 0.03);
+}
+:root[data-theme="dark"] .logs-redesign .lr-log-scroll {
+  background: rgba(255, 255, 255, 0.015);
+}
+:root[data-theme="dark"] .logs-redesign .lr-log-line:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+:root[data-theme="dark"] .logs-redesign .lr-log-line--warn {
+  background: rgba(255, 179, 64, 0.1);
+}
+:root[data-theme="dark"] .logs-redesign .lr-log-line--error {
+  background: rgba(247, 106, 106, 0.12);
+}
+:root[data-theme="dark"] .logs-redesign .lr-line-no {
+  color: #8794a9;
+  background: rgba(255, 255, 255, 0.03);
+}

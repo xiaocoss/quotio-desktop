@@ -192,6 +192,11 @@ pub struct AppSettings {
     pub scheduler_min_hold_minutes: u32,
     /// 调度防抖：候选要比当前账号早刷新至少多少分钟才主动切换。
     pub scheduler_switch_margin_minutes: u32,
+    /// 绑定的 Codex 启动账号是否也留在代理池参与轮换（把它闲置的额度也用上）。
+    /// 关（默认）：启动账号 login-only 隔离出池，额度闲置、不被消耗。
+    /// 开：启动账号照常进池被 Codex（经本机代理）轮换使用；代价是该账号 token 同时
+    /// 用于 Codex 登录(auth.json)与代理轮换，provider 对并发刷新敏感时极端情况可能需重授权。
+    pub absorb_bound_account: bool,
 }
 
 impl Default for AppSettings {
@@ -235,6 +240,7 @@ impl Default for AppSettings {
             scheduler_rule: "off".to_string(),
             scheduler_min_hold_minutes: 10,
             scheduler_switch_margin_minutes: 15,
+            absorb_bound_account: false,
         }
     }
 }
@@ -1571,6 +1577,24 @@ pub fn default_providers() -> Vec<ProviderSummary> {
             "EC4899",
             Some("/antigravity-auth-url"),
             true,
+            true,
+            false,
+            false,
+            false,
+            false,
+        ),
+        // Grok / xAI：走 proxy OAuth（CLIProxyAPI 的 /xai-auth-url，v7.2.20 已内置），
+        // Quotio 只触发、不自己实现 OAuth。x.ai 是按量付费、无「剩余额度」查询 API，
+        // 所以额度页给它显示占位说明而非额度数字（详见 quota.rs 的 fetch_grok_one）。
+        provider(
+            "xai",
+            "Grok (xAI)",
+            AuthMethod::OAuth,
+            ProviderRole::Provider,
+            "grok",
+            "000000",
+            Some("/xai-auth-url"),
+            false,
             true,
             false,
             false,

@@ -89,6 +89,7 @@ const providers: ProviderSummary[] = [
   provider("claude", "Claude Code", "o_auth", "D97757", { uses_cli_quota: true, native_oauth: true }),
   provider("qwen", "Qwen Code", "o_auth", "615CED", { native_oauth: true }),
   provider("iflow", "iFlow", "api_key", "2D7CF6", { uses_api_key_auth: true }),
+  provider("xai", "Grok (xAI)", "o_auth", "000000", { uses_browser_auth: true }),
   provider("vertex", "Vertex AI", "service_account", "34A853"),
 ];
 
@@ -103,6 +104,7 @@ const authFiles: AuthFile[] = [
   authFile("copilot", 1, "team@github.example.com"),
   authFile("copilot", 2, "ops@github.example.com"),
   authFile("kiro", 1, "cloud@kiro.example.com"),
+  authFile("xai", 1, "grok@x.ai.example.com"),
 ];
 
 function model(name: string, remainingPercent: number, resetLabel: string, count: number | null = null): QuotaModelUsage {
@@ -175,6 +177,7 @@ const accountQuotas: AccountQuota[] = [
     model("Claude", 22, "18h"),
     model("Claude Haiku", 100, "18h"),
   ]),
+  quota("xai-1", "xai", "grok@x.ai.example.com", "", false, false, [], "pay_as_you_go"),
 ];
 
 function agentStatus(
@@ -270,6 +273,7 @@ export const mockAppState: AppState = {
     allow_remote: false,
     launch_at_login: true,
     keep_proxy_on_exit: false,
+    absorb_bound_account: false,
     notifications_enabled: true,
     theme: "system",
     language: "zh-CN",

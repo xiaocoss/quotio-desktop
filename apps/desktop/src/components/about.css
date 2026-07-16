@@ -450,3 +450,54 @@
     padding: 14px 16px;
   }
 }
+
+/* ============================================================================
+   深色模式适配 —— 作用域限 .about-redesign,统一深色配色板,不影响其它页。
+   变量整体改深;硬编码浅底(页底 / 卡片白底 / 分隔线 / 深色文字)逐一覆盖。
+   保留:.about-mark 品牌渐变 logo、.about-check-btn 主蓝渐变按钮(在深色下同样成立)。
+   ========================================================================== */
+:root[data-theme="dark"] .about-redesign {
+  --primary: #4d8bff;
+  --primary-soft: rgba(77, 139, 255, 0.18);
+  --brand-green: #35c07a;
+  --brand-green-strong: #35c07a;
+  --brand-green-soft: rgba(53, 192, 122, 0.18);
+  --brand-cyan: #37c6e6;
+  --brand-cyan-soft: rgba(38, 183, 215, 0.18);
+  --lavender: #a78bfa;
+  --lavender-soft: rgba(139, 92, 246, 0.20);
+  --a-text: #e6e9ef;
+  --a-muted: #9aa4b6;
+  --a-soft: #6b7488;
+  --a-border: rgba(255, 255, 255, 0.10);
+  --a-shadow: 0 16px 36px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.30);
+
+  /* 页底纯色改深 */
+  background-color: #0f1116;
+}
+
+/* 通用面板 / 各卡片白底 → 深色卡面 */
+:root[data-theme="dark"] .about-redesign .panel {
+  background: #1a1d25;
+}
+
+/* 版本状态卡:嵌在 hero 卡内,用强表面拉开层次 + 黑色系阴影 */
+:root[data-theme="dark"] .about-redesign .about-status {
+  background: #20242e;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.40);
+}
+
+/* 大标语深色文字 → 提亮 */
+:root[data-theme="dark"] .about-redesign .about-tagline {
+  color: #c4ccda;
+}
+
+/* 信息行分隔线 → 柔和白 */
+:root[data-theme="dark"] .about-redesign .about-rows > div {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+/* 复制按钮白底 → 强表面(边框/文字走已改深的变量) */
+:root[data-theme="dark"] .about-redesign .about-copy {
+  background: #20242e;
+}

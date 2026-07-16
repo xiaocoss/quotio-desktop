@@ -487,3 +487,78 @@ body:has(.floating-window) {
   outline: none;
   box-shadow: 0 0 0 3px var(--fw-focus-ring);
 }
+
+/* ════════════════════════════ 深色模式 ════════════════════════════
+   悬浮窗深色:主要覆盖 --fw-* 变量,大部分元素靠 var() 自动跟随;
+   再逐一压掉 header / provider-tabs / footer 的近白硬编码底与浅色描边。
+   彩色实心元素(停止/启动按钮、plan 徽标渐变)在深底上本就成立,保留。 */
+:root[data-theme="dark"] .floating-window {
+  --fw-page: #12141a;
+  --fw-surface: #1c2029;
+  --fw-surface-muted: #232833;
+  --fw-text: #e6e9ef;
+  --fw-text-secondary: #9aa4b6;
+  --fw-text-muted: #6b7488;
+  --fw-border: rgba(255, 255, 255, 0.12);
+  --fw-divider: rgba(255, 255, 255, 0.08);
+  --fw-track: #2b303b;
+  --fw-dot-idle: #3a4150;
+  --fw-primary: #4d8bff;
+  --fw-primary-soft: rgba(77, 139, 255, 0.2);
+  --fw-success: #35c07a;
+  --fw-warning: #ffb340;
+  --fw-danger: #f76a6a;
+  --fw-plan: #8b8bff;
+  --fw-focus-ring: rgba(77, 139, 255, 0.3);
+}
+
+/* 主体背景:浅蓝/薄荷/白柔光 → 深底 + 极淡冷光 */
+:root[data-theme="dark"] .floating-window {
+  background:
+    radial-gradient(430px 360px at 16% 11%, rgba(77, 139, 255, 0.1), rgba(77, 139, 255, 0) 62%),
+    radial-gradient(470px 390px at 86% 85%, rgba(45, 212, 191, 0.08), rgba(45, 212, 191, 0) 60%),
+    radial-gradient(620px 520px at 50% 44%, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0) 72%),
+    var(--fw-page);
+}
+
+/* header / provider-tabs / footer 的近白条 → 深色半透明 */
+:root[data-theme="dark"] .window-header,
+:root[data-theme="dark"] .window-actions {
+  background: rgba(255, 255, 255, 0.03);
+}
+:root[data-theme="dark"] .provider-tabs {
+  background: rgba(255, 255, 255, 0.02);
+}
+:root[data-theme="dark"] .provider-tab {
+  background: rgba(255, 255, 255, 0.05);
+}
+:root[data-theme="dark"] .provider-tab:hover {
+  border-color: rgba(77, 139, 255, 0.5);
+}
+:root[data-theme="dark"] .provider-tab.active {
+  border-color: rgba(77, 139, 255, 0.55);
+}
+
+/* 账号卡状态描边 → 深色友好(卡体本身走 --fw-surface 自动变深) */
+:root[data-theme="dark"] .account-card.account-card--warn {
+  border-color: rgba(255, 179, 64, 0.4);
+}
+:root[data-theme="dark"] .account-card.account-card--bad {
+  border-color: rgba(247, 106, 106, 0.4);
+}
+
+/* 账号列表滚动条 → 深 */
+:root[data-theme="dark"] .account-scroll {
+  scrollbar-color: #3a4150 transparent;
+}
+:root[data-theme="dark"] .account-scroll::-webkit-scrollbar-thumb {
+  background: #3a4150;
+}
+:root[data-theme="dark"] .account-scroll::-webkit-scrollbar-thumb:hover {
+  background: #4a5262;
+}
+
+/* 「已停止 → 启动」按钮 hover 提亮 */
+:root[data-theme="dark"] .stop-button.is-start:hover {
+  background: #5f97ff;
+}

@@ -127,7 +127,7 @@ export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSett
   return (
     <section className="section-page quota-page quota-redesign">
       <header className="page-topbar" data-tauri-drag-region>
-        <h1>{t("nav.quota")}</h1>
+        <h1 data-tauri-drag-region="false">{t("nav.quota")}</h1>
         <button
           className={`button${isQuotaBusy ? " is-busy" : ""}`}
           type="button"
@@ -663,9 +663,11 @@ function AccountQuotaCard({
         <p className="quota-empty-note">
           {authFailed || account.is_forbidden
             ? t("quota.needsReauthNote", "需重新授权,请到服务商页重新登录")
-            : account.provider_id === "codex"
-              ? t("quota.fetchFailed", "额度获取失败,仅显示健康状态")
-              : t("quota.noUsageData", "暂无额度数据,账号健康")}
+            : account.status_message === "pay_as_you_go"
+              ? t("quota.payAsYouGo", "按量付费,无固定额度 · 消耗见仪表盘")
+              : account.provider_id === "codex"
+                ? t("quota.fetchFailed", "额度获取失败,仅显示健康状态")
+                : t("quota.noUsageData", "暂无额度数据,账号健康")}
         </p>
       )}
 

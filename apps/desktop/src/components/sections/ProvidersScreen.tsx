@@ -569,7 +569,7 @@ export function ProvidersScreen({
   return (
     <section className="section-page providers-page providers-redesign">
       <header className="page-topbar" data-tauri-drag-region>
-        <div className="pv-title-row">
+        <div className="pv-title-row" data-tauri-drag-region="false">
           <h1>{t("nav.providers")}</h1>
           <button
             className="icon-button"

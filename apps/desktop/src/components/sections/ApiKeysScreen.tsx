@@ -61,7 +61,7 @@ export function ApiKeysScreen({ appState, isManagementBusy, onRunManagementState
   return (
     <section className="section-page api-keys-page">
       <header className="page-topbar" data-tauri-drag-region>
-        <h1>{t("nav.api_keys")}</h1>
+        <h1 data-tauri-drag-region="false">{t("nav.api_keys")}</h1>
         <div className="topbar-actions">
           <button
             className="icon-button"

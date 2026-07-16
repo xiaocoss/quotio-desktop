@@ -81,6 +81,26 @@ export function SettingsScreen({
   const platform = appState.platform_features;
 
   const [hideSensitive, setHideSensitive] = useState(isHideSensitiveEnabled());
+  // 窗口「关闭 / 最小化」按钮行为的记忆值(存 localStorage,与 AppShell 的对话框共用同一 key)。
+  // 勾了「记住我的选择」后对话框不再弹,这里给一个随时能改 / 重置的入口。"ask" = 未记忆(仍会弹框)。
+  const readWinAction = (key: string) => {
+    try {
+      return localStorage.getItem(key) || "ask";
+    } catch {
+      return "ask";
+    }
+  };
+  const [closeAction, setCloseAction] = useState(() => readWinAction("quotio.closeAction"));
+  const [minimizeAction, setMinimizeAction] = useState(() => readWinAction("quotio.minimizeAction"));
+  const setWinAction = (storageKey: string, value: string, setter: (v: string) => void) => {
+    setter(value);
+    try {
+      if (value === "ask") localStorage.removeItem(storageKey);
+      else localStorage.setItem(storageKey, value);
+    } catch {
+      /* storage unavailable */
+    }
+  };
   const [connDraft, setConnDraft] = useState({
     proxy_host: settings.proxy_host,
     proxy_port: settings.proxy_port,
@@ -185,7 +205,7 @@ export function SettingsScreen({
   return (
     <section className="section-page settings-redesign">
       <header className="page-topbar" data-tauri-drag-region>
-        <div className="sr-header-lead">
+        <div className="sr-header-lead" data-tauri-drag-region="false">
           <h1 className="sr-title">{t("nav.settings")}</h1>
           <p className="sr-subtitle">{t("settings.subtitle", "配置运行模式、代理连接与请求行为")}</p>
         </div>
@@ -267,6 +287,36 @@ export function SettingsScreen({
                 disabled={isSaving}
                 onChange={() => applySettings({ keep_proxy_on_exit: !settings.keep_proxy_on_exit })}
                 label="Keep proxy running on exit"
+              />
+            </div>
+            <div className="sr-row">
+              <div className="sr-row-text">
+                <strong>{t("settings.closeAction", "点关闭按钮时")}</strong>
+                <small>{t("settings.closeActionDesc", "选「每次询问」会重新弹出选择框(即清除已记住的选择)")}</small>
+              </div>
+              <Select
+                value={closeAction}
+                options={[
+                  { value: "ask", label: t("settings.winActionAsk", "每次询问") },
+                  { value: "tray", label: t("settings.closeToTray", "最小化到托盘") },
+                  { value: "quit", label: t("settings.closeToQuit", "直接退出") },
+                ]}
+                onChange={(value) => setWinAction("quotio.closeAction", value, setCloseAction)}
+              />
+            </div>
+            <div className="sr-row">
+              <div className="sr-row-text">
+                <strong>{t("settings.minimizeAction", "点最小化按钮时")}</strong>
+                <small>{t("settings.minimizeActionDesc", "选「每次询问」会重新弹出选择框(即清除已记住的选择)")}</small>
+              </div>
+              <Select
+                value={minimizeAction}
+                options={[
+                  { value: "ask", label: t("settings.winActionAsk", "每次询问") },
+                  { value: "tray", label: t("settings.minimizeToTray", "隐藏到托盘") },
+                  { value: "taskbar", label: t("settings.minimizeToTaskbar", "最小化到任务栏") },
+                ]}
+                onChange={(value) => setWinAction("quotio.minimizeAction", value, setMinimizeAction)}
               />
             </div>
             <div className="sr-row">
@@ -587,6 +637,18 @@ export function SettingsScreen({
                   disabled={isSaving}
                   onChange={() => onSaveSettings({ ...settings, session_affinity: !settings.session_affinity })}
                   label="Session affinity"
+                />
+              </div>
+              <div className="sr-compact-row">
+                <div className="sr-compact-text">
+                  <strong>{t("settings.absorbBoundAccount", "启动账号加入代理轮换")}</strong>
+                  <small title={t("settings.absorbBoundAccountDesc", "开启后,一键启动绑定的账号不再被隔离,而是也留在代理池被 Codex(经代理)轮换使用,把它闲置的额度也用上。代价:该账号 token 同时用于登录和轮换,provider 敏感时极端情况可能需重新授权。默认关。")}>{t("settings.absorbBoundAccountDesc", "开启后,一键启动绑定的账号不再被隔离,而是也留在代理池被 Codex(经代理)轮换使用,把它闲置的额度也用上。代价:该账号 token 同时用于登录和轮换,provider 敏感时极端情况可能需重新授权。默认关。")}</small>
+                </div>
+                <Switch
+                  on={settings.absorb_bound_account}
+                  disabled={isSaving}
+                  onChange={() => onSaveSettings({ ...settings, absorb_bound_account: !settings.absorb_bound_account })}
+                  label="Absorb bound launch account into pool"
                 />
               </div>
               <div className="sr-compact-row">

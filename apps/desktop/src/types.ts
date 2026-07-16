@@ -21,6 +21,8 @@ export type AppSettings = {
   allow_remote: boolean;
   launch_at_login: boolean;
   keep_proxy_on_exit: boolean;
+  /** 绑定的 Codex 启动账号是否也留在代理池参与轮换（把闲置额度用上）。默认 false。 */
+  absorb_bound_account: boolean;
   notifications_enabled: boolean;
   theme: ThemeMode;
   language: string;

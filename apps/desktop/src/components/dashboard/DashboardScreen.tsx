@@ -54,7 +54,7 @@ export function DashboardScreen({ initialAccount, onFocusConsumed }: DashboardSc
       {/* Title bar is a FIXED header above the scroll body. It stays draggable via
           the empty area + title; the toolbar opts out so its controls stay clickable. */}
       <header className="page-topbar" data-tauri-drag-region>
-        <h1>{t("nav.dashboard")}</h1>
+        <h1 data-tauri-drag-region="false">{t("nav.dashboard")}</h1>
         <div className="dash-toolbar" data-tauri-drag-region="false">
           <span className="dash-toolbar-label">{t("dash.autoRefresh")}</span>
           <Select

@@ -201,7 +201,7 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
   return (
     <section className="section-page logs-redesign">
       <header className="lr-header" data-tauri-drag-region>
-        <div>
+        <div data-tauri-drag-region="false">
           <h1 className="lr-title">{t("nav.logs")}</h1>
           <p className="lr-subtitle">{t("logs.subtitle", "追踪请求、代理事件与性能异常")}</p>
         </div>

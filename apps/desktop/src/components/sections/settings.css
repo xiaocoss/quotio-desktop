@@ -755,3 +755,157 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================================
+   深色模式适配 —— 仅追加 :root[data-theme="dark"] .settings-redesign 作用域下的
+   覆盖,不改动上方任何浅色规则,也绝不影响别的页面(全部挂在 .settings-redesign
+   内,页底兜底用 :has(.settings-redesign))。配色板与仪表盘/额度页等统一。
+   ⚠️ webview 性能:不加 backdrop-filter、不加重滤镜。
+   ========================================================================== */
+
+/* 1) 变量整体覆盖(顶部 :root 里那批设计令牌)—— 大多数文字/边框/状态色随之切深 */
+:root[data-theme="dark"] .settings-redesign {
+  --page: #0f1116;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-strong: #20242e;
+  --surface-soft: #20242e;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.17);
+  --text: #e6e9ef;
+  --muted: #9aa4b6;
+  --soft: #6b7488;
+  --primary: #4d8bff;
+  --primary-strong: #6ea3ff;
+  --primary-soft: rgba(77, 139, 255, 0.18);
+  --success: #35c07a;
+  --success-soft: rgba(53, 192, 122, 0.16);
+  --warning: #ffb340;
+  --warning-soft: rgba(255, 179, 64, 0.16);
+  --danger: #f76a6a;
+  --danger-soft: rgba(247, 106, 106, 0.16);
+  --lavender: #a98bff;
+  --lavender-soft: rgba(169, 139, 255, 0.16);
+  --shadow: 0 3px 10px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-connection: 0 20px 48px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* 2) 页底 / 顶栏 / 滚动容器兜底 —— 硬编码 #fbfafa → 深底(消掉冷灰缝) */
+:root[data-theme="dark"] .settings-redesign.section-page {
+  background-color: #0f1116;
+}
+:root[data-theme="dark"] .app-shell--v2 .content:has(.settings-redesign):not(.content--dashboard) {
+  background: #0f1116;
+}
+:root[data-theme="dark"] .settings-redesign .page-topbar,
+:root[data-theme="dark"] .settings-redesign .page-topbar::before {
+  background: #0f1116;
+}
+
+/* 3) 面板白底(#ffffff)→ 深卡底 */
+:root[data-theme="dark"] .settings-redesign .sr-panel {
+  background: #1a1d25;
+}
+
+/* 4) 顶栏按钮 / 健康徽标:半透明白底 + 深字 / 浅绿·橙徽标 → 低亮白底 + 浅字 */
+:root[data-theme="dark"] .settings-redesign .sr-btn {
+  color: #c7cede;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+:root[data-theme="dark"] .settings-redesign .sr-health {
+  color: #52d295;
+  background: rgba(53, 192, 122, 0.16);
+  border-color: rgba(53, 192, 122, 0.3);
+}
+:root[data-theme="dark"] .settings-redesign .sr-health--down {
+  color: #ffc274;
+  background: rgba(255, 179, 64, 0.16);
+  border-color: rgba(255, 179, 64, 0.32);
+}
+
+/* 5) 应用模式卡:半透明白底 → 强表面深底;选中态近白渐变 → 主蓝低透渐变 + 深投影 */
+:root[data-theme="dark"] .settings-redesign .sr-mode-card {
+  background: #20242e;
+}
+:root[data-theme="dark"] .settings-redesign .sr-mode-card.is-selected {
+  background: linear-gradient(135deg, rgba(77, 139, 255, 0.22), rgba(32, 36, 46, 0.6));
+  box-shadow: 0 15px 34px rgba(0, 0, 0, 0.45);
+}
+:root[data-theme="dark"] .settings-redesign .sr-radio {
+  border-color: rgba(255, 255, 255, 0.24);
+}
+:root[data-theme="dark"] .settings-redesign .sr-mode-card.is-selected .sr-radio {
+  box-shadow: inset 0 0 0 4px #1a1d25;
+}
+
+/* 6) 徽标胶囊:灰底深字 → 低亮白底 + 浅字;未保存/已保存/warn 深字 → 亮字(底走变量) */
+:root[data-theme="dark"] .settings-redesign .sr-badge {
+  color: #aab4c6;
+  background: rgba(255, 255, 255, 0.06);
+}
+:root[data-theme="dark"] .settings-redesign .sr-badge--warn,
+:root[data-theme="dark"] .settings-redesign .sr-unsaved {
+  color: #ffc274;
+}
+:root[data-theme="dark"] .settings-redesign .sr-saved {
+  color: #52d295;
+}
+
+/* 7) 设置行 / 高级双列 / 工具卡容器:近白衬底 + 冷灰边框/分隔线 → 深透明衬 + 柔白边 */
+:root[data-theme="dark"] .settings-redesign .sr-rows,
+:root[data-theme="dark"] .settings-redesign .sr-compact-rows {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+:root[data-theme="dark"] .settings-redesign .sr-row,
+:root[data-theme="dark"] .settings-redesign .sr-compact-row,
+:root[data-theme="dark"] .settings-redesign .sr-field-line {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .settings-redesign .sr-tool-card {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #20242e;
+}
+:root[data-theme="dark"] .settings-redesign .sr-field-label {
+  color: #c0c8d6;
+}
+
+/* 8) 开关:关态灰轨(#d7dce5)→ 半透明白轨,开态走 --primary(蓝),两态分明;滑块保持近白 */
+:root[data-theme="dark"] .settings-redesign .switch {
+  background: rgba(255, 255, 255, 0.16);
+}
+:root[data-theme="dark"] .settings-redesign .switch-thumb {
+  background: #eef1f6;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+/* 9) 输入框 / 下拉触发钮:白底深字 → 低亮白底 + 浅字;聚焦/禁用同步调深 */
+:root[data-theme="dark"] .settings-redesign .sr-input,
+:root[data-theme="dark"] .settings-redesign .qselect-button {
+  color: #d3d8e2;
+  background: rgba(255, 255, 255, 0.06);
+}
+:root[data-theme="dark"] .settings-redesign .sr-input:focus {
+  border-color: rgba(77, 139, 255, 0.6);
+}
+:root[data-theme="dark"] .settings-redesign .sr-input:disabled {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* 10) mini 按钮:半透明白底 + 主色描边 → 低亮白底 + 亮蓝描边;hover 由压暗改为提亮 */
+:root[data-theme="dark"] .settings-redesign .sr-mini-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(77, 139, 255, 0.28);
+}
+:root[data-theme="dark"] .settings-redesign .sr-mini-btn:hover:not(:disabled) {
+  filter: brightness(1.12);
+  border-color: rgba(77, 139, 255, 0.4);
+}
+:root[data-theme="dark"] .settings-redesign .sr-mini-btn--danger {
+  border-color: rgba(247, 106, 106, 0.28);
+}
+
+/* 11) 运行状态圆点柔光:青绿光圈提亮(点色走 --success) */
+:root[data-theme="dark"] .settings-redesign .sr-dot {
+  box-shadow: 0 0 0 4px rgba(53, 192, 122, 0.18);
+}

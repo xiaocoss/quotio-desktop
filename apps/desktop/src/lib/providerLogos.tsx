@@ -6,6 +6,7 @@ const PROVIDER_LOGO: Record<string, string> = {
   claude: "logo-claude",
   copilot: "logo-copilot",
   antigravity: "logo-gemini",
+  xai: "logo-grok",
   kiro: "logo-kiro",
   glm: "logo-glm",
   trae: "logo-trae",

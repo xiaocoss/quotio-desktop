@@ -753,3 +753,152 @@
     align-items: stretch;
   }
 }
+
+/* ============================================================================
+   深色模式适配 —— 切深色时 :root 上加 data-theme="dark"。
+   下列规则全部挂在 :root[data-theme="dark"] .usage-dash 作用域内,
+   只覆盖颜色/背景/边框/阴影,不动布局,也绝不影响其它页面。
+   配色板与其它页面统一。
+   ========================================================================== */
+:root[data-theme="dark"] .usage-dash {
+  --primary: #4d8bff;
+  --primary-soft: rgba(77, 139, 255, 0.18);
+  --cost: #ff8a00;
+  --success: #35c07a;
+  --danger: #f76a6a;
+  --cached: #8b5cf6;
+  --warning: #ffb340;
+  --d-surface: #20242e;
+  --d-border: rgba(255, 255, 255, 0.1);
+  --d-text: #e6e9ef;
+  --d-muted: #9aa4b6;
+  --d-soft: #6b7488;
+  --d-shadow-card: 0 16px 36px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.4);
+  --d-shadow-hover: 0 22px 46px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.45);
+
+  /* 暖米色纸感页底 → 深底 */
+  background-color: #0f1116;
+}
+
+/* 卡片/面板:纯白 → 深卡片(边框/阴影已随变量转深) */
+:root[data-theme="dark"] .usage-dash .panel {
+  background: #1a1d25;
+}
+
+/* 控件表面(下拉触发 / 范围 tab / 视图切换):浅白底深字 → 强表面浅字 */
+:root[data-theme="dark"] .usage-dash .qselect-button,
+:root[data-theme="dark"] .usage-dash .range-tab,
+:root[data-theme="dark"] .usage-dash .view-toggle button {
+  background: #20242e;
+  color: var(--d-muted);
+  box-shadow: none;
+}
+/* 其余浅白/纯白底控件 → 强表面(文字已走变量,仅换底) */
+:root[data-theme="dark"] .usage-dash .icon-button,
+:root[data-theme="dark"] .usage-dash .ghost-action,
+:root[data-theme="dark"] .usage-dash .custom-range-row input,
+:root[data-theme="dark"] .usage-dash .usage-search,
+:root[data-theme="dark"] .usage-dash .mini-search,
+:root[data-theme="dark"] .usage-dash .acct-card {
+  background: #20242e;
+}
+/* 分页按钮:非当前页换深表面,当前页保留蓝色渐变不动 */
+:root[data-theme="dark"] .usage-dash .dash-page-btn:not(.dash-page-btn--active) {
+  background: #20242e;
+  color: var(--d-muted);
+}
+
+/* 选中态(范围 tab / 视图切换):白底 → 蓝调高亮 */
+:root[data-theme="dark"] .usage-dash .range-tab--active,
+:root[data-theme="dark"] .usage-dash .view-toggle button.active {
+  color: var(--primary);
+  background: var(--primary-soft);
+  border-color: rgba(77, 139, 255, 0.38);
+  box-shadow: none;
+}
+
+/* 分段切换器:浅底轨 → 半透明轨,活动药丸 → 抬升深表面 */
+:root[data-theme="dark"] .usage-dash .segmented {
+  background: rgba(255, 255, 255, 0.05);
+}
+:root[data-theme="dark"] .usage-dash .segmented button {
+  color: var(--d-muted);
+}
+:root[data-theme="dark"] .usage-dash .segmented button.active {
+  color: var(--primary);
+  background: #2b303b;
+  box-shadow: none;
+}
+
+/* KPI 图标底:浅色渐变 → 对应主色低透明度 */
+:root[data-theme="dark"] .usage-dash .orb.blue {
+  background: linear-gradient(135deg, rgba(77, 139, 255, 0.22), rgba(77, 139, 255, 0.12));
+}
+:root[data-theme="dark"] .usage-dash .orb.orange {
+  background: linear-gradient(135deg, rgba(255, 138, 0, 0.22), rgba(255, 138, 0, 0.12));
+}
+:root[data-theme="dark"] .usage-dash .orb.red {
+  background: linear-gradient(135deg, rgba(247, 106, 106, 0.22), rgba(247, 106, 106, 0.12));
+}
+:root[data-theme="dark"] .usage-dash .orb.green {
+  background: linear-gradient(135deg, rgba(53, 192, 122, 0.22), rgba(53, 192, 122, 0.12));
+}
+:root[data-theme="dark"] .usage-dash .orb.purple {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.26), rgba(139, 92, 246, 0.14));
+}
+
+/* 图表:网格线 / 坐标轴文字 / 默认 tooltip 转深 */
+:root[data-theme="dark"] .usage-dash .recharts-cartesian-grid line {
+  stroke: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .usage-dash .recharts-text {
+  fill: #9aa4b6;
+}
+:root[data-theme="dark"] .usage-dash .recharts-default-tooltip {
+  background: #20242e !important;
+  border-color: var(--d-border) !important;
+}
+:root[data-theme="dark"] .usage-dash .recharts-tooltip-label {
+  color: #e6e9ef !important;
+}
+
+/* 表格:表头 / 分隔线 / 单元格文字 */
+:root[data-theme="dark"] .usage-dash thead th {
+  color: var(--d-muted);
+}
+:root[data-theme="dark"] .usage-dash th,
+:root[data-theme="dark"] .usage-dash td {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .usage-dash td,
+:root[data-theme="dark"] .usage-dash .account-name {
+  color: var(--d-text);
+}
+:root[data-theme="dark"] .usage-dash .account-provider {
+  color: #9aa4b6;
+}
+
+/* 状态徽章:浅底深字 → 主色低透明度底 + 亮字 */
+:root[data-theme="dark"] .usage-dash .badge--good {
+  color: #35c07a;
+  background: rgba(53, 192, 122, 0.16);
+}
+:root[data-theme="dark"] .usage-dash .badge--warn {
+  color: #ffb340;
+  background: rgba(255, 179, 64, 0.16);
+}
+:root[data-theme="dark"] .usage-dash .badge--bad {
+  color: #f76a6a;
+  background: rgba(247, 106, 106, 0.16);
+}
+:root[data-theme="dark"] .usage-dash .badge--neutral {
+  color: #9aa4b6;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* 错误条:浅红 → 深红半透明 */
+:root[data-theme="dark"] .usage-dash .dash-error {
+  border-color: rgba(247, 106, 106, 0.4);
+  background: rgba(247, 106, 106, 0.12);
+  color: #f9a3a3;
+}

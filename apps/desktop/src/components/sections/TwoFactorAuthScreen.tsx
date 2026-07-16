@@ -312,7 +312,7 @@ export function TwoFactorAuthScreen() {
   return (
     <section className="section-page twofa-redesign">
       <header className="page-topbar" data-tauri-drag-region>
-        <div className="tf-topline">
+        <div className="tf-topline" data-tauri-drag-region="false">
           <h1>{t("title.two_factor")}</h1>
           <span className="tf-status-pill">
             <Icon id="icon-shield" />

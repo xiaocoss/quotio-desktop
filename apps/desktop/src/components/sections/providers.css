@@ -1025,3 +1025,154 @@
     border-bottom: 1px solid var(--border);
   }
 }
+
+/* ============================================================================
+   深色模式 —— 全部限 .providers-redesign 作用域,绝不影响别页。
+   统一深色配色板(各页共用):页底 #0f1116 / 卡片面板 #1a1d25 / 强表面 #20242e;
+   主文字 #e6e9ef、次文字 #9aa4b6、更淡 #6b7488;边框 rgba(255,255,255,.10)、
+   强边框 .17、分隔线 .08;进度/滑轨底 #2b303b;主蓝 #4d8bff、provider 薄荷 #2dd4bf;
+   状态色柔亮 #35c07a/#ffb340/#f76a6a;阴影改黑色系;不使用 backdrop-filter。
+   ========================================================================== */
+
+/* ① 覆盖设计令牌变量 —— 级联到所有 var(--…) 用法(边框/文字/软底/阴影等) */
+:root[data-theme="dark"] .providers-redesign {
+  --page: #0f1116;
+  --surface: #1a1d25;
+  --surface-strong: #20242e;
+  --surface-soft: #20242e;
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.17);
+  --text: #e6e9ef;
+  --muted: #9aa4b6;
+  --soft: #6b7488;
+  --primary: #4d8bff;
+  --primary-soft: rgba(77, 139, 255, 0.18);
+  --provider: #2dd4bf;
+  --provider-soft: rgba(45, 212, 191, 0.16);
+  --success: #35c07a;
+  --success-soft: rgba(53, 192, 122, 0.16);
+  --warning: #ffb340;
+  --warning-soft: rgba(255, 179, 64, 0.16);
+  --danger: #f76a6a;
+  --danger-soft: rgba(247, 106, 106, 0.16);
+  --lavender: #9b8cff;
+  --lavender-soft: rgba(155, 140, 255, 0.18);
+  --row-hover: rgba(255, 255, 255, 0.05);
+  --shadow-panel: 0 3px 10px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-provider: 0 24px 58px rgba(0, 0, 0, 0.55), 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+/* ② 逐一覆盖硬编码浅色 -------------------------------------------------------- */
+
+/* 页底:暖米色 → 深底(section-page 与滚动容器兜底一起刷,避免冷缝) */
+:root[data-theme="dark"] .providers-redesign.section-page {
+  background-color: #0f1116;
+}
+:root[data-theme="dark"] .app-shell--v2 .content:has(.providers-redesign):not(.content--dashboard) {
+  background: #0f1116;
+}
+
+/* 面板/自定义接口卡:白底 → 卡片面板底 */
+:root[data-theme="dark"] .providers-redesign .panel,
+:root[data-theme="dark"] .providers-redesign .pv-card {
+  background: #1a1d25;
+}
+
+/* 通用按钮 / 卡片⋯ / 顶栏⋯ / 拖拽中行 / 卡片下拉菜单:近白表面 → 强表面 */
+:root[data-theme="dark"] .providers-redesign .button,
+:root[data-theme="dark"] .providers-redesign .icon-button {
+  background: #20242e;
+  color: #c2c9d6;
+}
+:root[data-theme="dark"] .providers-redesign .provider-head-actions .pv-card-more,
+:root[data-theme="dark"] .providers-redesign .pv-global-more {
+  background: #20242e;
+}
+:root[data-theme="dark"] .providers-redesign .provider-head-actions .pv-card-more:hover,
+:root[data-theme="dark"] .providers-redesign .pv-global-more:hover {
+  background: #262b36;
+}
+:root[data-theme="dark"] .providers-redesign .account-row-drag--dragging {
+  background: #20242e;
+}
+:root[data-theme="dark"] .providers-redesign .pv-card-dropdown {
+  background: #20242e;
+}
+
+/* 品牌 logo 白圆底 → 深色圆底(保留层次,边框柔和) */
+:root[data-theme="dark"] .providers-redesign .provider-logo {
+  color: #9aa4b6;
+  border-color: rgba(255, 255, 255, 0.10);
+  background: #20242e;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* 服务商卡 provider 色描边 → 薄荷低透明描边 */
+:root[data-theme="dark"] .providers-redesign .provider-card {
+  border-color: rgba(45, 212, 191, 0.22);
+}
+
+/* 账号顺序徽章:填充态用深字压在薄荷上;透明态(可切换/已跳过)用薄荷字 */
+:root[data-theme="dark"] .providers-redesign .account-order-badge {
+  color: #0f1116;
+}
+:root[data-theme="dark"] .providers-redesign .account-order-badge--eligible,
+:root[data-theme="dark"] .providers-redesign .account-order-badge--skipped {
+  color: var(--provider);
+}
+
+/* 账号行:图标按钮闲置色 / 重排按钮 → 次文字色;蓝色悬停底加深可见 */
+:root[data-theme="dark"] .providers-redesign .account-row-actions,
+:root[data-theme="dark"] .providers-redesign .row-icon-btn,
+:root[data-theme="dark"] .providers-redesign .reorder-btn,
+:root[data-theme="dark"] .providers-redesign .pv-card-more {
+  color: #9aa4b6;
+}
+:root[data-theme="dark"] .providers-redesign .reorder-btn:hover:not(:disabled),
+:root[data-theme="dark"] .providers-redesign .row-icon-btn:hover:not(:disabled) {
+  background: rgba(77, 139, 255, 0.16);
+}
+
+/* 服务商卡底栏 / 重置顺序 / 展开全部:中性文字 → 次文字色 */
+:root[data-theme="dark"] .providers-redesign .provider-foot,
+:root[data-theme="dark"] .providers-redesign .pv-order-reset,
+:root[data-theme="dark"] .providers-redesign .pv-card-toggle {
+  color: #9aa4b6;
+}
+
+/* 洞察 tile / 自定义接口表单:浅蓝底 → 强表面(在面板上再抬一层) */
+:root[data-theme="dark"] .providers-redesign .insight,
+:root[data-theme="dark"] .providers-redesign .pv-custom-form {
+  background: #20242e;
+}
+
+/* 表单输入:白底 → 更深的内嵌底;焦点描边略亮 */
+:root[data-theme="dark"] .providers-redesign .pv-custom-form input,
+:root[data-theme="dark"] .providers-redesign .pv-custom-form textarea {
+  background: #0f1116;
+}
+:root[data-theme="dark"] .providers-redesign .pv-custom-form input:focus,
+:root[data-theme="dark"] .providers-redesign .pv-custom-form textarea:focus {
+  border-color: rgba(77, 139, 255, 0.6);
+}
+:root[data-theme="dark"] .providers-redesign .pv-custom-form .cp-form-keys-add {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+}
+
+/* 模板卡:白色渐变蒙层压暗(保留 SVG 底纹) + 虚线边柔和 */
+:root[data-theme="dark"] .providers-redesign .template {
+  border-color: rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(rgba(26, 29, 37, 0.86), rgba(26, 29, 37, 0.72)),
+    url("/providers/integration-pattern.svg") left top / cover;
+}
+
+/* 各类中性灰底 pill/badge(rgba(120,135,160,.14))→ 极浅白底 */
+:root[data-theme="dark"] .providers-redesign .pill.muted,
+:root[data-theme="dark"] .providers-redesign .pv-account-status--muted,
+:root[data-theme="dark"] .providers-redesign .cp-kind-badge,
+:root[data-theme="dark"] .providers-redesign .cp-model-pill,
+:root[data-theme="dark"] .providers-redesign .pv-count-badge {
+  background: rgba(255, 255, 255, 0.06);
+}

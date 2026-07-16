@@ -82,6 +82,15 @@
     </g>
   </symbol>
 
+  <!-- Grok(xai):xAI 风格锐利斜杠 X,主对角完整 + 副对角带缺口;用 currentColor 以便深浅底都清晰 -->
+  <symbol id="logo-grok" viewBox="0 0 24 24">
+    <g fill="currentColor">
+      <path d="M3.8 3.5h3.4l13 17h-3.4z"/>
+      <path d="M20.2 3.5h-3.4l-4.3 5.6 1.7 2.2z"/>
+      <path d="M7.2 20.5H3.8l6-7.8 1.7 2.2z"/>
+    </g>
+  </symbol>
+
   <!-- 兜底:通用层叠(自定义接口 / 内部网关 / 未识别) -->
   <symbol id="logo-generic" viewBox="0 0 24 24">
     <path d="m12 4 8 4-8 4-8-4 8-4Zm-6 8 6 3 6-3M6 16l6 3 6-3" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
