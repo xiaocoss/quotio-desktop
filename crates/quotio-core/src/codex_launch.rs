@@ -1643,7 +1643,17 @@ mod tests {
         let auth_path = home.join("auth.json");
         std::fs::write(&auth_path, "original-auth").unwrap();
 
-        write_launch_backup_in(&home, None).unwrap();
+        write_launch_backup_in(
+            &home,
+            Some(CodexLaunchSessionState {
+                profile_id: "profile-prepared".to_string(),
+                account_key: "codex-a".to_string(),
+                launch_mode: "app".to_string(),
+                pid: Some(7331),
+                phase: CodexLaunchPhase::Prepared,
+            }),
+        )
+        .unwrap();
         std::fs::write(&auth_path, "quotio-auth").unwrap();
         std::fs::write(
             auth_dir.join("codex-a.json"),

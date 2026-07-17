@@ -252,6 +252,28 @@ fn apply_codex_cleanup_outcome(
     completed
 }
 
+fn prepared_codex_runtime_after_cleanup(
+    state: codex_launch::CodexLaunchSessionState,
+    cleanup: &Result<usize, ManagementCoreError>,
+) -> (
+    Option<codex_launch::CodexSession>,
+    Option<String>,
+    Option<String>,
+    bool,
+) {
+    debug_assert_eq!(state.phase, codex_launch::CodexLaunchPhase::Prepared);
+    let mut profile_id = Some(state.profile_id);
+    let mut account_key = Some(state.account_key);
+    let mut cleanup_pending = false;
+    apply_codex_cleanup_outcome(
+        cleanup,
+        &mut profile_id,
+        &mut account_key,
+        &mut cleanup_pending,
+    );
+    (None, profile_id, account_key, cleanup_pending)
+}
+
 fn codex_runtime_satisfies_start(
     session: Option<&codex_launch::CodexSession>,
     cleanup_pending: bool,
@@ -297,6 +319,20 @@ fn initial_codex_runtime() -> (
         Ok(codex_launch::LaunchBackupStatus::Legacy) => {
             let (session, profile_id, account_key) = recovered_codex_runtime(None);
             (session, profile_id, account_key, false)
+        }
+        Ok(codex_launch::LaunchBackupStatus::Managed(state))
+            if state.phase == codex_launch::CodexLaunchPhase::Prepared =>
+        {
+            // Prepared means the launch transaction never committed. Roll it back immediately,
+            // regardless of keep_proxy_on_exit, and never trust its persisted pid.
+            codex_launch::close_codex_app();
+            thread::sleep(Duration::from_millis(400));
+            let cleanup = codex_launch::cleanup_managed_codex_disk_state_unlocked()
+                .map_err(ManagementCoreError::Unavailable);
+            if let Err(error) = &cleanup {
+                eprintln!("[startup] rollback prepared Codex launch failed: {error}");
+            }
+            prepared_codex_runtime_after_cleanup(state, &cleanup)
         }
         Ok(codex_launch::LaunchBackupStatus::Managed(state)) => {
             let cleanup_pending = match codex_launch::reconcile_login_only_markers_unlocked(Some(
@@ -4655,6 +4691,48 @@ mod tests {
         assert!(session.is_none());
         assert!(profile_id.is_none());
         assert!(account_key.is_none());
+    }
+
+    #[test]
+    fn prepared_cleanup_success_returns_fully_inactive_runtime() {
+        let state = codex_launch::CodexLaunchSessionState {
+            profile_id: "profile-prepared".to_string(),
+            account_key: "codex-prepared".to_string(),
+            launch_mode: "app".to_string(),
+            pid: Some(7331),
+            phase: codex_launch::CodexLaunchPhase::Prepared,
+        };
+        let cleanup = Ok(1);
+
+        let (session, profile_id, account_key, pending) =
+            prepared_codex_runtime_after_cleanup(state, &cleanup);
+
+        assert!(session.is_none());
+        assert!(profile_id.is_none());
+        assert!(account_key.is_none());
+        assert!(!pending);
+    }
+
+    #[test]
+    fn prepared_cleanup_failure_retains_identity_and_pending() {
+        let state = codex_launch::CodexLaunchSessionState {
+            profile_id: "profile-prepared".to_string(),
+            account_key: "codex-prepared".to_string(),
+            launch_mode: "cli".to_string(),
+            pid: Some(7331),
+            phase: codex_launch::CodexLaunchPhase::Prepared,
+        };
+        let cleanup = Err(ManagementCoreError::Unavailable(
+            "rollback failed".to_string(),
+        ));
+
+        let (session, profile_id, account_key, pending) =
+            prepared_codex_runtime_after_cleanup(state, &cleanup);
+
+        assert!(session.is_none());
+        assert_eq!(profile_id.as_deref(), Some("profile-prepared"));
+        assert_eq!(account_key.as_deref(), Some("codex-prepared"));
+        assert!(pending);
     }
 
     #[test]
