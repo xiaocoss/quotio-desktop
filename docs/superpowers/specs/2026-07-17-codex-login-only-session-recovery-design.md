@@ -52,10 +52,12 @@ session would lose its protected login account as soon as Quotio reopened.
 
 ### 2. Persist launch-session metadata and reconcile stale markers
 
-Store the profile id, account key, launch mode, and optional pid beside the
-existing Codex launch backup. Rehydrate the in-memory session on startup and use
-the durable account key for release. Sweep all Quotio-owned login-only markers
-only when the managed session is actually being ended.
+Store the profile id, account key, launch mode, optional pid, and a transactional
+launch phase beside the existing Codex launch backup. On startup, recover only
+committed (`Running`) sessions, discard the persisted pid from runtime state,
+and use the durable account key for release. Sweep all Quotio-owned login-only
+markers only when the managed session is actually being ended or an incomplete
+(`Prepared`) launch is rolled back.
 
 This is the selected approach. It preserves the keep-running behavior, fixes
 cross-restart stopping and profile switching, and provides a safe migration path
@@ -69,15 +71,26 @@ persisting the identity Quotio already knows at launch time.
 
 ## Data Model
 
-Extend `CodexLaunchBackup` with an optional session object:
+Extend `CodexLaunchBackup` with an optional session object and make the launch
+phase explicit:
 
 ```rust
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CodexLaunchPhase {
+    #[default]
+    Prepared,
+    Running,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CodexLaunchSessionState {
     pub profile_id: String,
     pub account_key: String,
     pub launch_mode: String,
     pub pid: Option<u32>,
+    #[serde(default)]
+    pub phase: CodexLaunchPhase,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -89,45 +102,71 @@ struct CodexLaunchBackup {
 }
 ```
 
-The optional field makes backups created by earlier releases remain valid.
-Session metadata contains no token or API key.
+The optional session field makes backups created by earlier releases remain
+valid. A managed session written by an intermediate implementation may have no
+`phase`; serde defaults that metadata to `Prepared`, which is the safe rollback
+classification. Session metadata contains no token or API key.
 
-`AppCore` gains `codex_active_account_key: Option<String>`. This value is set
-when a launch starts and recovered from the backup after restart. Profile id is
-kept for UI state, while account key is the authoritative release identity.
+`AppCore` gains `codex_active_account_key: Option<String>` and
+`codex_cleanup_pending: bool`. Profile id is kept for UI state, account key is
+the authoritative release identity, and the pending bit keeps failed cleanup
+visible and retryable. `codex_active()` is true when a runtime session exists,
+cleanup is pending, or a launch backup still exists.
+
+`CodexSession::recovered(mode)` always sets `pid=None`. The persisted pid is an
+audit value written with the `Running` commit, not a process handle that may be
+trusted after an OS/process restart because pid reuse could target an unrelated
+process.
 
 ## Launch Flow
 
-1. If an older managed session or launch backup exists, end it first: close the
-   old Codex process, release every Quotio login-only marker, restore the Codex
-   files, and reconcile the scheduler.
-2. Mark the selected account login-only unless `absorb_bound_account` is enabled.
-3. Write the original Codex files and session metadata to the launch backup.
-4. Configure and launch Codex.
-5. Persist the returned pid into the session metadata before reporting success.
-6. Set the in-memory session, active profile id, and active account key.
+1. Validate the requested profile before disturbing an existing valid session.
+2. If `codex_active()` is true, return idempotently only when the same profile is
+   represented by a usable runtime session. Cleanup-pending state and a recovered
+   CLI session are never treated as proof that the requested launch is running;
+   they enter Stop/cleanup first.
+3. After the old state is ended, run a no-retain marker reconciliation so an
+   orphan marker cannot survive merely because its backup was already removed.
+4. Mark the selected account login-only unless `absorb_bound_account` is enabled.
+5. Write the original Codex files plus session metadata with
+   `phase=Prepared` and `pid=None` before changing Codex configuration.
+6. Configure and launch Codex.
+7. After launch succeeds, call
+   `mark_launch_session_running_unlocked(pid)`. This atomically commits
+   `phase=Running` and the returned pid in the same backup replacement.
+8. Only after that commit succeeds, expose the in-memory session, active profile
+   id, active account key, and clear `codex_cleanup_pending`.
 
-Any failure after marking the account releases all Quotio login-only markers,
-restores an existing backup, clears in-memory session identity, and reconciles
-the scheduler.
+Any failure after marking the account runs the same unified disk rollback:
+release all Quotio login-only markers and restore/remove the launch backup. If
+the Running commit itself fails, the just-launched pid is killed when available,
+the Codex app is closed, and the code waits 400 ms before rollback. A successful
+rollback clears identity; a failed rollback keeps profile/account identity,
+sets `codex_cleanup_pending=true`, and returns a combined launch-plus-cleanup
+error so Stop or a later Start can retry.
 
 ## Startup Recovery
 
 When `AppCore` is created:
 
-- if a launch backup contains session metadata, rebuild `CodexSession` from its
-  mode and pid, restore `codex_active_profile_id`, and restore
-  `codex_active_account_key`; retain that account's marker and release every
-  other login-only marker left by an older broken session;
-- if no launch backup exists, any login-only marker is unambiguously stale and
-  is released during startup;
-- if a legacy backup exists without session metadata, do not guess which active
-  account to retain. Keep the backup untouched until the user stops or starts a
-  managed session; that ending path safely releases all old markers.
+- `Missing`: any login-only marker is unambiguously stale and is released. A
+  reconciliation failure sets `codex_cleanup_pending=true`, keeping Stop/Start
+  as retry entry points even though there is no recovered identity.
+- `Legacy`: do not guess which account is active. Keep the backup and markers
+  untouched until explicit Stop or a new Start uses the unified cleanup path.
+- `Managed(Prepared)`: the launch transaction never committed. Immediately call
+  `close_codex_app()`, wait 400 ms, then run the unified disk rollback regardless
+  of `keep_proxy_on_exit`. Success produces a fully inactive runtime. Failure
+  keeps the persisted profile/account identity, leaves `codex_session=None`, and
+  sets `codex_cleanup_pending=true` so cleanup can be retried.
+- `Managed(Running)`: retain the persisted account marker, release other stale
+  markers, and recover the profile, account, and launch mode. Never trust or
+  reuse the persisted pid; runtime recovery always uses `pid=None`. A marker
+  reconciliation failure retains the recovered identity and sets cleanup pending.
 
 A parsed backup is classified as `Missing`, `Legacy`, or `Managed(state)` so a
-parse error is never mistaken for a missing backup. Parse failures preserve the
-disk state and are reported instead of performing destructive reconciliation.
+parse error is never mistaken for a missing backup. Read/parse failures preserve
+the disk state, set cleanup pending, and avoid destructive reconciliation.
 
 Unit tests that construct `AppCore::default()` must not run the production
 startup reconciliation against the developer's real home directory. Startup
@@ -135,9 +174,20 @@ classification and runtime reconstruction are therefore factored into testable
 path-scoped and pure helpers, while the test-only default constructor skips
 global disk mutation.
 
-For a recovered app session, monitoring retains the existing conservative
-`seen_running` behavior so Store-app process-name mismatches do not cause an
-automatic false shutdown. Explicit Stop remains authoritative.
+Recovered and fresh sessions use deliberately different monitor rules:
+
+- a recovered App session starts with `recovered=true`, `pid=None`, and may be
+  ended after two consecutive missing observations even if no alive observation
+  has yet occurred;
+- one alive observation converts it to the normal `seen_running` state and
+  resets the miss counter;
+- a fresh session that has never been observed alive remains conservative and
+  is not ended merely because startup probes miss it;
+- a recovered CLI session has no trustworthy pid and therefore no CLI monitor
+  probe. Starting the same CLI profile is not blindly idempotent: it first enters
+  cleanup/relaunch instead of asserting that an unverified process is running.
+
+Explicit Stop remains authoritative for all recovered sessions.
 
 ## Ending and Cleanup
 
@@ -162,17 +212,30 @@ This covers a partial older cleanup where the launch backup was removed but one
 account-file write failed, and guarantees every successful launch starts from
 zero residual markers.
 
-Cleanup uses atomic account-file writes. Errors are logged on best-effort
-shutdown/monitor paths and returned to the caller on explicit Stop or launch
-replacement paths. Codex-state restoration still runs even if one marker cannot
-be released, and the combined error identifies both failures when applicable.
+Cleanup uses atomic account-file writes. Marker reconciliation and Codex backup
+restoration are both attempted even when the other one fails, and a combined
+error reports both failures when applicable. Explicit Stop and launch
+replacement return cleanup errors. Shutdown logs them. Monitor cleanup returns
+`true` only when cleanup completed; on failure it does not falsely report an
+automatic restore, preserves profile/account identity, and sets cleanup pending.
 
-`keep_proxy_on_exit=true` remains the sole exception: shutdown preserves the
-session metadata, backup, proxy, Codex process, and the one active marker.
+The shared atomic writer is hardened for these token-bearing files. Sensitive
+temporary files are created with owner-only `0600` permissions on Unix instead
+of being tightened only after content is written. Windows replacement uses
+`MoveFileExW(MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)` so an existing
+target can be replaced durably. An RAII temp-file guard closes and removes the
+temporary path on every error path, preventing credential-bearing temp leaks.
+
+`keep_proxy_on_exit=true` remains the normal-shutdown exception: a committed
+Running session preserves its metadata, backup, proxy, Codex process, and active
+marker. It does not exempt an uncommitted Prepared transaction from startup
+rollback.
 
 ## Legacy Compatibility
 
 - Old backups deserialize with `session=None`.
+- Managed metadata without `phase` defaults to `Prepared` and is rolled back;
+  it is never assumed to be a committed running session.
 - Old single or multiple markers are released the next time the legacy session
   is explicitly stopped or replaced.
 - Markers without a backup are released on startup because no managed Codex
@@ -184,20 +247,28 @@ session metadata, backup, proxy, Codex process, and the one active marker.
 
 Add regression coverage for:
 
-- session metadata round-trip and pid update;
-- deserializing and restoring a legacy backup without metadata;
-- recovering profile id, account key, launch mode, and pid after restart;
-- managed startup retaining only the persisted active account marker;
-- releasing two residual markers while restoring each prior disabled value;
-- Stop after restart releasing markers without consulting mutable profile data;
-- replacing a legacy backup before launching a second profile;
-- startup cleanup when markers exist without a launch backup;
-- launch failure removing metadata and markers;
-- `keep_proxy_on_exit=true` preserving recovered session state;
-- existing monitor debounce and PowerShell fallback tests remaining green.
+- Prepared metadata round-trip followed by one atomic Running+pid commit;
+- metadata without `phase` defaulting to Prepared;
+- deserializing and restoring a legacy backup without session metadata;
+- Prepared startup cleanup succeeding to a fully inactive runtime and failing to
+  a retained identity plus cleanup-pending state;
+- Running recovery restoring profile/account/mode while discarding the pid;
+- recovered App cleanup after two misses, transition to normal monitoring after
+  an alive observation, and conservative fresh-unseen behavior;
+- recovered CLI and cleanup-pending state refusing same-profile idempotence;
+- cleanup failure preserving identity, marking pending, and not being reported
+  as completed by the monitor;
+- releasing residual markers while restoring each prior disabled value;
+- disk cleanup continuing backup restoration after marker failure and combining
+  marker-plus-restore errors;
+- Windows replacement behavior, atomic-write temp cleanup on failure, and Unix
+  sensitive-file permissions;
+- existing PowerShell fallback and full workspace checks remaining green.
 
 ## Release Scope
 
-This lifecycle fix is included in v0.7.1 together with the Windows PowerShell
-path-resolution fix. No rose-theme work or unrelated settings changes are part
-of the release.
+This lifecycle fix is planned for the v0.7.1 release scope together with the
+Windows PowerShell path-resolution fix. The release plan must still complete its
+unchecked build, publish, and asset-verification steps before claiming the
+release is shipped. No rose-theme work or unrelated settings changes belong in
+that scope.
