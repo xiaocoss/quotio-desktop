@@ -1,0 +1,410 @@
+:root.codex-dream-skin {
+  --dream-theme-name: "inspiration-cosmos";
+  --dream-ink: #273f3c;
+  --dream-purple: #25aa91;
+  --dream-violet: #58acd4;
+  --dream-pink: #ef755e;
+  --dream-blush: #fffaf0;
+  --dream-pearl: rgba(255, 254, 247, .96);
+  --dream-line: rgba(47, 176, 150, .30);
+  --gallery-bg: #fffaf0;
+  --gallery-bg-alt: #eef8e9;
+  --gallery-panel: #fffdf7;
+  --gallery-text: #273f3c;
+  --gallery-accent: #25aa91;
+  --gallery-accent-alt: #ef755e;
+  --gallery-glow: rgba(242, 203, 79, .42);
+  --gallery-button-text: #ffffff;
+  --gallery-art-size: auto 341%;
+  --gallery-art-position: 88% 6%;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] body {
+  color: #273f3c !important;
+  background:
+    radial-gradient(circle at 87% 7%, rgba(255, 215, 87, .24), transparent 27%),
+    radial-gradient(circle at 62% 2%, rgba(76, 188, 164, .19), transparent 24%),
+    radial-gradient(circle at 28% 9%, rgba(239, 117, 94, .14), transparent 24%),
+    linear-gradient(145deg, #fffdf5 0%, #fff9ec 55%, #f0f9ec 100%) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] body::before {
+  opacity: .34;
+  background-image:
+    radial-gradient(circle, rgba(38, 174, 146, .44) 0 1px, transparent 1.7px),
+    radial-gradient(circle, rgba(239, 117, 94, .38) 0 1px, transparent 1.7px),
+    radial-gradient(circle, rgba(245, 195, 48, .42) 0 1px, transparent 1.7px),
+    radial-gradient(circle, rgba(80, 169, 213, .35) 0 1px, transparent 1.7px);
+  background-position: 5px 9px, 32px 22px, 51px 4px, 19px 47px;
+  background-size: 73px 73px, 89px 89px, 97px 97px, 107px 107px;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-left-panel {
+  position: relative;
+  color: #29413e !important;
+  background:
+    radial-gradient(circle at 14% 8%, rgba(255, 210, 83, .17), transparent 22%),
+    linear-gradient(180deg, rgba(255, 254, 247, .99), rgba(241, 249, 239, .98)) !important;
+  border-color: rgba(43, 174, 147, .24) !important;
+  border-left: 0 !important;
+  border-radius: 0 17px 17px 0 !important;
+  box-shadow: 10px 0 28px rgba(31, 125, 108, .08), inset -1px 0 rgba(255, 255, 255, .94) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-left-panel::before,
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-left-panel::after {
+  content: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-left-panel div:has(> button:is([aria-label^="切换模式"], [aria-label^="Switch mode"])) {
+  min-height: 52px;
+  align-items: center;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) {
+  width: min(196px, calc(100% - 42px));
+  height: 48px !important;
+  justify-content: flex-start;
+  padding: 2px 6px !important;
+  color: transparent !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: visible;
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 1 !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span::before {
+  content: "Codex";
+  color: #20a68c;
+  font: 800 20px/1.05 "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  letter-spacing: -.045em;
+  text-shadow: 0 1px white, 0 3px 12px rgba(39, 173, 145, .20);
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span::after {
+  content: "ENFP · 灵感小宇宙";
+  margin-top: 4px;
+  color: #e06d58;
+  font: 700 9px/1.1 "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  letter-spacing: .04em;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > svg,
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"])::after {
+  display: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-left-panel button {
+  color: #31504b !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-left-panel button:is([aria-label="搜索"], [aria-label="Search"]) {
+  color: #1d9d85 !important;
+  border: 1px solid rgba(43, 174, 147, .22) !important;
+  background: rgba(255, 255, 250, .68) !important;
+  box-shadow: 0 4px 12px rgba(31, 125, 108, .07) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-left-panel button:hover,
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-left-panel [aria-current="page"],
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-left-panel [class~="bg-token-list-hover-background"] {
+  color: #26504a !important;
+  background: linear-gradient(90deg, rgba(67, 195, 166, .23), rgba(255, 196, 75, .19), rgba(239, 117, 94, .14)) !important;
+  border-color: rgba(43, 174, 147, .18) !important;
+  box-shadow: inset 0 0 0 1px rgba(43, 174, 147, .14) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] main.main-surface {
+  color: #273f3c !important;
+  background:
+    radial-gradient(circle at 84% 6%, rgba(255, 211, 78, .15), transparent 28%),
+    radial-gradient(circle at 32% 0%, rgba(64, 185, 158, .10), transparent 24%),
+    linear-gradient(180deg, rgba(255, 254, 248, .99), rgba(250, 251, 241, .99)) !important;
+  border-color: rgba(43, 174, 147, .22) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .98), -8px 0 28px rgba(31, 125, 108, .07) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] main.main-surface > header.app-header-tint {
+  background: linear-gradient(90deg, rgba(255, 254, 248, .97), rgba(239, 250, 244, .92), rgba(255, 248, 222, .88)) !important;
+  border-bottom-color: rgba(43, 174, 147, .20) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] [role="main"] {
+  color: #273f3c !important;
+  scrollbar-color: rgba(39, 173, 145, .44) transparent;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] #codex-dream-skin-chrome .dream-brand,
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] #codex-dream-skin-chrome .dream-signature,
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] #codex-dream-skin-chrome .dream-ribbon {
+  display: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] #codex-dream-skin-chrome.dream-home-shell::before {
+  content: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home::before {
+  content: "ENFP  ✦  灵感小宇宙\A把每一种好奇，都变成可以实现的点子";
+  position: absolute;
+  z-index: 3;
+  left: 27px;
+  top: 7px;
+  color: #24947f;
+  white-space: pre;
+  pointer-events: none;
+  font: 750 14px/1.35 "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  letter-spacing: .015em;
+  text-shadow: 0 1px white;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home > div:first-child {
+  padding-top: 49px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home > div:first-child > div:first-child {
+  flex-basis: 425px !important;
+  min-height: 425px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home > div:first-child > div:first-child > div:first-child {
+  height: 210px !important;
+  min-height: 210px !important;
+  border: 2px solid rgba(61, 184, 158, .54) !important;
+  border-radius: 20px !important;
+  background-image: var(--dream-art) !important;
+  background-size: auto 341% !important;
+  background-position: 88% 6% !important;
+  box-shadow: 0 14px 31px rgba(31, 125, 108, .13), inset 0 0 0 4px rgba(255, 255, 255, .42) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home > div:first-child > div:first-child > div:first-child::before {
+  width: 59%;
+  border-radius: 18px 0 0 18px;
+  background:
+    radial-gradient(circle at 20% 22%, rgba(255, 203, 63, .20), transparent 25%),
+    radial-gradient(circle at 35% 78%, rgba(239, 117, 94, .13), transparent 27%),
+    linear-gradient(90deg, rgba(255, 253, 242, .99) 0%, rgba(255, 252, 235, .96) 54%, rgba(247, 252, 235, .73) 79%, transparent 100%);
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home > div:first-child > div:first-child > div:first-child::after {
+  content: "ENFP\A灵感是彩色的";
+  position: absolute;
+  z-index: 2;
+  left: 29px;
+  top: 14px;
+  color: #ec745c;
+  white-space: pre;
+  pointer-events: none;
+  font: 800 12px/1.25 "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  letter-spacing: .04em;
+  text-shadow: 0 1px white;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home > div:first-child > div:first-child > div:first-child > div:first-child {
+  padding-left: 34px !important;
+  padding-top: 19px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child {
+  width: 52% !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home [data-feature="game-source"] {
+  color: #243b38 !important;
+  font-size: clamp(21px, 1.9vw, 28px) !important;
+  line-height: 1.23 !important;
+  text-shadow: 0 2px 12px rgba(255, 255, 249, .98) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home [data-feature="game-source"]::after {
+  content: "先有灵感，再把它变成真的  ✦";
+  margin-top: 10px;
+  color: #e36f59;
+  font-size: 14px;
+  font-weight: 650;
+  text-shadow: 0 1px white;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home [data-feature="game-source"] button {
+  color: #168b75 !important;
+  border-color: rgba(43, 174, 147, .38) !important;
+  background: rgba(255, 255, 249, .62) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home .group\/home-suggestions button {
+  min-height: 134px !important;
+  color: #344642 !important;
+  border-radius: 20px !important;
+  box-shadow: 0 9px 21px rgba(45, 100, 88, .09), inset 0 0 0 3px rgba(255, 255, 255, .62) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home .group\/home-suggestions button:nth-child(1) {
+  border: 1px solid rgba(235, 119, 93, .45) !important;
+  background: radial-gradient(circle at 50% 20%, white, transparent 37%), linear-gradient(145deg, #fffdf8, #fff0e9) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home .group\/home-suggestions button:nth-child(2) {
+  border: 1px solid rgba(48, 180, 151, .44) !important;
+  background: radial-gradient(circle at 50% 20%, white, transparent 37%), linear-gradient(145deg, #fffef9, #eafaf4) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home .group\/home-suggestions button:nth-child(3) {
+  border: 1px solid rgba(79, 169, 214, .43) !important;
+  background: radial-gradient(circle at 50% 20%, white, transparent 37%), linear-gradient(145deg, #fffef9, #eaf6ff) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home .group\/home-suggestions button:nth-child(4) {
+  border: 1px solid rgba(234, 190, 51, .48) !important;
+  background: radial-gradient(circle at 50% 20%, white, transparent 37%), linear-gradient(145deg, #fffef9, #fff7d8) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home .group\/home-suggestions button:hover {
+  box-shadow: 0 13px 27px rgba(39, 129, 108, .15), 0 0 0 2px rgba(61, 184, 158, .14) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home .group\/home-suggestions button:nth-child(1) > span:first-child > span:first-child {
+  background: linear-gradient(145deg, #ff9d85, #e86650) !important;
+  box-shadow: 0 0 0 7px rgba(255, 226, 216, .72), 0 5px 12px rgba(211, 91, 67, .20) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home .group\/home-suggestions button:nth-child(2) > span:first-child > span:first-child {
+  background: linear-gradient(145deg, #65d6b8, #1ca98c) !important;
+  box-shadow: 0 0 0 7px rgba(211, 245, 234, .76), 0 5px 12px rgba(28, 155, 130, .20) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home .group\/home-suggestions button:nth-child(3) > span:first-child > span:first-child {
+  background: linear-gradient(145deg, #82cbee, #429fd0) !important;
+  box-shadow: 0 0 0 7px rgba(217, 240, 252, .78), 0 5px 12px rgba(57, 141, 184, .20) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home .group\/home-suggestions button:nth-child(4) > span:first-child > span:first-child {
+  background: linear-gradient(145deg, #f7dc68, #e1af28) !important;
+  box-shadow: 0 0 0 7px rgba(255, 245, 199, .82), 0 5px 12px rgba(193, 144, 24, .19) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .composer-surface-chrome {
+  border: 2px solid rgba(43, 174, 147, .44) !important;
+  outline: 1px solid rgba(43, 174, 147, .25);
+  outline-offset: -1px;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(255, 210, 68, .17), transparent 25%),
+    radial-gradient(circle at 72% 16%, rgba(239, 117, 94, .10), transparent 19%),
+    linear-gradient(145deg, rgba(255, 255, 250, .98), rgba(239, 251, 245, .96)) !important;
+  box-shadow: 0 11px 26px rgba(31, 125, 108, .11), inset 0 0 0 4px rgba(255, 255, 255, .58) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .composer-surface-chrome::before {
+  content: "✦";
+  color: white;
+  background: linear-gradient(145deg, #ff947c, #e8624d);
+  box-shadow: 0 4px 12px rgba(211, 91, 67, .22);
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home div:has(> .horizontal-scroll-fade-mask .group\/project-selector) {
+  border-color: rgba(43, 174, 147, .32);
+  background: linear-gradient(180deg, rgba(255, 254, 247, .97), rgba(237, 249, 242, .93)) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .93);
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home div:has(> .horizontal-scroll-fade-mask .group\/project-selector)::before {
+  content: "✦  选择项目";
+  color: #1d9c83;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home .group\/project-selector > button {
+  color: #187f6d !important;
+  border-color: rgba(43, 174, 147, .34) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 250, .96), rgba(221, 247, 238, .91)) !important;
+  box-shadow: 0 3px 10px rgba(31, 125, 108, .10) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .ProseMirror {
+  color: #273f3c !important;
+  caret-color: #24aa8f !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .composer-surface-chrome button[class~="bg-token-foreground"] {
+  color: white !important;
+  background: linear-gradient(145deg, #58d0b2, #1aa388) !important;
+  box-shadow: 0 5px 13px rgba(24, 147, 122, .24) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] #codex-dream-skin-chrome .dream-polaroid {
+  right: 16px;
+  bottom: 190px;
+  width: 78px;
+  height: 92px;
+  padding: 15px 8px 8px;
+  color: #625224;
+  background-image: linear-gradient(150deg, #fff8bd, #ffed8c) !important;
+  border: 1px solid rgba(219, 179, 45, .45) !important;
+  border-radius: 2px;
+  box-shadow: 0 9px 20px rgba(132, 104, 25, .15) !important;
+  transform: rotate(-3deg);
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] #codex-dream-skin-chrome .dream-polaroid::before {
+  content: "✦";
+  left: 31px;
+  top: -11px;
+  width: 24px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  color: #e96852;
+  font-size: 15px;
+  background: rgba(255, 205, 99, .82);
+  filter: none;
+  transform: rotate(3deg);
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] #codex-dream-skin-chrome .dream-polaroid::after {
+  content: "今日灵感\A勇气 +100\A快乐 +100\A创造力 +100";
+  position: absolute;
+  inset: 17px 6px auto;
+  color: #69551d;
+  white-space: pre;
+  text-align: center;
+  font: 700 9px/1.55 "Microsoft YaHei UI", "Segoe UI", sans-serif;
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-sparkles i {
+  background: #fffdf3;
+  box-shadow: 0 0 9px 2px rgba(255, 196, 54, .48);
+}
+
+html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-sparkles i:nth-child(even) {
+  box-shadow: 0 0 9px 2px rgba(47, 184, 154, .42);
+}
+
+@media (max-width: 900px) {
+  html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home::before {
+    font-size: 12px;
+  }
+
+  html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home > div:first-child {
+    padding-top: 45px !important;
+  }
+
+  html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home > div:first-child > div:first-child > div:first-child::after {
+    display: none;
+  }
+}
+
+@media (max-width: 1380px) {
+  html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] #codex-dream-skin-chrome .dream-polaroid {
+    display: none !important;
+  }
+}

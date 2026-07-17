@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "wealth-worker",
+  "name": "财神打工版",
+  "brandTitle": "财神打工版",
+  "brandSubtitle": "FORTUNE AT WORK",
+  "signature": "好运开工 ✦",
+  "image": "background.jpg",
+  "galleryPreset": true
+}

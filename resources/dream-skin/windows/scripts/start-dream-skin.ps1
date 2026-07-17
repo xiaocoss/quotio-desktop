@@ -1,0 +1,276 @@
+[CmdletBinding()]
+param(
+  [int]$Port = 9335,
+  [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$')]
+  [string]$Theme = 'dream',
+  [string]$ThemeDir,
+  [switch]$RestartExisting,
+  [switch]$PromptRestart,
+  [string]$ProfilePath,
+  [switch]$ForegroundInjector,
+  [switch]$NoFallbackRelaunch
+)
+
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+$OutputEncoding = [Console]::OutputEncoding
+$ErrorActionPreference = 'Stop'
+$PortExplicit = $PSBoundParameters.ContainsKey('Port')
+$Injector = Join-Path $PSScriptRoot 'injector.mjs'
+. (Join-Path $PSScriptRoot 'common-windows.ps1')
+if (-not $ThemeDir) {
+  $ThemeRoot = Join-Path (Split-Path -Parent $PSScriptRoot) 'themes'
+  $ThemeDir = Join-Path $ThemeRoot $Theme
+}
+$ThemeDir = [System.IO.Path]::GetFullPath($ThemeDir)
+$ThemeConfigPath = Join-Path $ThemeDir 'theme.json'
+if (-not (Test-Path -LiteralPath $ThemeConfigPath -PathType Leaf) -or
+  -not (Test-Path -LiteralPath (Join-Path $ThemeDir 'theme.css') -PathType Leaf)) {
+  throw "Dream Skin theme resources are incomplete: $ThemeDir"
+}
+$ThemeConfig = (Read-DreamSkinUtf8File -Path $ThemeConfigPath) | ConvertFrom-Json -ErrorAction Stop
+if ("$($ThemeConfig.id)" -cne $Theme) {
+  throw "Dream Skin theme id does not match its directory: $($ThemeConfig.id) / $Theme"
+}
+
+$operationLock = Enter-DreamSkinOperationLock
+try {
+  Assert-DreamSkinPort -Port $Port
+  if ($ProfilePath) { $ProfilePath = [System.IO.Path]::GetFullPath($ProfilePath) }
+  $node = Get-DreamSkinNodeRuntime
+  $currentCodex = Get-DreamSkinCodexInstall
+  $codex = $currentCodex
+  $StateRoot = Join-Path $env:LOCALAPPDATA 'CodexDreamSkin'
+  $StatePath = Join-Path $StateRoot 'state.json'
+  $StdoutPath = Join-Path $StateRoot 'injector.log'
+  $StderrPath = Join-Path $StateRoot 'injector-error.log'
+  $VerifyPath = Join-Path $StateRoot 'verify.log'
+  New-Item -ItemType Directory -Force -Path $StateRoot | Out-Null
+
+  $previousState = Read-DreamSkinState -Path $StatePath
+  if (-not $PortExplicit -and $null -ne $previousState -and $previousState.port) {
+    $savedPort = [int]$previousState.port
+    Assert-DreamSkinPort -Port $savedPort
+    $Port = $savedPort
+  }
+  $savedPathCandidate = Get-DreamSkinCodexStatePathCandidate -State $previousState
+  $savedCodex = Get-DreamSkinCodexInstallFromState -State $previousState
+  $candidateMatchesCurrent = [bool]($null -ne $savedPathCandidate -and
+    (Test-DreamSkinPathEqual -Left $savedPathCandidate.PackageRoot -Right $currentCodex.PackageRoot) -and
+    (Test-DreamSkinPathEqual -Left $savedPathCandidate.Executable -Right $currentCodex.Executable))
+  if ($null -ne $savedPathCandidate -and $null -eq $savedCodex -and -not $candidateMatchesCurrent) {
+    $unverifiedSavedRunning = (Get-DreamSkinCodexProcesses -Codex $savedPathCandidate).Count -gt 0
+    $unverifiedSavedOwnsPort = Test-DreamSkinCodexPortOwner -Port $Port -Codex $savedPathCandidate
+    if ($unverifiedSavedRunning -or $unverifiedSavedOwnsPort) {
+      throw 'The saved Codex path is still active but no longer matches a registered OpenAI.Codex package. Close it manually; state was preserved.'
+    }
+  }
+
+  $currentProcesses = Get-DreamSkinCodexProcesses -Codex $currentCodex
+  $codexToStop = $currentCodex
+  $cdpIdentity = Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $currentCodex
+  $savedIsDifferent = [bool]($null -ne $savedCodex -and
+    -not (Test-DreamSkinPathEqual -Left $savedCodex.Executable -Right $currentCodex.Executable))
+  if ($savedIsDifferent) {
+    $savedProcesses = Get-DreamSkinCodexProcesses -Codex $savedCodex
+    $savedOwnsPort = Test-DreamSkinCodexPortOwner -Port $Port -Codex $savedCodex
+    if ($currentProcesses.Count -gt 0 -and ($savedProcesses.Count -gt 0 -or $savedOwnsPort)) {
+      throw 'Multiple registered Codex package versions are active. Close them manually before starting Dream Skin.'
+    }
+    if ($savedProcesses.Count -gt 0 -or $savedOwnsPort) {
+      if ($savedOwnsPort -and $savedProcesses.Count -eq 0) {
+        throw 'The saved Codex listener is active but its process cannot be managed safely; state was preserved.'
+      }
+      $savedIdentity = Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $savedCodex
+      if ($null -ne $savedIdentity) {
+        $codex = $savedCodex
+        $codexToStop = $savedCodex
+        $cdpIdentity = $savedIdentity
+        Write-Warning 'Reapplying Dream Skin to the still-running registered Codex version; the current Store version will be used after that app exits.'
+      } else {
+        $codexToStop = $savedCodex
+        $currentProcesses = $savedProcesses
+      }
+    }
+  }
+  $debugReady = $null -ne $cdpIdentity
+  $codexProcesses = if (Test-DreamSkinPathEqual -Left $codexToStop.Executable -Right $currentCodex.Executable) {
+    $currentProcesses
+  } else {
+    Get-DreamSkinCodexProcesses -Codex $codexToStop
+  }
+  $closedExistingCodex = $false
+  if (-not $debugReady -and $codexProcesses.Count -gt 0) {
+    $restartAuthorized = [bool]$RestartExisting
+    if (-not $restartAuthorized -and $PromptRestart) {
+      $restartAuthorized = Confirm-DreamSkinRestart -Message 'Codex must restart once to enable Dream Skin. Unsaved input may be lost. Restart now?'
+      if (-not $restartAuthorized) {
+        Write-Host 'Dream Skin launch was cancelled; Codex was not changed.'
+        exit 0
+      }
+    }
+    if (-not $restartAuthorized) {
+      throw 'Codex is open without a verified Dream Skin CDP endpoint. Close it first or explicitly use -RestartExisting.'
+    }
+    Stop-DreamSkinCodex -Codex $codexToStop -AllowForce
+    $closedExistingCodex = $true
+    $codex = $currentCodex
+  }
+
+  $launchedWithCdp = $false
+  try {
+    if ($null -eq (Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $codex)) {
+      if (-not (Test-DreamSkinPortAvailable -Port $Port)) {
+        if ($PortExplicit) { throw "Port $Port is already occupied by an unverified listener. Choose another port." }
+        $Port = Select-DreamSkinPort -PreferredPort $Port
+      }
+      $arguments = @('--remote-debugging-address=127.0.0.1', "--remote-debugging-port=$Port")
+      if ($ProfilePath) {
+        New-Item -ItemType Directory -Force -Path $ProfilePath | Out-Null
+        $arguments += "--user-data-dir=$ProfilePath"
+      }
+      Start-DreamSkinCodex -Codex $codex -Arguments $arguments | Out-Null
+      $launchedWithCdp = $true
+    }
+
+    $deadline = (Get-Date).AddSeconds(45)
+    $cdpIdentity = Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $codex
+    while ($null -eq $cdpIdentity) {
+      if ((Get-Date) -ge $deadline) {
+        throw "Codex did not expose a verified loopback CDP endpoint on port $Port within 45 seconds."
+      }
+      Start-Sleep -Milliseconds 400
+      $cdpIdentity = Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $codex
+    }
+  } catch {
+    $launchError = $_
+    if ($launchedWithCdp) {
+      try { Stop-DreamSkinCodex -Codex $codex -AllowForce } catch {
+        Write-Warning 'Launch rollback could not fully close the failed CDP session.'
+      }
+    }
+    if (-not $NoFallbackRelaunch -and ($closedExistingCodex -or $launchedWithCdp) -and
+      (Get-DreamSkinCodexProcesses -Codex $codex).Count -eq 0) {
+      if ($launchedWithCdp) {
+        Write-Warning 'Dream Skin launch failed; reopening Codex without a debugging port.'
+      }
+      try { Start-DreamSkinCodex -Codex $codex | Out-Null } catch {
+        Write-Warning 'Launch rollback could not reopen Codex automatically.'
+      }
+    }
+    throw $launchError
+  }
+
+  try {
+    $recordedInjectorStopped = Stop-DreamSkinRecordedInjector -State $previousState
+    if (-not $recordedInjectorStopped) {
+      $staleStatePath = Archive-DreamSkinStateFile -Path $StatePath
+      Write-Warning "Archived stale Dream Skin state at $staleStatePath"
+    }
+  } catch {
+    if ($launchedWithCdp) {
+      try {
+        Stop-DreamSkinCodex -Codex $codex -AllowForce
+        if (-not $NoFallbackRelaunch) { Start-DreamSkinCodex -Codex $codex | Out-Null }
+      } catch {
+        Write-Warning 'State validation rollback could not fully restart Codex; close Codex to ensure its CDP port is closed.'
+      }
+    }
+    throw
+  }
+
+  if ($ForegroundInjector) {
+    Remove-Item -LiteralPath $StatePath -Force -ErrorAction SilentlyContinue
+    Exit-DreamSkinOperationLock -Mutex $operationLock
+    $operationLock = $null
+    & $node.Path $Injector --watch --port $Port --browser-id $cdpIdentity.BrowserId --theme-dir $ThemeDir
+    exit $LASTEXITCODE
+  }
+
+  $state = $null
+  $daemon = $null
+  try {
+    $injectorArgs = @((ConvertTo-DreamSkinProcessArgument -Value $Injector), '--watch', '--port', "$Port",
+      '--browser-id', $cdpIdentity.BrowserId, '--theme-dir',
+      (ConvertTo-DreamSkinProcessArgument -Value $ThemeDir))
+    $daemon = Start-Process -FilePath $node.Path -ArgumentList $injectorArgs -WindowStyle Hidden -PassThru `
+      -RedirectStandardOutput $StdoutPath -RedirectStandardError $StderrPath
+    Start-Sleep -Milliseconds 500
+    if ($daemon.HasExited) { throw "The injector exited during startup. See $StderrPath" }
+
+    $injectorStartedAt = Get-DreamSkinProcessStartedAt -ProcessId $daemon.Id
+    if (-not $injectorStartedAt) { throw 'The injector process identity could not be recorded safely.' }
+    $state = [pscustomobject]@{
+      schemaVersion = 3
+      platform = 'windows'
+      port = $Port
+      injectorPid = $daemon.Id
+      injectorStartedAt = $injectorStartedAt
+      injectorPath = $Injector
+      nodePath = $node.Path
+      nodeVersion = $node.Version
+      codexExe = $codex.Executable
+      codexPackageRoot = $codex.PackageRoot
+      codexPackageFullName = $codex.PackageFullName
+      codexPackageFamilyName = $codex.PackageFamilyName
+      codexVersion = $codex.Version
+      browserId = $cdpIdentity.BrowserId
+      theme = $Theme
+      themeDir = $ThemeDir
+      profilePath = $ProfilePath
+      createdAt = (Get-Date).ToUniversalTime().ToString('o')
+    }
+    Write-DreamSkinState -Path $StatePath -State $state
+
+    $verifyOutput = @(& $node.Path $Injector --verify --port $Port --browser-id $cdpIdentity.BrowserId `
+      --theme-dir $ThemeDir --timeout-ms 30000 2>&1)
+    $verifyExitCode = $LASTEXITCODE
+    Write-DreamSkinUtf8FileAtomically -Path $VerifyPath -Content (($verifyOutput -join "`r`n") + "`r`n")
+    if ($verifyExitCode -ne 0) { throw "Dream Skin verification failed. See $VerifyPath" }
+  } catch {
+    $startupError = $_
+    $injectorStopped = $true
+    if ($null -ne $state) {
+      try {
+        $injectorStopped = Stop-DreamSkinRecordedInjector -State $state
+      } catch {
+        $injectorStopped = $false
+        Write-Warning $_.Exception.Message
+      }
+    } elseif ($null -ne $daemon -and -not $daemon.HasExited) {
+      try {
+        Stop-Process -InputObject $daemon -Force -ErrorAction Stop
+        [void]$daemon.WaitForExit(5000)
+        $injectorStopped = $daemon.HasExited
+      } catch {
+        $injectorStopped = $false
+        Write-Warning 'The newly created injector could not be stopped during startup rollback.'
+      }
+    }
+    if ($injectorStopped -and -not $launchedWithCdp) {
+      try {
+        $rollbackIdentity = Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $codex
+        if ($null -ne $rollbackIdentity -and $rollbackIdentity.BrowserId -ceq $cdpIdentity.BrowserId) {
+          & $node.Path $Injector --remove --port $Port --browser-id $cdpIdentity.BrowserId `
+            --timeout-ms 5000 *> $null
+          if ($LASTEXITCODE -ne 0) { throw 'Injector removal returned a failure status.' }
+        }
+      } catch {
+        Write-Warning 'Startup rollback could not remove the partially applied live skin; reload or close Codex to clear it.'
+      }
+    }
+    if ($injectorStopped) { Remove-Item -LiteralPath $StatePath -Force -ErrorAction SilentlyContinue }
+    if ($launchedWithCdp) {
+      try {
+        Stop-DreamSkinCodex -Codex $codex -AllowForce
+        if (-not $NoFallbackRelaunch) { Start-DreamSkinCodex -Codex $codex | Out-Null }
+      } catch {
+        Write-Warning 'Startup rollback could not fully restart Codex; close Codex to ensure its CDP port is closed.'
+      }
+    }
+    throw $startupError
+  }
+
+  Write-Host "Codex Dream Skin is active on verified loopback port $Port."
+} finally {
+  if ($null -ne $operationLock) { Exit-DreamSkinOperationLock -Mutex $operationLock }
+}

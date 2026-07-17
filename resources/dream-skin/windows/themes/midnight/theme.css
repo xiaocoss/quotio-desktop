@@ -1,0 +1,86 @@
+:root.codex-dream-skin {
+  color-scheme: dark !important;
+  --dream-ink: #e9e5ff;
+  --dream-purple: #a99cff;
+  --dream-violet: #7f72d8;
+  --dream-pink: #e0b46a;
+  --dream-blush: #17172a;
+  --dream-pearl: rgba(25, 25, 45, .94);
+  --dream-line: rgba(152, 139, 229, .42);
+}
+
+html.codex-dream-skin body {
+  background:
+    radial-gradient(circle at 78% 2%, rgba(207, 160, 75, .22), transparent 25%),
+    radial-gradient(circle at 24% 12%, rgba(101, 87, 190, .34), transparent 30%),
+    linear-gradient(135deg, #0c0d1c 0%, #15152a 48%, #111b2d 100%) !important;
+  color: #e9e5ff !important;
+}
+
+html.codex-dream-skin aside.app-shell-left-panel {
+  background: linear-gradient(180deg, rgba(20,20,38,.98), rgba(15,20,38,.98)) !important;
+  border-color: rgba(139, 124, 218, .38) !important;
+  box-shadow: 10px 0 34px rgba(0,0,0,.3), inset -1px 0 rgba(255,255,255,.05) !important;
+  color: #e9e5ff !important;
+}
+
+html.codex-dream-skin aside.app-shell-left-panel button { color: #d8d2ff !important; }
+html.codex-dream-skin aside.app-shell-left-panel button:hover {
+  background: linear-gradient(90deg, rgba(91,79,161,.45), rgba(159,119,73,.28)) !important;
+}
+html.codex-dream-skin aside.app-shell-left-panel [class~="bg-token-list-hover-background"],
+html.codex-dream-skin aside.app-shell-left-panel [aria-current="page"] {
+  background: linear-gradient(90deg, rgba(85,72,158,.58), rgba(164,116,65,.34)) !important;
+  border-color: rgba(183, 155, 102, .34) !important;
+}
+
+html.codex-dream-skin main.main-surface {
+  background:
+    radial-gradient(circle at 84% 10%, rgba(203,157,76,.15), transparent 30%),
+    radial-gradient(circle at 20% 0%, rgba(102,84,190,.25), transparent 27%),
+    linear-gradient(180deg, #111327 0%, #17172b 100%) !important;
+  border-color: rgba(128, 111, 205, .38) !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.05), -8px 0 30px rgba(0,0,0,.25) !important;
+}
+
+html.codex-dream-skin main.main-surface > header.app-header-tint {
+  background: linear-gradient(90deg, rgba(19,20,38,.96), rgba(30,28,54,.92), rgba(47,37,54,.9)) !important;
+  border-bottom-color: rgba(142, 122, 211, .3) !important;
+}
+
+html.codex-dream-skin [role="main"] { color: #e9e5ff !important; }
+.dream-brand { color: #d9c7ff !important; }
+.dream-signature { color: #e4bd78 !important; }
+
+.dream-home > div:first-child > div:first-child > div:first-child {
+  border-color: rgba(178, 145, 87, .75) !important;
+  background-image: linear-gradient(90deg, rgba(62,48,126,.2), rgba(211,163,81,.08)), var(--dream-art) !important;
+  box-shadow: 0 14px 38px rgba(0,0,0,.36), inset 0 0 0 3px rgba(255,255,255,.08) !important;
+}
+
+.dream-home > div:first-child > div:first-child > div:first-child::before {
+  background: linear-gradient(90deg, rgba(20,18,54,.98) 0%, rgba(48,39,99,.94) 56%, rgba(108,75,104,.66) 80%, transparent 100%);
+}
+
+.dream-home [data-feature="game-source"]::after { content: "在安静的星河里，把复杂问题慢慢写清楚 ✧"; }
+
+.dream-home .group\/home-suggestions button {
+  border-color: rgba(137, 119, 198, .55) !important;
+  background: radial-gradient(circle at 50% 25%, rgba(83,75,126,.42), transparent 34%), linear-gradient(145deg, rgba(32,32,58,.98), rgba(25,29,52,.98)) !important;
+  color: #e6e0ff !important;
+  box-shadow: 0 8px 20px rgba(0,0,0,.3), inset 0 0 0 2px rgba(255,255,255,.05) !important;
+}
+
+.dream-home .group\/home-suggestions button > span:first-child > span:first-child,
+html.codex-dream-skin .composer-surface-chrome::before,
+html.codex-dream-skin button[class~="bg-token-foreground"] {
+  background: linear-gradient(145deg, #a99cff, #b88645) !important;
+}
+
+html.codex-dream-skin .composer-surface-chrome {
+  border-color: rgba(134, 117, 205, .55) !important;
+  background: radial-gradient(circle at 88% 22%, rgba(75,66,118,.3), transparent 24%), linear-gradient(145deg, rgba(30,30,55,.97), rgba(21,25,45,.97)) !important;
+  box-shadow: 0 10px 28px rgba(0,0,0,.38), inset 0 0 0 3px rgba(255,255,255,.05) !important;
+}
+
+html.codex-dream-skin .ProseMirror { color: #ece8ff !important; caret-color: #e5bd74 !important; }

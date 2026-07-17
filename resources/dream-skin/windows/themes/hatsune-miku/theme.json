@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "hatsune-miku",
+  "name": "初音未来",
+  "brandTitle": "初音未来",
+  "brandSubtitle": "DIGITAL DIVA",
+  "signature": "Future Sound ♫",
+  "image": "background.jpg",
+  "galleryPreset": true
+}

@@ -1,0 +1,322 @@
+:root.codex-dream-skin {
+  --dream-theme-name: "wealth-worker";
+  --dream-ink: #4d2a17;
+  --dream-purple: #9f2e24;
+  --dream-violet: #d4432e;
+  --dream-pink: #e7a42e;
+  --dream-blush: #fff9e9;
+  --dream-pearl: rgba(255, 252, 239, .96);
+  --dream-line: rgba(177, 112, 33, .31);
+  --gallery-bg: #fff9e9;
+  --gallery-bg-alt: #f6e7bd;
+  --gallery-panel: #fffdf3;
+  --gallery-text: #4a2b18;
+  --gallery-accent: #b82f24;
+  --gallery-accent-alt: #dca22f;
+  --gallery-glow: rgba(244, 201, 75, .42);
+  --gallery-button-text: #fffaf0;
+  --gallery-art-size: auto 310%;
+  --gallery-art-position: 84% 18%;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] body {
+  background:
+    radial-gradient(circle at 82% 4%, rgba(242, 201, 80, .26), transparent 27%),
+    radial-gradient(circle at 22% 8%, rgba(255, 255, 255, .88), transparent 28%),
+    linear-gradient(145deg, #fffdf2, #fbf2d8 56%, #f3e4bd) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] body::before {
+  opacity: .25;
+  background-image:
+    radial-gradient(circle, rgba(187, 132, 39, .28) 0 1px, transparent 1.5px),
+    radial-gradient(circle, rgba(255, 255, 255, .95) 0 1px, transparent 2px);
+  background-position: 8px 13px, 38px 34px;
+  background-size: 61px 61px, 79px 79px;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] aside.app-shell-left-panel {
+  position: relative;
+  color: #55321c !important;
+  background: linear-gradient(180deg, rgba(255, 254, 243, .99), rgba(248, 238, 205, .97)) !important;
+  border: 0 !important;
+  border-right: 1px solid rgba(179, 123, 34, .25) !important;
+  border-radius: 0 !important;
+  box-shadow: 8px 0 28px rgba(99, 62, 18, .06) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] aside.app-shell-left-panel::before,
+html.codex-dream-skin[data-dream-theme="wealth-worker"] aside.app-shell-left-panel::after {
+  content: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] aside.app-shell-left-panel div:has(> button:is([aria-label^="切换模式"], [aria-label^="Switch mode"])) {
+  min-height: 52px;
+  align-items: center;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) {
+  width: min(192px, calc(100% - 42px));
+  height: 48px !important;
+  justify-content: flex-start;
+  padding: 2px 6px !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: visible;
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 1 !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span::before {
+  content: "Codex  🪙";
+  color: #8d241d;
+  font: 800 21px/1 Georgia, "Times New Roman", serif;
+  letter-spacing: -.03em;
+  text-shadow: 0 1px #fff7d3, 0 0 11px rgba(221, 163, 43, .20);
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span::after {
+  content: "财神打工版 · 稳中求进";
+  margin-top: 5px;
+  color: #987139;
+  font: 650 9px/1 "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  letter-spacing: .05em;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > svg,
+html.codex-dream-skin[data-dream-theme="wealth-worker"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"])::after {
+  display: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] aside.app-shell-left-panel button:is([aria-label="搜索"], [aria-label="Search"]) {
+  color: #8d2b20 !important;
+  border: 1px solid rgba(183, 124, 31, .22) !important;
+  background: rgba(255, 255, 250, .66) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] aside.app-shell-left-panel button:hover,
+html.codex-dream-skin[data-dream-theme="wealth-worker"] aside.app-shell-left-panel [aria-current="page"],
+html.codex-dream-skin[data-dream-theme="wealth-worker"] aside.app-shell-left-panel [class~="bg-token-list-hover-background"] {
+  color: #683a1c !important;
+  background: linear-gradient(90deg, rgba(216, 168, 53, .24), rgba(76, 132, 70, .14)) !important;
+  border-color: rgba(167, 113, 31, .22) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] main.main-surface {
+  background:
+    radial-gradient(circle at 84% 3%, rgba(232, 185, 55, .16), transparent 27%),
+    linear-gradient(180deg, rgba(255, 254, 245, .99), rgba(250, 243, 220, .98)) !important;
+  border: 0 !important;
+  border-radius: 11px 0 0 0 !important;
+  box-shadow: -7px 0 27px rgba(99, 62, 18, .05) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] main.main-surface > header.app-header-tint {
+  background: linear-gradient(90deg, rgba(255, 254, 245, .98), rgba(246, 231, 190, .88)) !important;
+  border-bottom-color: rgba(181, 124, 33, .20) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] #codex-dream-skin-chrome .dream-brand,
+html.codex-dream-skin[data-dream-theme="wealth-worker"] #codex-dream-skin-chrome .dream-signature,
+html.codex-dream-skin[data-dream-theme="wealth-worker"] #codex-dream-skin-chrome .dream-ribbon {
+  display: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] #codex-dream-skin-chrome.dream-home-shell::before {
+  content: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home::before {
+  content: "🧧  财神打工版 · CODEX 专属皮肤\A让每一次提交都稳稳落袋";
+  position: absolute;
+  z-index: 3;
+  top: 7px;
+  left: 28px;
+  color: #8f2e22;
+  white-space: pre;
+  pointer-events: none;
+  font: 750 14px/1.35 "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  letter-spacing: .02em;
+  text-shadow: 0 1px #fff8d8;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home > div:first-child {
+  padding-top: 49px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home > div:first-child > div:first-child {
+  flex-basis: 400px !important;
+  min-height: 400px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home > div:first-child > div:first-child > div:first-child {
+  height: 218px !important;
+  min-height: 218px !important;
+  border: 1px solid rgba(181, 124, 33, .42) !important;
+  border-radius: 15px !important;
+  background-image: var(--dream-art) !important;
+  background-size: auto 310% !important;
+  background-position: 84% 18% !important;
+  box-shadow: 0 13px 30px rgba(102, 64, 18, .13), inset 0 0 0 3px rgba(255, 250, 220, .42) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home > div:first-child > div:first-child > div:first-child::before {
+  width: 59%;
+  border-radius: 14px 0 0 14px;
+  background: linear-gradient(90deg, rgba(255, 247, 213, .98) 0%, rgba(255, 244, 202, .94) 53%, rgba(255, 240, 189, .67) 78%, transparent 100%);
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home > div:first-child > div:first-child > div:first-child > div:first-child {
+  padding-left: 37px !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child {
+  width: 50% !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home [data-feature="game-source"] {
+  color: #7d211b !important;
+  font-family: "STKaiti", "KaiTi", "Microsoft YaHei UI", sans-serif !important;
+  font-size: clamp(22px, 2.05vw, 31px) !important;
+  font-weight: 800 !important;
+  line-height: 1.24 !important;
+  text-shadow: 0 2px 10px rgba(255, 250, 218, .96) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home [data-feature="game-source"]::after {
+  content: "财神驻场，精简成本、清理技术债、稳步推进  ✦";
+  margin-top: 11px;
+  color: #79522a;
+  font: 550 13px/1.5 "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  text-shadow: 0 1px #fff8dc;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home [data-feature="game-source"] button {
+  color: #8d2b20 !important;
+  border-color: rgba(181, 124, 33, .34) !important;
+  background: rgba(255, 252, 227, .67) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home .group\/home-suggestions button {
+  min-height: 130px !important;
+  border: 1px solid rgba(195, 138, 34, .42) !important;
+  border-radius: 14px !important;
+  color: #5b361d !important;
+  background:
+    radial-gradient(circle at 82% 13%, rgba(233, 184, 48, .17), transparent 28%),
+    linear-gradient(150deg, rgba(255, 254, 242, .98), rgba(249, 237, 201, .96)) !important;
+  box-shadow: 0 8px 18px rgba(102, 65, 18, .09), inset 0 0 0 2px rgba(255, 255, 255, .50) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home .group\/home-suggestions button:nth-child(even) {
+  border-color: rgba(74, 129, 73, .38) !important;
+  background:
+    radial-gradient(circle at 82% 13%, rgba(85, 142, 82, .13), transparent 28%),
+    linear-gradient(150deg, rgba(255, 254, 240, .98), rgba(235, 242, 211, .96)) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home .group\/home-suggestions button > span:first-child > span:first-child {
+  background: linear-gradient(145deg, #e3ad38, #b82f24);
+  box-shadow: 0 0 0 6px rgba(250, 224, 150, .68), 0 5px 12px rgba(144, 66, 27, .20);
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home .group\/home-suggestions button:nth-child(even) > span:first-child > span:first-child {
+  background: linear-gradient(145deg, #78a867, #3c7655);
+  box-shadow: 0 0 0 6px rgba(219, 232, 181, .72), 0 5px 12px rgba(49, 99, 69, .18);
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .composer-surface-chrome {
+  border: 1px solid rgba(179, 123, 32, .38) !important;
+  border-radius: 15px !important;
+  background:
+    radial-gradient(circle at 86% 18%, rgba(232, 184, 43, .12), transparent 26%),
+    linear-gradient(150deg, rgba(255, 254, 244, .98), rgba(249, 239, 208, .97)) !important;
+  box-shadow: 0 11px 25px rgba(97, 61, 18, .11), inset 0 0 0 2px rgba(255, 255, 255, .56) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .composer-surface-chrome::before {
+  content: "财";
+  color: #fff8d6;
+  font-weight: 800;
+  background: linear-gradient(145deg, #d99a27, #a92520);
+  box-shadow: 0 4px 12px rgba(143, 62, 24, .21);
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home div:has(> .horizontal-scroll-fade-mask .group\/project-selector) {
+  border-color: rgba(178, 122, 31, .30);
+  background: linear-gradient(180deg, rgba(255, 254, 243, .97), rgba(247, 235, 197, .92)) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home div:has(> .horizontal-scroll-fade-mask .group\/project-selector)::before {
+  content: "🪙  今日项目";
+  color: #8a2c22;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home .group\/project-selector > button {
+  color: #65401f !important;
+  border-color: rgba(178, 122, 31, .32) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 249, .96), rgba(244, 231, 188, .92)) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .ProseMirror {
+  color: #50301b !important;
+  caret-color: #ac2d22 !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .composer-surface-chrome button[class~="bg-token-foreground"] {
+  background: linear-gradient(145deg, #d9482e, #a82720) !important;
+  box-shadow: 0 5px 13px rgba(151, 49, 30, .24) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] #codex-dream-skin-chrome .dream-polaroid {
+  right: 12px;
+  bottom: 196px;
+  width: 74px;
+  height: 74px;
+  border-width: 5px;
+  border-radius: 50%;
+  background-size: auto 660%;
+  background-position: 72% 17%;
+  box-shadow: 0 10px 24px rgba(116, 67, 17, .16), 0 0 0 2px rgba(213, 159, 41, .32) !important;
+  transform: rotate(4deg);
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] #codex-dream-skin-chrome .dream-polaroid::before {
+  content: "🧧";
+  left: -17px;
+  top: -22px;
+  font-size: 27px;
+}
+
+html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-sparkles i {
+  background: #fff6c8;
+  box-shadow: 0 0 10px 3px rgba(222, 170, 43, .46);
+}
+
+@media (max-width: 1340px), (max-height: 780px) {
+  html.codex-dream-skin[data-dream-theme="wealth-worker"] #codex-dream-skin-chrome .dream-polaroid {
+    display: none !important;
+  }
+}
+
+@media (max-width: 900px) {
+  html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home::before {
+    font-size: 12px;
+  }
+  html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home > div:first-child {
+    padding-top: 45px !important;
+  }
+  html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home > div:first-child > div:first-child > div:first-child {
+    background-size: auto 330% !important;
+  }
+}

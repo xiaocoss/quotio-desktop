@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "pink-custom",
+  "name": "粉系定制",
+  "brandTitle": "粉系定制",
+  "brandSubtitle": "PINK CUSTOM",
+  "signature": "Pink Dream ♡",
+  "image": "background.jpg",
+  "galleryPreset": true
+}

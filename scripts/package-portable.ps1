@@ -1,16 +1,36 @@
 #Requires -Version 7
+param(
+  [switch]$SkipBuild
+)
+
 <#
 .SYNOPSIS
-  组装免安装(便携)版：读取 tauri.conf.json 的版本号，把已编译好的 exe + 资源
+  构建并组装免安装(便携)版：读取 tauri.conf.json 的版本号，把生产模式 exe + 资源
   打包成 dist-portable/Quotio_<版本>_x64_portable/ 及同名 zip。
-  本脚本只负责组装，不负责编译 —— 运行前请先 `npm run desktop:build`。
+
+.PARAMETER SkipBuild
+  仅组装已有的 target/release/quotio-desktop.exe。只应在刚执行完 Tauri
+  生产构建后使用；普通 `cargo build --release` 会生成访问 localhost 的开发模式程序。
 #>
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $version = (Get-Content (Join-Path $root 'apps/desktop/src-tauri/tauri.conf.json') -Raw | ConvertFrom-Json).version
 
+if (-not $SkipBuild) {
+  Write-Host "正在执行 Tauri 生产构建（跳过安装包与签名）..."
+  Push-Location $root
+  try {
+    & npm --prefix apps/desktop run tauri -- build --no-bundle
+    if ($LASTEXITCODE -ne 0) {
+      throw "Tauri 生产构建失败（退出码 $LASTEXITCODE）"
+    }
+  } finally {
+    Pop-Location
+  }
+}
+
 $exe = Join-Path $root 'target/release/quotio-desktop.exe'
-if (-not (Test-Path $exe)) { throw "找不到 $exe —— 请先运行 npm run desktop:build" }
+if (-not (Test-Path $exe)) { throw "找不到 $exe —— 请先运行 npm run desktop:build:portable" }
 
 $name = "Quotio_${version}_x64_portable"
 $outDir = Join-Path $root "dist-portable/$name"
@@ -70,6 +90,13 @@ if (Test-Path $plugin) {
   Write-Host "已内置 quotio-key-router.dll（便携版按 key 路由离线可用）"
 } else {
   Write-Warning "未找到 $plugin —— 便携版未内置按 key 路由插件"
+}
+
+# 4d) Codex Dream Skin（启动方案可选；运行时仍要求 PATH 中有 Node.js 22+）。
+$dreamSkinSource = Join-Path $root 'resources/dream-skin'
+if (Test-Path $dreamSkinSource) {
+  Copy-Item $dreamSkinSource (Join-Path $resDir 'dream-skin') -Recurse -Force
+  Write-Host "已内置 Codex Dream Skin 运行资源"
 }
 
 # 5) 打 zip（zip 内含一层 $name/ 文件夹，解压即得便携目录）

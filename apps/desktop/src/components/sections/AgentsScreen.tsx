@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import type {
   AgentBackupFile,
   AgentConfigMode,
@@ -12,10 +13,12 @@ import type {
   AvailableModel,
   CodexAccountRef,
   CodexLaunchProfile,
+  DreamSkinThemeSummary,
   ModelSlot,
   SavedAgentConfiguration,
 } from "../../types";
 import { Select } from "../Select";
+import { Switch } from "../Switch";
 import { useT } from "../../i18n";
 import { normalizeCodexReasoningLevels } from "../../lib/codexReasoning";
 import { invoke } from "../../lib/tauri";
@@ -107,6 +110,8 @@ type ProfileDraft = {
   id: string | null;
   name: string;
   launch_mode: string;
+  dream_skin_enabled: boolean;
+  dream_skin_theme_id: string;
   bound_account: string;
   proxy_url: string;
   model: string;
@@ -175,6 +180,27 @@ export function AgentsScreen({
     () => appState.settings.codex_profiles ?? [],
     [appState.settings.codex_profiles],
   );
+  const isWindows = appState.platform.os === "windows";
+  const bundledDreamSkinThemes = useMemo(
+    () => [
+      { id: "dream", name: t("agents.launch.dreamSkinThemeDream", "梦境粉紫"), built_in: true },
+      { id: "aurora", name: t("agents.launch.dreamSkinThemeAurora", "极光青蓝"), built_in: true },
+      { id: "midnight", name: t("agents.launch.dreamSkinThemeMidnight", "午夜星河"), built_in: true },
+    ],
+    [t],
+  );
+  const [dreamSkinThemeCatalog, setDreamSkinThemeCatalog] = useState<DreamSkinThemeSummary[]>([]);
+  const [dreamSkinImportBusy, setDreamSkinImportBusy] = useState(false);
+  const dreamSkinThemes = useMemo(
+    () =>
+      (dreamSkinThemeCatalog.length > 0 ? dreamSkinThemeCatalog : bundledDreamSkinThemes).map((theme) => ({
+        value: theme.id,
+        label: theme.name,
+      })),
+    [bundledDreamSkinThemes, dreamSkinThemeCatalog],
+  );
+  const dreamSkinThemeLabel = (themeId?: string) =>
+    dreamSkinThemes.find((theme) => theme.value === themeId)?.label ?? themeId ?? dreamSkinThemes[0].label;
   const [codexAccounts, setCodexAccounts] = useState<CodexAccountRef[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [proxyModels, setProxyModels] = useState<string[]>([]);
@@ -195,12 +221,23 @@ export function AgentsScreen({
       .catch((err) => console.warn("[AgentsScreen] fetch_codex_models:", err));
   }, []);
 
+  const refreshDreamSkinThemes = useCallback(async () => {
+    if (!isWindows) return;
+    try {
+      const themes = await invoke<DreamSkinThemeSummary[]>("list_dream_skin_themes");
+      if (themes.length > 0) setDreamSkinThemeCatalog(themes);
+    } catch (err) {
+      console.warn("[AgentsScreen] list_dream_skin_themes:", err);
+    }
+  }, [isWindows]);
+
   useEffect(() => {
     invoke<CodexAccountRef[]>("list_codex_launch_accounts").then(setCodexAccounts).catch((err) => console.warn("[AgentsScreen] list_codex_launch_accounts:", err));
     invoke<string | null>("codex_active_profile")
       .then((id) => setActiveProfileId(id ?? null))
       .catch((err) => console.warn("[AgentsScreen] codex_active_profile:", err));
     refreshProxyModels();
+    void refreshDreamSkinThemes();
     // 后台监控发现用户自己退出了 Codex（没点「停止」）：状态回落，配置已自动还原。
     if (!("__TAURI_INTERNALS__" in window)) return;
     let unlisten: (() => void) | undefined;
@@ -321,10 +358,13 @@ export function AgentsScreen({
     setLaunchMsg(null);
     // 重拉模型:自定义接口刚改过(如新加了模型前缀)时,下拉才能看到 weiloo/gpt-5.5 这类新名字。
     refreshProxyModels();
+    void refreshDreamSkinThemes();
     setProfileDraft({
       id: null,
       name: "",
       launch_mode: "app",
+      dream_skin_enabled: false,
+      dream_skin_theme_id: "dream",
       bound_account: "",
       proxy_url: appState.proxy.endpoint || "",
       model: "",
@@ -337,16 +377,69 @@ export function AgentsScreen({
   function openEditProfile(profile: CodexLaunchProfile) {
     setLaunchMsg(null);
     refreshProxyModels();
+    void refreshDreamSkinThemes();
     setProfileDraft({
       id: profile.id,
       name: profile.name,
       launch_mode: profile.launch_mode || "app",
+      dream_skin_enabled: profile.launch_mode === "cli" ? false : (profile.dream_skin_enabled ?? false),
+      dream_skin_theme_id: profile.dream_skin_theme_id || "dream",
       bound_account: profile.bound_account,
       proxy_url: profile.proxy_url,
       model: profile.model,
       reasoning: profile.reasoning || "high",
       api_key: profile.api_key,
     });
+  }
+
+  async function importDreamSkinImage() {
+    if (!("__TAURI_INTERNALS__" in window)) {
+      setLaunchMsg({
+        ok: false,
+        text: t("agents.launch.dreamSkinDesktopOnly", "请在 Quotio 桌面版中导入主题图片"),
+      });
+      return;
+    }
+    setLaunchMsg(null);
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [
+          {
+            name: t("agents.launch.dreamSkinImageFilter", "主题图片"),
+            extensions: ["png", "jpg", "jpeg", "webp"],
+          },
+        ],
+      });
+      if (!selected || Array.isArray(selected)) return;
+      setDreamSkinImportBusy(true);
+      const imported = await invoke<DreamSkinThemeSummary>("import_dream_skin_theme", {
+        imagePath: selected,
+        name: null,
+      });
+      setDreamSkinThemeCatalog((themes) => {
+        const withoutImported = themes.filter((theme) => theme.id !== imported.id);
+        return [...withoutImported, imported];
+      });
+      setProfileDraft((draft) =>
+        draft ? { ...draft, dream_skin_theme_id: imported.id } : draft,
+      );
+      await refreshDreamSkinThemes();
+      setLaunchMsg({
+        ok: true,
+        text: t(
+          "agents.launch.dreamSkinImportSuccess",
+          `已导入主题「${imported.name}」，保存方案后下次启动生效`,
+        ),
+      });
+    } catch (err) {
+      setLaunchMsg({
+        ok: false,
+        text: `${t("agents.launch.dreamSkinImportFailed", "主题导入失败")}：${String(err)}`,
+      });
+    } finally {
+      setDreamSkinImportBusy(false);
+    }
   }
 
   function submitProfileDraft() {
@@ -360,10 +453,13 @@ export function AgentsScreen({
       setLaunchMsg({ ok: false, text: t("agents.launch.needAccount", "请选择要绑定的 Codex 账号") });
       return;
     }
+    const launchMode = profileDraft.launch_mode || "app";
     const saved: CodexLaunchProfile = {
       id: profileDraft.id ?? newProfileId(),
       name,
-      launch_mode: profileDraft.launch_mode || "app",
+      launch_mode: launchMode,
+      dream_skin_enabled: launchMode === "cli" ? false : profileDraft.dream_skin_enabled,
+      dream_skin_theme_id: profileDraft.dream_skin_theme_id || "dream",
       bound_account: profileDraft.bound_account,
       proxy_url: profileDraft.proxy_url.trim(),
       model: profileDraft.model,
@@ -411,6 +507,7 @@ export function AgentsScreen({
 
   async function doStartProfile(profile: CodexLaunchProfile) {
     setPendingStart(null);
+    setLaunchBusy(true);
     setStartingId(profile.id);
     setLaunchMsg(null);
     try {
@@ -421,6 +518,7 @@ export function AgentsScreen({
       setLaunchMsg({ ok: false, text: String(error) });
     } finally {
       setStartingId(null);
+      setLaunchBusy(false);
     }
   }
 
@@ -544,6 +642,11 @@ export function AgentsScreen({
                             {t("agents.launch.keyWarnBadge", "⚠ 密钥未绑 Codex")}
                           </span>
                         ) : null}
+                        {isWindows && profile.launch_mode !== "cli" && (profile.dream_skin_enabled ?? false) ? (
+                          <span className="badge dream-skin">
+                            {t("agents.launch.dreamSkinBadge", "Dream Skin")} · {dreamSkinThemeLabel(profile.dream_skin_theme_id)}
+                          </span>
+                        ) : null}
                       </div>
                       <div className="scheme-sub">
                         {reasoningLabel(profile.reasoning)} ·{" "}
@@ -653,6 +756,58 @@ export function AgentsScreen({
                   onChange={(value) => setProfileDraft((draft) => (draft ? { ...draft, launch_mode: value } : draft))}
                 />
               </label>
+              {isWindows && profileDraft.launch_mode === "app" ? (
+                <div className="dream-skin-option">
+                  <div className="dream-skin-copy">
+                    <strong>{t("agents.launch.dreamSkin", "Dream Skin")}</strong>
+                    <small>
+                      {t(
+                        "agents.launch.dreamSkinDesc",
+                        "当前 Windows 版要求商店版 Codex 与 Node.js 22+；macOS 使用原项目的独立运行时。启用期间会开放本机回环调试端口。",
+                      )}
+                    </small>
+                  </div>
+                  <Switch
+                    on={profileDraft.dream_skin_enabled}
+                    label={t("agents.launch.dreamSkin", "Dream Skin")}
+                    onChange={() =>
+                      setProfileDraft((draft) =>
+                        draft ? { ...draft, dream_skin_enabled: !draft.dream_skin_enabled } : draft,
+                      )
+                    }
+                  />
+                </div>
+              ) : null}
+              {isWindows && profileDraft.launch_mode === "app" && profileDraft.dream_skin_enabled ? (
+                <label className="dream-skin-theme-field">
+                  {t("agents.launch.dreamSkinTheme", "皮肤主题")}
+                  <div className="dream-skin-theme-controls">
+                    <Select
+                      value={profileDraft.dream_skin_theme_id}
+                      options={dreamSkinThemes}
+                      onChange={(value) =>
+                        setProfileDraft((draft) => (draft ? { ...draft, dream_skin_theme_id: value } : draft))
+                      }
+                    />
+                    <button
+                      className="btn small"
+                      type="button"
+                      disabled={dreamSkinImportBusy}
+                      onClick={() => void importDreamSkinImage()}
+                    >
+                      {dreamSkinImportBusy
+                        ? t("agents.launch.dreamSkinImporting", "导入中…")
+                        : t("agents.launch.dreamSkinImport", "导入图片")}
+                    </button>
+                  </div>
+                  <span className="codex-reasoning-status">
+                    {t(
+                      "agents.launch.dreamSkinThemeHint",
+                      "可导入 PNG、JPEG、WebP（最大 16 MB）；文件名会作为主题名。停止当前方案后切换，下次启动生效。",
+                    )}
+                  </span>
+                </label>
+              ) : null}
               <label>
                 {t("agents.launch.account", "绑定账号")}
                 <Select

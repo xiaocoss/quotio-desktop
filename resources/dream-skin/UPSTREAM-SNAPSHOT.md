@@ -1,0 +1,27 @@
+# Upstream snapshot provenance
+
+Imported on 2026-07-16 from the user-provided sibling directory
+`Codex-Dream-Skin-main`. That directory did not contain `.git` metadata, so an
+upstream commit could not be pinned. The hashes below identify the exact source
+files before Quotio's integration changes.
+
+```text
+e59d5c1b0682a0f0522aabca6d8e4393cefa89060f384e0c5c9190fbd37a88d4  windows/scripts/common-windows.ps1
+52a1af11b3229bde302388b7df702a75cc7ef5bd378bdbafbd6066bb21c990de  windows/scripts/config-utf8.ps1
+e65e82436047974e7f3c55602f474b74c19e6ae68aa5e55c819eaa000769c036  windows/scripts/start-dream-skin.ps1
+5195facd22125cfc1dcecbb2b69f95c20973009b17c69278b7907fe471c1bdc2  windows/scripts/restore-dream-skin.ps1
+10b7b25ff62e10d6de7019e068ed880636984bab32dfb333e3c4002183d44579  windows/scripts/injector.mjs
+a85bd61d699496928ab19a5d9ea6d1aaaaeedd4bbfb48e37d873854480b53fff  windows/assets/dream-skin.css
+d17514772b5b35f48d15e7e79bc3957461e10aefa401b20c4d9cfa5392cb656f  windows/assets/renderer-inject.js
+31bde93bb02d6723e0b6aa0ead675577604120acb0a6799163dd37f5cdd0a08e  macos/assets/portal-hero.png
+18f8478d0f9efd45307e5f17790194593b116658145c758ced3166398eb05b21  macos/LICENSE
+d547e56071bade3bb0f17371437dae94c6640e4f7d013b9b6c287bdff32bc2e5  macos/NOTICE.md
+a38eb2ec7c4a2aa701b061fba3bb250e5be96b554185b249a26bb21fc37ecd75  docs/images/gallery/skin-01.jpg
+d7f4805aba805cca3cd6a5b4befa72150448e87695c4c077491a7ca3ff12b1fe  docs/images/gallery/skin-02.jpg
+575c1903564df31efe0d5199f4dca4dbf65c4847009c748de669a523fc4f063b  docs/images/gallery/skin-03.jpg
+39feb8649c08bfdef01f4352131aa8d80c99d4ed61e30ee24a6566325bef7f36  docs/images/gallery/skin-04.jpg
+9beeca0c9c7c4e20b88342bdc3d018b26905076ea26d7bbcd0cefd7d95ad7b86  docs/images/gallery/skin-05.jpg
+464b95ec40c5dc71d369616387ab9fca55e6d74a5ff6bc44332dd47413ae9eb2  docs/images/gallery/skin-06.jpg
+c499ca84155d23f49695c6962ec5cee69234ded0f83f3f33465adbd646531138  docs/images/gallery/skin-07.jpg
+ec755c0f1c10b60c27e3bb84b6c0f0431e2a2de0b59e639567b19d32f941a218  docs/images/gallery/skin-08.jpg
+```

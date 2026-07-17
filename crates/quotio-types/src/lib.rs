@@ -111,6 +111,11 @@ pub struct CodexLaunchProfile {
     pub name: String,
     /// 启动方式:"app"(桌面应用)或 "cli"(终端)。
     pub launch_mode: String,
+    /// Windows App 模式启动时是否同时启用 Codex Dream Skin。
+    /// 旧方案缺少该字段时按关闭处理，仅由用户显式启用。
+    pub dream_skin_enabled: bool,
+    /// Dream Skin 内置主题 id；旧方案默认使用 dream。
+    pub dream_skin_theme_id: String,
     /// 绑定的 Codex 账号 key(`~/.cli-proxy-api` 文件名去 .json)。
     pub bound_account: String,
     /// Codex 请求要走的代理地址(写入 config.toml 的 base_url);留空 = 用本机代理端点。
@@ -130,6 +135,8 @@ impl Default for CodexLaunchProfile {
             id: String::new(),
             name: String::new(),
             launch_mode: "app".to_string(),
+            dream_skin_enabled: false,
+            dream_skin_theme_id: "dream".to_string(),
             bound_account: String::new(),
             proxy_url: String::new(),
             model: String::new(),
@@ -1927,6 +1934,25 @@ mod tests {
         assert_eq!(encoded, json!("rose"));
         assert_eq!(decoded, ThemeMode::Rose);
         assert_eq!(AppSettings::default().theme, ThemeMode::System);
+    }
+
+    #[test]
+    fn legacy_codex_launch_profile_defaults_dream_skin_to_disabled() {
+        let profile: CodexLaunchProfile = serde_json::from_value(json!({
+            "id": "legacy-app",
+            "name": "旧方案",
+            "launch_mode": "app",
+            "bound_account": "codex-user",
+            "proxy_url": "",
+            "model": "gpt-5.5",
+            "reasoning": "high",
+            "api_key": ""
+        }))
+        .expect("legacy launch profile should decode");
+
+        assert!(!profile.dream_skin_enabled);
+        assert!(!CodexLaunchProfile::default().dream_skin_enabled);
+        assert_eq!(profile.dream_skin_theme_id, "dream");
     }
 
     #[test]

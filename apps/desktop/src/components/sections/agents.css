@@ -355,6 +355,11 @@
   color: #0e8b72;
   background: var(--runtime-soft);
 }
+.agents-redesign .badge.dream-skin {
+  color: #6655c5;
+  background: rgba(124, 92, 230, 0.12);
+  border: 1px solid rgba(124, 92, 230, 0.2);
+}
 
 .agents-redesign .panel-footer-link {
   min-height: 46px;
@@ -761,6 +766,46 @@
   font-size: 12px;
   font-weight: 780;
 }
+.agents-redesign .dream-skin-option {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 9px 12px;
+  background: rgba(124, 92, 230, 0.06);
+  border: 1px solid rgba(124, 92, 230, 0.18);
+  border-radius: 10px;
+}
+.agents-redesign .dream-skin-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.agents-redesign .dream-skin-copy strong {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+}
+.agents-redesign .dream-skin-copy small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 620;
+}
+.agents-redesign .dream-skin-option .switch--on {
+  background: #7c5ce6;
+}
+.agents-redesign .dream-skin-theme-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 8px;
+}
+.agents-redesign .dream-skin-theme-controls .btn {
+  min-height: 38px;
+  white-space: nowrap;
+}
 .agents-redesign .settings-form-grid input {
   padding: 9px 11px;
   border: 1px solid var(--border-strong);
@@ -951,6 +996,9 @@
 }
 
 @media (max-width: 620px) {
+  .agents-redesign .dream-skin-theme-controls {
+    grid-template-columns: 1fr;
+  }
   .agents-redesign .metrics,
   .agents-redesign .discovery-grid {
     grid-template-columns: 1fr;
@@ -1080,6 +1128,11 @@
 :root[data-theme="dark"] .agents-redesign .badge.running {
   color: #2dd4bf;
 }
+:root[data-theme="dark"] .agents-redesign .badge.dream-skin {
+  color: #b8a8ff;
+  background: rgba(139, 115, 255, 0.16);
+  border-color: rgba(184, 168, 255, 0.24);
+}
 
 /* 运行概览行:浅底 → 极浅白块,图标改次文字色 */
 :root[data-theme="dark"] .agents-redesign .runtime-row {
@@ -1096,6 +1149,13 @@
 }
 :root[data-theme="dark"] .agents-redesign .field-value {
   color: #c3cbd8;
+}
+:root[data-theme="dark"] .agents-redesign .dream-skin-option {
+  background: rgba(139, 115, 255, 0.1);
+  border-color: rgba(184, 168, 255, 0.2);
+}
+:root[data-theme="dark"] .agents-redesign .dream-skin-copy strong {
+  color: #d8dce5;
 }
 
 /* 方案卡(选中/运行):浅色薄荷渐变 → 深色带薄荷 accent + 边框 */
