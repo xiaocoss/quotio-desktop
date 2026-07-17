@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 128" fill="none" color="#e5bc96">
+  <style>path,rect,circle{vector-effect:non-scaling-stroke}</style>
+  <g stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M1 127V22Q1 1 22 1h217" stroke-width="1.3" opacity=".55"/>
+    <path d="M8 127V29Q8 8 29 8h210" stroke-width=".7" opacity=".27"/>
+
+    <path d="M7 116c20 0 34-8 41-23 6-13 1-25-10-27-9-2-17 4-17 12 0 7 6 11 12 9 6-2 8-8 5-12" stroke-width="1.25" opacity=".7"/>
+    <path d="M30 106c20-23 45-34 73-30 21 3 32 15 28 27-3 10-15 14-23 8-7-5-7-14-1-19 5-4 12-2 14 3" stroke-width="1.05" opacity=".62"/>
+    <path d="M47 96c12-10 24-15 38-15M65 82c-3-12 1-23 11-32M88 77c5-14 15-23 29-27" stroke-width=".75" opacity=".38"/>
+
+    <path d="M33 58c3-14 14-23 27-23 5-13 17-21 31-18 7-11 22-15 34-9 8 3 14 10 16 18 12-4 25 2 30 13 11-1 20 5 22 15" stroke-width="1.15" opacity=".63"/>
+    <path d="M43 58c4-8 12-13 21-12 4-8 12-13 21-12 9 0 16 5 19 12 5-6 12-9 20-8 9 1 15 6 18 13" stroke-width=".75" opacity=".4"/>
+
+    <path d="M54 75c-13-2-22-10-27-22 13 1 23 8 28 20ZM75 59c-7-10-8-21-3-31 8 8 11 18 5 29ZM98 53c2-11 8-19 18-24 1 11-4 20-15 26ZM135 45c8-8 18-11 29-8-6 9-15 13-27 11Z" stroke-width=".85" opacity=".5"/>
+
+    <path d="M137 85c12-7 25-8 38-3 9 4 14 12 11 19-3 7-12 9-18 4-5-4-4-10 1-13 4-2 8 0 9 3" stroke-width=".9" opacity=".48"/>
+    <path d="M164 76c7-8 16-11 27-10-5 9-14 13-25 13ZM190 101c8-5 17-5 25-1-7 6-15 7-24 4Z" stroke-width=".75" opacity=".4"/>
+  </g>
+</svg>
+

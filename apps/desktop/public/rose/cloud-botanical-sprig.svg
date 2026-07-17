@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 240" fill="none" color="#e5bc96">
+  <style>path,rect,circle{vector-effect:non-scaling-stroke}</style>
+  <g stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke">
+    <path d="M23 231c28-47 38-91 34-132-3-31 7-60 31-87" stroke-width="1.25" opacity=".62"/>
+    <path d="M46 165c-19-5-32-16-40-33 19 2 33 12 42 30ZM55 129c16-9 27-22 31-39-17 6-28 18-33 36ZM53 101C35 96 23 86 16 70c17 2 30 11 39 27ZM67 72c15-8 24-19 27-34-15 5-25 16-29 31Z" stroke-width="1" opacity=".54"/>
+    <path d="M34 198c22-13 43-17 65-12M76 184c13-18 29-29 49-34M58 148c24 2 44 11 59 29M79 95c19-4 36-1 51 9" stroke-width=".9" opacity=".45"/>
+    <path d="M102 185c3 8 9 13 18 15-10 2-16 8-19 17-3-8-9-13-18-15 9-2 15-8 19-17ZM126 145c2 6 7 10 14 12-7 2-12 6-14 13-2-7-7-11-14-13 7-2 12-6 14-12Z" stroke-width=".8" opacity=".5"/>
+    <circle cx="90" cy="13" r="3" stroke-width=".9" opacity=".5"/>
+    <circle cx="99" cy="6" r="2" stroke-width=".8" opacity=".42"/>
+    <circle cx="84" cy="25" r="2" stroke-width=".8" opacity=".42"/>
+  </g>
+</svg>

@@ -28,6 +28,13 @@
 - `empty-endpoints.png`：带 Alpha 通道的透明空状态插画。
 - `rose-bg.webp`：页面柔和纸感背景。
 - `rose-mark.svg`：使用 `currentColor` 的可缩放玫瑰标识。
+- `cloud-filigree-corner.svg`：主内容区单角云纹/卷草纹。
+- `cloud-panel-9slice.svg`：关于页、额度页等宽面板的不对称九宫格云纹框。
+- `cloud-card-9slice.svg`：智能体卡片使用的小型四角回勾纹。
+- `cloud-rail-junction.svg`：日志页侧栏分界线顶部/底部的 T 形云结。
+- `cloud-segment-bracket.svg`：仪表盘分段控件左侧括号纹。
+- `cloud-botanical-sprig.svg`：人物两侧枝叶卷草线稿。
+- `cloud-avatar-wreath.svg`：人物头像或圆形照片背后的枝叶花环。
 
 `角色设定/` 中保存相同素材的设计交付副本、去背中间图和白底检查预览。程序只引用 `apps/desktop/public/rose/` 中的正式文件。
 
@@ -37,3 +44,4 @@
 - 花卉素材只放在页面外缘或留白区域，不能覆盖筛选器、表格、进度条、OTP 或二维码。
 - 状态颜色继续使用语义化绿、橙、红、蓝紫色，粉色仅作为主题主色。
 - 人物头像和主视觉应使用独立文件，避免从效果图裁切。花卉、花瓣和空状态图使用透明 PNG；人物主视觉使用无抠图色边的独立 WebP。
+- 云纹素材使用透明 SVG。长直边优先用 CSS border，角纹使用镜像/旋转或 `border-image`，避免把完整效果图裁成背景。

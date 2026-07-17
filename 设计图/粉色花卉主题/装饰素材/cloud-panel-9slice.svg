@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="192" viewBox="0 0 256 192" fill="none" color="#e5bc96">
+  <style>path,rect,circle{vector-effect:non-scaling-stroke}</style>
+  <g stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="1" y="1" width="254" height="190" rx="18" stroke-width="1.15" opacity=".45"/>
+    <rect x="7" y="7" width="242" height="178" rx="13" stroke-width=".65" opacity=".24"/>
+
+    <!-- Top-left ornament: fully contained inside the 64×64 corner slice. -->
+    <path d="M2 59V20Q2 2 20 2h39M8 53V26Q8 8 26 8h29" stroke-width=".85" opacity=".42"/>
+    <path d="M10 50c15-2 26-10 30-22 4-10 0-18-8-19-7-1-12 3-12 9 0 5 4 8 9 6 4-2 5-5 3-8" stroke-width=".9" opacity=".56"/>
+    <path d="M17 56c8-4 15-10 19-18 4 7 10 12 18 14-9 2-16 6-20 13-4-5-9-8-17-9Z" stroke-width=".72" opacity=".38"/>
+
+    <!-- Top-right ornament: x >= 192 and y <= 64. -->
+    <path d="M254 56V20q0-18-18-18h-38M248 50V26q0-18-18-18h-28" stroke-width=".85" opacity=".38"/>
+    <path d="M246 47c-14-2-24-9-28-20-4-9 0-16 7-18 6-1 11 3 11 8 0 5-4 7-8 6-4-2-5-5-3-8" stroke-width=".85" opacity=".5"/>
+
+    <!-- Bottom-left ornament: x <= 64 and y >= 128. -->
+    <path d="M2 136v35q0 19 19 19h40M8 142v24q0 18 18 18h30" stroke-width=".85" opacity=".34"/>
+    <path d="M10 144c14 2 24 9 28 20 4 9 0 16-7 18-6 1-11-3-11-8 0-5 4-7 8-6 4 2 5 5 3 8" stroke-width=".8" opacity=".44"/>
+
+    <!-- Larger bottom-right scroll, still contained inside its 64×64 slice. -->
+    <path d="M254 129v42q0 19-19 19h-42M248 136v30q0 18-18 18h-32" stroke-width=".95" opacity=".47"/>
+    <path d="M246 137c-14 1-24 7-29 18-5 10-2 20 6 24 8 4 17 0 19-7 2-7-2-13-8-14-6-1-10 3-9 8 1 4 5 6 8 4" stroke-width="1" opacity=".62"/>
+    <path d="M239 181c-10-8-21-11-34-8 7-9 17-14 30-14M214 148c-8 0-14-4-18-11 8-1 15 2 19 9Z" stroke-width=".72" opacity=".4"/>
+  </g>
+</svg>
