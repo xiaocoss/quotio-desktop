@@ -47,4 +47,4 @@ Keep the subject separated from the background with crisp edges and generous pad
 
 - 花卉角饰和花瓣使用 `#0000ff` 键控背景。
 - 空状态插画与最终人物主视觉使用 `#00ff00` 键控背景。
-- 正式透明输出位于 `apps/desktop/public/rose/`；带纯色背景的中间图仅保存在 `角色设定/` 供复现与检查。
+- 正式运行时输出位于 `apps/desktop/public/rose/`；设计交付副本按类型保存在 `素材/` 下。

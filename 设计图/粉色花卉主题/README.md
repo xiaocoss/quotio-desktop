@@ -6,16 +6,16 @@
 
 | 页面 | 文件 |
 | --- | --- |
-| 仪表盘 | `仪表盘/dashboard-rose.png` |
-| 额度 | `额度/quota-rose.png` |
-| 服务商 | `服务商/providers-rose.png` |
-| 智能体 | `智能体/agents-rose.png` |
-| 请求日志 | `日志/logs-rose.png` |
-| 代理日志 | `日志/proxy-logs-rose.png` |
-| 设置 | `设置/settings-rose.png` |
-| 2FA | `2FA/2fa-rose.png` |
-| 悬浮窗 | `悬浮窗/floating-window-rose.png` |
-| 关于 | `关于/about-rose.png` |
+| 仪表盘 | `页面设计/仪表盘/dashboard-rose.png` |
+| 额度 | `页面设计/额度/quota-rose.png` |
+| 服务商 | `页面设计/服务商/providers-rose.png` |
+| 智能体 | `页面设计/智能体/agents-rose.png` |
+| 请求日志 | `页面设计/日志/logs-rose.png` |
+| 代理日志 | `页面设计/日志/proxy-logs-rose.png` |
+| 设置 | `页面设计/设置/settings-rose.png` |
+| 2FA | `页面设计/2FA/2fa-rose.png` |
+| 悬浮窗 | `页面设计/悬浮窗/floating-window-rose.png` |
+| 关于 | `页面设计/关于/about-rose.png` |
 
 ## 可直接用于程序的素材
 
@@ -36,7 +36,7 @@
 - `cloud-botanical-sprig.svg`：人物两侧枝叶卷草线稿。
 - `cloud-avatar-wreath.svg`：人物头像或圆形照片背后的枝叶花环。
 
-`角色设定/` 中保存相同素材的设计交付副本、去背中间图和白底检查预览。程序只引用 `apps/desktop/public/rose/` 中的正式文件。
+`素材/` 是按主题归档的完整设计素材包，分为人物、花卉、云纹、背景和空状态。程序只引用 `apps/desktop/public/rose/` 中的正式运行时文件。
 
 ## 实现约束
 
