@@ -146,6 +146,8 @@ pub struct AppCore {
     codex_session_generation: u64,
     /// 当前在跑的启动方案 id（与 codex_session 同生命周期；停止/自动退出时清空）。
     codex_active_profile_id: Option<String>,
+    /// 当前 Codex 会话绑定的账号 key（与 session/profile 同生命周期）。
+    codex_active_account_key: Option<String>,
     /// 每个服务商的调度状态。
     schedulers: std::collections::HashMap<String, ProviderSchedulerState>,
 }
@@ -187,6 +189,64 @@ impl CodexMonitorProbe {
     }
 }
 
+fn recovered_codex_runtime(
+    state: Option<codex_launch::CodexLaunchSessionState>,
+) -> (
+    Option<codex_launch::CodexSession>,
+    Option<String>,
+    Option<String>,
+) {
+    match state {
+        Some(state) => {
+            let session = codex_launch::CodexSession::new(state.pid, &state.launch_mode);
+            (
+                Some(session),
+                Some(state.profile_id),
+                Some(state.account_key),
+            )
+        }
+        None => (None, None, None),
+    }
+}
+
+#[cfg(test)]
+fn initial_codex_runtime() -> (
+    Option<codex_launch::CodexSession>,
+    Option<String>,
+    Option<String>,
+) {
+    recovered_codex_runtime(None)
+}
+
+#[cfg(not(test))]
+fn initial_codex_runtime() -> (
+    Option<codex_launch::CodexSession>,
+    Option<String>,
+    Option<String>,
+) {
+    match codex_launch::load_launch_backup_status_unlocked() {
+        Ok(codex_launch::LaunchBackupStatus::Missing) => {
+            if let Err(error) = codex_launch::reconcile_login_only_markers_unlocked(None) {
+                eprintln!("[startup] cleanup stale Codex login-only markers failed: {error}");
+            }
+            recovered_codex_runtime(None)
+        }
+        Ok(codex_launch::LaunchBackupStatus::Legacy) => recovered_codex_runtime(None),
+        Ok(codex_launch::LaunchBackupStatus::Managed(state)) => {
+            if let Err(error) = codex_launch::reconcile_login_only_markers_unlocked(Some(
+                state.account_key.as_str(),
+            )) {
+                eprintln!("[startup] reconcile Codex login-only markers failed: {error}");
+            }
+            recovered_codex_runtime(Some(state))
+        }
+        Err(error) => {
+            eprintln!("[startup] load Codex launch backup failed: {error}");
+            recovered_codex_runtime(None)
+        }
+    }
+}
+
 impl Default for AppCore {
     fn default() -> Self {
         let had_settings_file = settings_path().exists();
@@ -215,6 +275,9 @@ impl Default for AppCore {
                 });
             }
         }
+        let (codex_session, codex_active_profile_id, codex_active_account_key) =
+            initial_codex_runtime();
+        let codex_session_generation = if codex_session.is_some() { 1 } else { 0 };
         Self {
             proxy: ProxyLifecycle::new(&settings, management_key),
             settings,
@@ -224,9 +287,10 @@ impl Default for AppCore {
             quotas: Vec::new(),
             usage_store: open_usage_store(),
             credential_error,
-            codex_session: None,
-            codex_session_generation: 0,
-            codex_active_profile_id: None,
+            codex_session,
+            codex_session_generation,
+            codex_active_profile_id,
+            codex_active_account_key,
             schedulers: std::collections::HashMap::new(),
         }
     }
@@ -345,25 +409,9 @@ impl AppCore {
         if self.settings.keep_proxy_on_exit {
             return;
         }
-        // 退出前先解除当前方案的绑定占用（依赖 codex_active_profile_id，须在清理前读取）：
-        // 否则 login-only 的 disabled=true 会持久化到磁盘、跨重启残留，账号下次开机仍被
-        // 排除出代理池，而此时并没有运行中的会话需要它被禁用。与 codex_stop 行为一致。
-        self.release_active_profile_binding();
-        if let Some(session) = self.codex_session.take() {
-            if let Some(pid) = session.pid {
-                codex_launch::kill_process(pid);
-            }
-            codex_launch::close_codex_app();
-            if let Err(err) = codex_launch::restore_codex_state_from_launch_backup_unlocked() {
-                eprintln!("[shutdown] restore codex state failed: {err}");
-            }
-        } else if codex_launch::launch_backup_exists() {
-            codex_launch::close_codex_app();
-            if let Err(err) = codex_launch::restore_codex_state_from_launch_backup_unlocked() {
-                eprintln!("[shutdown] restore codex state failed: {err}");
-            }
+        if let Err(error) = self.finish_codex_session_unlocked(true) {
+            eprintln!("[shutdown] cleanup Codex session failed: {error}");
         }
-        self.codex_active_profile_id = None;
         let _ = scheduler::release_all_in(&quotio_platform::proxy_auth_dir());
         self.proxy.shutdown(&self.settings);
     }
@@ -1029,7 +1077,8 @@ impl AppCore {
 
     fn codex_start_unlocked(&mut self, profile_id: &str) -> Result<String, ManagementCoreError> {
         let profile_id = profile_id.trim();
-        // 找到要启动的方案（按 id）。
+
+        // 先确认目标方案仍存在；无效/过期 id 不能打断当前正在运行的有效会话。
         let profile = self
             .settings
             .codex_profiles
@@ -1040,12 +1089,20 @@ impl AppCore {
                 ManagementCoreError::Unavailable("找不到该启动方案，请刷新后重试".to_string())
             })?;
 
-        // 已经在跑：同一套幂等返回；不同套先停掉当前的（还原配置、释放占用）再起新的。
-        if self.codex_session.is_some() {
+        // 已经在跑：同一套幂等返回；不同套（或只有旧备份）先完整清理再起新的。
+        if self.codex_active() {
             if self.codex_active_profile_id.as_deref() == Some(profile_id) {
                 return Ok("该方案已在运行".to_string());
             }
             self.codex_stop_unlocked()?;
+        }
+
+        // 即使备份已经不存在，上一次启动也可能在“写 marker 成功、写备份失败”之间中断。
+        // 新事务开始前先全量释放明确属于 Quotio 的残留 marker；失败时不冒险继续启动。
+        let released = codex_launch::reconcile_login_only_markers_unlocked(None)
+            .map_err(ManagementCoreError::Unavailable)?;
+        if released > 0 {
+            let _ = self.scheduler_reconcile();
         }
 
         let account_key = profile.bound_account.trim().to_string();
@@ -1054,36 +1111,24 @@ impl AppCore {
                 "该方案还没有绑定 Codex 账号，请先编辑方案选择账号".to_string(),
             ));
         }
-
-        // If Quotio was closed or a previous launch failed after creating the
-        // launch backup, no in-memory session exists but the backup file still
-        // blocks a new launch. Restore first so startup is self-healing.
-        if codex_launch::launch_backup_exists() {
-            codex_launch::close_codex_app();
-            thread::sleep(Duration::from_millis(400));
-            codex_launch::restore_codex_state_from_launch_backup_unlocked().map_err(|error| {
-                ManagementCoreError::Unavailable(format!(
-                    "检测到上次 Codex 启动未完成，自动恢复失败：{}",
-                    error
-                ))
-            })?;
-        }
-
-        // 绑定的启动账号默认走 login-only：写 disabled 排除出代理池，避免它被轮换。
-        // 但「吸收」开关开启时跳过这步——让它照常留在池里参与轮换，把它闲置的额度也用上
-        // （代价：该号 token 同时用于 Codex 登录与代理轮换，用户已在设置里知情开启）。
-        if !self.settings.absorb_bound_account {
-            codex_launch::mark_bound_account_login_only_unlocked(&account_key)
-                .map_err(ManagementCoreError::Unavailable)?;
-            // 绑定占用可能正好拿走了调度器当前选中的账号：立刻重选，
-            // 避免「目标被绑定 + 其余都在待命」导致代理池空窗。
-            let _ = self.scheduler_reconcile();
-        }
+        let mode = if profile.launch_mode.trim().is_empty() {
+            "app".to_string()
+        } else {
+            profile.launch_mode.trim().to_string()
+        };
 
         // 从 mark 之后到会话建立之间任何一步 `?` 失败,都必须回滚 login-only 占用,
         // 否则绑定账号会卡在 disabled、被踢出代理池,而用户只看到「启动失败」。
         // 用闭包收口所有早退,在下方 Err 分支统一回滚(放回账号 + 还原可能写出的备份)。
         let launch_outcome = (|| -> Result<String, ManagementCoreError> {
+            // 绑定的启动账号默认走 login-only：写 disabled 排除出代理池，避免它被轮换。
+            // 开启「吸收」时跳过，让该账号继续参与代理轮换。
+            if !self.settings.absorb_bound_account {
+                codex_launch::mark_bound_account_login_only_unlocked(&account_key)
+                    .map_err(ManagementCoreError::Unavailable)?;
+                let _ = self.scheduler_reconcile();
+            }
+
             if !matches!(
                 self.app_state().proxy.status,
                 ProxyStatusKind::Running | ProxyStatusKind::Starting
@@ -1106,8 +1151,15 @@ impl AppCore {
                 thread::sleep(Duration::from_millis(500));
             }
             // 此刻把 ~/.codex 原样写进固定备份文件（停止/关软件时从这个文件还原）。
-            codex_launch::write_launch_backup_unlocked()
-                .map_err(ManagementCoreError::Unavailable)?;
+            codex_launch::write_launch_backup_for_session_unlocked(
+                codex_launch::CodexLaunchSessionState {
+                    profile_id: profile_id.to_string(),
+                    account_key: account_key.clone(),
+                    launch_mode: mode.clone(),
+                    pid: None,
+                },
+            )
+            .map_err(ManagementCoreError::Unavailable)?;
 
             let mut model_slots = std::collections::BTreeMap::new();
             if !profile.model.trim().is_empty() {
@@ -1147,11 +1199,6 @@ impl AppCore {
             // 会消失。此刻 Codex 已关闭(上面 close_codex_app),改库安全。Best-effort。
             let _ = codex_session_visibility::repair_session_visibility_in_default_dir_no_backup_unlocked();
 
-            let mode = if profile.launch_mode.trim().is_empty() {
-                "app"
-            } else {
-                profile.launch_mode.trim()
-            };
             let pid = if mode == "cli" {
                 codex_launch::launch_codex_cli().map_err(ManagementCoreError::Unavailable)?
             } else {
@@ -1166,9 +1213,21 @@ impl AppCore {
                     })?;
                 codex_launch::launch_codex_app(&exe).map_err(ManagementCoreError::Unavailable)?
             };
-            self.codex_session = Some(codex_launch::CodexSession::new(pid, mode));
+            if let Err(error) = codex_launch::update_launch_session_pid_unlocked(pid) {
+                if let Some(pid) = pid {
+                    codex_launch::kill_process(pid);
+                }
+                codex_launch::close_codex_app();
+                thread::sleep(Duration::from_millis(400));
+                return Err(ManagementCoreError::Unavailable(format!(
+                    "记录 Codex 启动进程失败：{error}"
+                )));
+            }
+
+            self.codex_session = Some(codex_launch::CodexSession::new(pid, &mode));
             self.codex_session_generation = self.codex_session_generation.wrapping_add(1);
             self.codex_active_profile_id = Some(profile_id.to_string());
+            self.codex_active_account_key = Some(account_key.clone());
             Ok(if mode == "cli" {
                 "已在终端启动 Codex（停止会还原配置）".to_string()
             } else {
@@ -1179,23 +1238,24 @@ impl AppCore {
             })
         })();
 
-        if launch_outcome.is_err() {
-            // 启动失败:把绑定账号放回代理池(直接按 account_key 解绑,此刻 codex_active_profile_id
-            // 还没设、release_active_profile_binding 会 no-op)+ 还原可能已写出的启动备份,
-            // 避免泄漏 login-only 占用让账号永久卡在禁用态。
-            if let Err(err) = codex_launch::release_bound_account_login_only_unlocked(&account_key)
-            {
-                eprintln!("[codex_start] 回滚释放绑定失败: {err}");
-            }
-            if codex_launch::launch_backup_exists() {
-                if let Err(err) = codex_launch::restore_codex_state_from_launch_backup_unlocked() {
-                    eprintln!("[codex_start] 回滚还原备份失败: {err}");
+        match launch_outcome {
+            Ok(message) => Ok(message),
+            Err(error) => {
+                let cleanup_error = codex_launch::cleanup_managed_codex_disk_state_unlocked().err();
+                self.codex_session = None;
+                self.codex_active_profile_id.take();
+                self.codex_active_account_key.take();
+                self.codex_session_generation = self.codex_session_generation.wrapping_add(1);
+                let _ = self.scheduler_reconcile();
+
+                match cleanup_error {
+                    Some(cleanup_error) => Err(ManagementCoreError::Unavailable(format!(
+                        "{error}\n启动失败后的 Codex 状态清理也失败：{cleanup_error}"
+                    ))),
+                    None => Err(error),
                 }
             }
-            // 账号已放回,重选调度目标别让池子空窗。
-            let _ = self.scheduler_reconcile();
         }
-        launch_outcome
     }
 
     /// 停止 Codex：杀掉启动的进程 + 还原 auth.json/config.toml 到启动前。
@@ -1204,27 +1264,43 @@ impl AppCore {
     }
 
     fn codex_stop_unlocked(&mut self) -> Result<String, ManagementCoreError> {
-        let session = self.codex_session.take();
-        if session.is_none() && !codex_launch::launch_backup_exists() {
-            self.codex_active_profile_id = None;
-            return Ok("Codex 未在运行".to_string());
+        let had_session = self.codex_session.is_some();
+        let had_backup = codex_launch::launch_backup_exists();
+        let released = self.finish_codex_session_unlocked(true)?;
+        if !had_session && !had_backup {
+            return Ok(if released > 0 {
+                "已清理残留的 Codex 登录账号状态".to_string()
+            } else {
+                "Codex 未在运行".to_string()
+            });
         }
+        Ok("已停止 Codex 并还原配置".to_string())
+    }
 
-        if let Some(session) = session {
-            if let Some(pid) = session.pid {
+    fn finish_codex_session_unlocked(
+        &mut self,
+        terminate_process: bool,
+    ) -> Result<usize, ManagementCoreError> {
+        let session = self.codex_session.take();
+        let had_backup = codex_launch::launch_backup_exists();
+        if terminate_process {
+            if let Some(pid) = session.as_ref().and_then(|session| session.pid) {
                 codex_launch::kill_process(pid);
             }
+            if session.is_some() || had_backup {
+                codex_launch::close_codex_app();
+                thread::sleep(Duration::from_millis(400));
+            }
         }
-        codex_launch::close_codex_app();
-        thread::sleep(Duration::from_millis(400));
-        // 先解除绑定占用，再还原配置：release 依赖 codex_active_profile_id，必须在清空它之前；
-        // 且即使还原失败(Windows 上 Codex 残留进程仍持文件句柄等)也已把账号放回代理池，
-        // 不让它卡在 login-only 禁用态被踢出池子。次序对齐 codex_monitor_apply。
-        self.release_active_profile_binding();
-        let restore = codex_launch::restore_codex_state_from_launch_backup_unlocked();
-        self.codex_active_profile_id = None;
-        restore.map_err(ManagementCoreError::Unavailable)?;
-        Ok("已停止 Codex 并还原配置".to_string())
+
+        let cleanup = codex_launch::cleanup_managed_codex_disk_state_unlocked()
+            .map_err(ManagementCoreError::Unavailable);
+        self.codex_session = None;
+        self.codex_active_profile_id.take();
+        self.codex_active_account_key.take();
+        self.codex_session_generation = self.codex_session_generation.wrapping_add(1);
+        let _ = self.scheduler_reconcile();
+        cleanup
     }
 
     /// 当前是否有 Codex 一键启动会话在运行。
@@ -1261,19 +1337,6 @@ impl AppCore {
     /// 当前在跑的启动方案 id（没有则 None，前端据此高亮「运行中」那套）。
     pub fn active_codex_profile_id(&self) -> Option<String> {
         self.codex_active_profile_id.clone()
-    }
-
-    /// 释放当前活动方案绑定账号的 login-only 占用（放回代理池）。best-effort。
-    fn release_active_profile_binding(&self) {
-        let account = self
-            .codex_active_profile_id
-            .as_ref()
-            .and_then(|id| self.settings.codex_profiles.iter().find(|p| &p.id == id))
-            .map(|profile| profile.bound_account.trim().to_string())
-            .unwrap_or_default();
-        if !account.is_empty() {
-            let _ = codex_launch::release_bound_account_login_only_unlocked(&account);
-        }
     }
 
     /// 监控第一步（持锁，纯内存）：有可监控的会话时返回（会话代数, 探测目标）。
@@ -1326,12 +1389,9 @@ impl AppCore {
             // 认定是用户手动退出、才自动还原。这样即便进程名再对不上也不会误伤。
             return false;
         }
-        self.codex_session = None;
-        self.release_active_profile_binding();
-        if let Err(err) = codex_launch::restore_codex_state_from_launch_backup_unlocked() {
-            eprintln!("[codex_monitor] restore codex state failed: {err}");
+        if let Err(error) = self.finish_codex_session_unlocked(false) {
+            eprintln!("[codex_monitor] cleanup Codex session failed: {error}");
         }
-        self.codex_active_profile_id = None;
         true
     }
 
@@ -4485,6 +4545,24 @@ fn now_unix_seconds() -> u64 {
 mod tests {
     use super::*;
     use quotio_types::{ConnectionMode, MigrationPhase};
+
+    #[test]
+    fn recovered_launch_state_restores_profile_account_mode_and_pid() {
+        let state = codex_launch::CodexLaunchSessionState {
+            profile_id: "profile-b".to_string(),
+            account_key: "codex-b".to_string(),
+            launch_mode: "cli".to_string(),
+            pid: Some(7331),
+        };
+
+        let (session, profile_id, account_key) = recovered_codex_runtime(Some(state));
+
+        let session = session.expect("managed launch state should restore a session");
+        assert_eq!(session.launch_mode, "cli");
+        assert_eq!(session.pid, Some(7331));
+        assert_eq!(profile_id.as_deref(), Some("profile-b"));
+        assert_eq!(account_key.as_deref(), Some("codex-b"));
+    }
 
     #[test]
     fn cooling_disabled_is_manual_or_failover_without_clobbering() {
