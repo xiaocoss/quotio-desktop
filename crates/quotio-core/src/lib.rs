@@ -148,6 +148,8 @@ pub struct AppCore {
     codex_active_profile_id: Option<String>,
     /// 当前 Codex 会话绑定的账号 key（与 session/profile 同生命周期）。
     codex_active_account_key: Option<String>,
+    /// 上一次磁盘清理未完成；保留身份并让 Start/Stop 继续进入清理重试。
+    codex_cleanup_pending: bool,
     /// 每个服务商的调度状态。
     schedulers: std::collections::HashMap<String, ProviderSchedulerState>,
 }
@@ -197,8 +199,9 @@ fn recovered_codex_runtime(
     Option<String>,
 ) {
     match state {
-        Some(state) => {
-            let session = codex_launch::CodexSession::new(state.pid, &state.launch_mode);
+        Some(state) if state.phase == codex_launch::CodexLaunchPhase::Running => {
+            // Persisted PIDs are never safe across process restart: the OS may have reused them.
+            let session = codex_launch::CodexSession::recovered(&state.launch_mode);
             (
                 Some(session),
                 Some(state.profile_id),
@@ -206,7 +209,59 @@ fn recovered_codex_runtime(
             )
         }
         None => (None, None, None),
+        Some(_) => (None, None, None),
     }
+}
+
+fn codex_monitor_observation_requires_cleanup(
+    session: &mut codex_launch::CodexSession,
+    alive: bool,
+) -> bool {
+    if alive {
+        session.recovered = false;
+        session.seen_running = true;
+        session.miss_count = 0;
+        return false;
+    }
+
+    if !session.seen_running && !session.recovered {
+        return false;
+    }
+    session.miss_count = session.miss_count.saturating_add(1);
+    session.miss_count >= 2
+}
+
+fn codex_cleanup_completed(cleanup: &Result<usize, ManagementCoreError>) -> bool {
+    cleanup.is_ok()
+}
+
+fn apply_codex_cleanup_outcome(
+    cleanup: &Result<usize, ManagementCoreError>,
+    profile_id: &mut Option<String>,
+    account_key: &mut Option<String>,
+    cleanup_pending: &mut bool,
+) -> bool {
+    let completed = codex_cleanup_completed(cleanup);
+    if completed {
+        profile_id.take();
+        account_key.take();
+        *cleanup_pending = false;
+    } else {
+        *cleanup_pending = true;
+    }
+    completed
+}
+
+fn codex_runtime_satisfies_start(
+    session: Option<&codex_launch::CodexSession>,
+    cleanup_pending: bool,
+    active_profile_id: Option<&str>,
+    requested_profile_id: &str,
+) -> bool {
+    if cleanup_pending || active_profile_id != Some(requested_profile_id) {
+        return false;
+    }
+    session.is_some_and(|session| !(session.recovered && session.launch_mode == "cli"))
 }
 
 #[cfg(test)]
@@ -214,8 +269,10 @@ fn initial_codex_runtime() -> (
     Option<codex_launch::CodexSession>,
     Option<String>,
     Option<String>,
+    bool,
 ) {
-    recovered_codex_runtime(None)
+    let (session, profile_id, account_key) = recovered_codex_runtime(None);
+    (session, profile_id, account_key, false)
 }
 
 #[cfg(not(test))]
@@ -223,26 +280,41 @@ fn initial_codex_runtime() -> (
     Option<codex_launch::CodexSession>,
     Option<String>,
     Option<String>,
+    bool,
 ) {
     match codex_launch::load_launch_backup_status_unlocked() {
         Ok(codex_launch::LaunchBackupStatus::Missing) => {
-            if let Err(error) = codex_launch::reconcile_login_only_markers_unlocked(None) {
-                eprintln!("[startup] cleanup stale Codex login-only markers failed: {error}");
-            }
-            recovered_codex_runtime(None)
+            let cleanup_pending = match codex_launch::reconcile_login_only_markers_unlocked(None) {
+                Ok(_) => false,
+                Err(error) => {
+                    eprintln!("[startup] cleanup stale Codex login-only markers failed: {error}");
+                    true
+                }
+            };
+            let (session, profile_id, account_key) = recovered_codex_runtime(None);
+            (session, profile_id, account_key, cleanup_pending)
         }
-        Ok(codex_launch::LaunchBackupStatus::Legacy) => recovered_codex_runtime(None),
+        Ok(codex_launch::LaunchBackupStatus::Legacy) => {
+            let (session, profile_id, account_key) = recovered_codex_runtime(None);
+            (session, profile_id, account_key, false)
+        }
         Ok(codex_launch::LaunchBackupStatus::Managed(state)) => {
-            if let Err(error) = codex_launch::reconcile_login_only_markers_unlocked(Some(
+            let cleanup_pending = match codex_launch::reconcile_login_only_markers_unlocked(Some(
                 state.account_key.as_str(),
             )) {
-                eprintln!("[startup] reconcile Codex login-only markers failed: {error}");
-            }
-            recovered_codex_runtime(Some(state))
+                Ok(_) => false,
+                Err(error) => {
+                    eprintln!("[startup] reconcile Codex login-only markers failed: {error}");
+                    true
+                }
+            };
+            let (session, profile_id, account_key) = recovered_codex_runtime(Some(state));
+            (session, profile_id, account_key, cleanup_pending)
         }
         Err(error) => {
             eprintln!("[startup] load Codex launch backup failed: {error}");
-            recovered_codex_runtime(None)
+            let (session, profile_id, account_key) = recovered_codex_runtime(None);
+            (session, profile_id, account_key, true)
         }
     }
 }
@@ -275,8 +347,12 @@ impl Default for AppCore {
                 });
             }
         }
-        let (codex_session, codex_active_profile_id, codex_active_account_key) =
-            initial_codex_runtime();
+        let (
+            codex_session,
+            codex_active_profile_id,
+            codex_active_account_key,
+            codex_cleanup_pending,
+        ) = initial_codex_runtime();
         let codex_session_generation = if codex_session.is_some() { 1 } else { 0 };
         Self {
             proxy: ProxyLifecycle::new(&settings, management_key),
@@ -291,6 +367,7 @@ impl Default for AppCore {
             codex_session_generation,
             codex_active_profile_id,
             codex_active_account_key,
+            codex_cleanup_pending,
             schedulers: std::collections::HashMap::new(),
         }
     }
@@ -1091,7 +1168,12 @@ impl AppCore {
 
         // 已经在跑：同一套幂等返回；不同套（或只有旧备份）先完整清理再起新的。
         if self.codex_active() {
-            if self.codex_active_profile_id.as_deref() == Some(profile_id) {
+            if codex_runtime_satisfies_start(
+                self.codex_session.as_ref(),
+                self.codex_cleanup_pending,
+                self.codex_active_profile_id.as_deref(),
+                profile_id,
+            ) {
                 return Ok("该方案已在运行".to_string());
             }
             self.codex_stop_unlocked()?;
@@ -1099,8 +1181,17 @@ impl AppCore {
 
         // 即使备份已经不存在，上一次启动也可能在“写 marker 成功、写备份失败”之间中断。
         // 新事务开始前先全量释放明确属于 Quotio 的残留 marker；失败时不冒险继续启动。
-        let released = codex_launch::reconcile_login_only_markers_unlocked(None)
-            .map_err(ManagementCoreError::Unavailable)?;
+        let released = match codex_launch::reconcile_login_only_markers_unlocked(None) {
+            Ok(released) => released,
+            Err(error) => {
+                let account_key = profile.bound_account.trim();
+                self.codex_active_profile_id = Some(profile_id.to_string());
+                self.codex_active_account_key =
+                    (!account_key.is_empty()).then(|| account_key.to_string());
+                self.codex_cleanup_pending = true;
+                return Err(ManagementCoreError::Unavailable(error));
+            }
+        };
         if released > 0 {
             let _ = self.scheduler_reconcile();
         }
@@ -1157,6 +1248,7 @@ impl AppCore {
                     account_key: account_key.clone(),
                     launch_mode: mode.clone(),
                     pid: None,
+                    phase: codex_launch::CodexLaunchPhase::Prepared,
                 },
             )
             .map_err(ManagementCoreError::Unavailable)?;
@@ -1213,7 +1305,7 @@ impl AppCore {
                     })?;
                 codex_launch::launch_codex_app(&exe).map_err(ManagementCoreError::Unavailable)?
             };
-            if let Err(error) = codex_launch::update_launch_session_pid_unlocked(pid) {
+            if let Err(error) = codex_launch::mark_launch_session_running_unlocked(pid) {
                 if let Some(pid) = pid {
                     codex_launch::kill_process(pid);
                 }
@@ -1228,6 +1320,7 @@ impl AppCore {
             self.codex_session_generation = self.codex_session_generation.wrapping_add(1);
             self.codex_active_profile_id = Some(profile_id.to_string());
             self.codex_active_account_key = Some(account_key.clone());
+            self.codex_cleanup_pending = false;
             Ok(if mode == "cli" {
                 "已在终端启动 Codex（停止会还原配置）".to_string()
             } else {
@@ -1241,18 +1334,27 @@ impl AppCore {
         match launch_outcome {
             Ok(message) => Ok(message),
             Err(error) => {
-                let cleanup_error = codex_launch::cleanup_managed_codex_disk_state_unlocked().err();
+                let cleanup = codex_launch::cleanup_managed_codex_disk_state_unlocked()
+                    .map_err(ManagementCoreError::Unavailable);
                 self.codex_session = None;
-                self.codex_active_profile_id.take();
-                self.codex_active_account_key.take();
+                self.codex_active_profile_id = Some(profile_id.to_string());
+                self.codex_active_account_key = Some(account_key.clone());
+                let cleanup_completed = apply_codex_cleanup_outcome(
+                    &cleanup,
+                    &mut self.codex_active_profile_id,
+                    &mut self.codex_active_account_key,
+                    &mut self.codex_cleanup_pending,
+                );
                 self.codex_session_generation = self.codex_session_generation.wrapping_add(1);
                 let _ = self.scheduler_reconcile();
 
-                match cleanup_error {
-                    Some(cleanup_error) => Err(ManagementCoreError::Unavailable(format!(
+                if cleanup_completed {
+                    Err(error)
+                } else {
+                    let cleanup_error = cleanup.expect_err("failed cleanup must carry an error");
+                    Err(ManagementCoreError::Unavailable(format!(
                         "{error}\n启动失败后的 Codex 状态清理也失败：{cleanup_error}"
-                    ))),
-                    None => Err(error),
+                    )))
                 }
             }
         }
@@ -1266,9 +1368,10 @@ impl AppCore {
     fn codex_stop_unlocked(&mut self) -> Result<String, ManagementCoreError> {
         let had_session = self.codex_session.is_some();
         let had_backup = codex_launch::launch_backup_exists();
+        let had_cleanup_pending = self.codex_cleanup_pending;
         let released = self.finish_codex_session_unlocked(true)?;
         if !had_session && !had_backup {
-            return Ok(if released > 0 {
+            return Ok(if released > 0 || had_cleanup_pending {
                 "已清理残留的 Codex 登录账号状态".to_string()
             } else {
                 "Codex 未在运行".to_string()
@@ -1296,8 +1399,12 @@ impl AppCore {
         let cleanup = codex_launch::cleanup_managed_codex_disk_state_unlocked()
             .map_err(ManagementCoreError::Unavailable);
         self.codex_session = None;
-        self.codex_active_profile_id.take();
-        self.codex_active_account_key.take();
+        apply_codex_cleanup_outcome(
+            &cleanup,
+            &mut self.codex_active_profile_id,
+            &mut self.codex_active_account_key,
+            &mut self.codex_cleanup_pending,
+        );
         self.codex_session_generation = self.codex_session_generation.wrapping_add(1);
         let _ = self.scheduler_reconcile();
         cleanup
@@ -1305,7 +1412,9 @@ impl AppCore {
 
     /// 当前是否有 Codex 一键启动会话在运行。
     pub fn codex_active(&self) -> bool {
-        self.codex_session.is_some() || codex_launch::launch_backup_exists()
+        self.codex_session.is_some()
+            || self.codex_cleanup_pending
+            || codex_launch::launch_backup_exists()
     }
 
     /// quotio-key-router 插件是否就位(管理目录里已有,或安装包内置了待装载)。
@@ -1368,31 +1477,16 @@ impl AppCore {
         let Some(session) = self.codex_session.as_mut() else {
             return false;
         };
-        if alive {
-            session.seen_running = true;
-            session.miss_count = 0;
+        if !codex_monitor_observation_requires_cleanup(session, alive) {
             return false;
         }
-        if session.seen_running {
-            // 去抖：连续两次查不到才认定退出，tasklist 偶发失败不触发还原。
-            session.miss_count = session.miss_count.saturating_add(1);
-            if session.miss_count < 2 {
-                return false;
-            }
-        } else {
-            // seen_running 从未为真 = 从头到尾没探测到进程。这更可能是「检测方法」本身的
-            // 问题（商店版 Codex 进程名叫 ChatGPT.exe、MSIX shell 激活拿不到子进程句柄等），
-            // 而不是真没启动 —— 启动前已探测到应用路径、也发了启动命令，就信任它起来了，
-            // **绝不当「启动失败」去还原配置 / 清会话**。否则会把明明在跑的 Codex 判死、把
-            // 配置改回，用户就用不成了（实测：路径探测到、Codex 起来了，却因进程名对不上被
-            // 误判关闭）。只有「先明确见到在跑、之后连续丢失」（上面 seen_running 分支）才
-            // 认定是用户手动退出、才自动还原。这样即便进程名再对不上也不会误伤。
-            return false;
-        }
-        if let Err(error) = self.finish_codex_session_unlocked(false) {
+
+        let cleanup = self.finish_codex_session_unlocked(false);
+        let completed = codex_cleanup_completed(&cleanup);
+        if let Err(error) = cleanup {
             eprintln!("[codex_monitor] cleanup Codex session failed: {error}");
         }
-        true
+        completed
     }
 
     /// 拉取代理真实模型所需的参数（推理端点 + 一个 api-key）。
@@ -4547,21 +4641,151 @@ mod tests {
     use quotio_types::{ConnectionMode, MigrationPhase};
 
     #[test]
-    fn recovered_launch_state_restores_profile_account_mode_and_pid() {
+    fn prepared_launch_state_does_not_restore_runtime_identity() {
+        let state = codex_launch::CodexLaunchSessionState {
+            profile_id: "profile-a".to_string(),
+            account_key: "codex-a".to_string(),
+            launch_mode: "app".to_string(),
+            pid: None,
+            phase: codex_launch::CodexLaunchPhase::Prepared,
+        };
+
+        let (session, profile_id, account_key) = recovered_codex_runtime(Some(state));
+
+        assert!(session.is_none());
+        assert!(profile_id.is_none());
+        assert!(account_key.is_none());
+    }
+
+    #[test]
+    fn recovered_launch_state_restores_profile_account_mode_but_discards_pid() {
         let state = codex_launch::CodexLaunchSessionState {
             profile_id: "profile-b".to_string(),
             account_key: "codex-b".to_string(),
             launch_mode: "cli".to_string(),
             pid: Some(7331),
+            phase: codex_launch::CodexLaunchPhase::Running,
         };
 
         let (session, profile_id, account_key) = recovered_codex_runtime(Some(state));
 
         let session = session.expect("managed launch state should restore a session");
         assert_eq!(session.launch_mode, "cli");
-        assert_eq!(session.pid, Some(7331));
+        assert_eq!(session.pid, None, "persisted pid must never cross restart");
+        assert!(session.recovered);
         assert_eq!(profile_id.as_deref(), Some("profile-b"));
         assert_eq!(account_key.as_deref(), Some("codex-b"));
+    }
+
+    #[test]
+    fn recovered_monitor_finishes_after_two_misses() {
+        let mut session = codex_launch::CodexSession::recovered("app");
+
+        assert!(!codex_monitor_observation_requires_cleanup(
+            &mut session,
+            false
+        ));
+        assert!(codex_monitor_observation_requires_cleanup(
+            &mut session,
+            false
+        ));
+    }
+
+    #[test]
+    fn fresh_unseen_monitor_never_finishes_on_misses() {
+        let mut session = codex_launch::CodexSession::new(None, "app");
+
+        assert!(!codex_monitor_observation_requires_cleanup(
+            &mut session,
+            false
+        ));
+        assert!(!codex_monitor_observation_requires_cleanup(
+            &mut session,
+            false
+        ));
+        assert_eq!(session.miss_count, 0);
+    }
+
+    #[test]
+    fn recovered_monitor_becomes_normal_after_alive_observation() {
+        let mut session = codex_launch::CodexSession::recovered("app");
+
+        assert!(!codex_monitor_observation_requires_cleanup(
+            &mut session,
+            true
+        ));
+        assert!(!session.recovered);
+        assert!(session.seen_running);
+        assert_eq!(session.miss_count, 0);
+    }
+
+    #[test]
+    fn cleanup_failure_preserves_identity_marks_pending_and_is_not_reported_complete() {
+        let cleanup = Err(ManagementCoreError::Unavailable(
+            "cleanup failed".to_string(),
+        ));
+        let mut profile_id = Some("profile-b".to_string());
+        let mut account_key = Some("codex-b".to_string());
+        let mut pending = false;
+
+        assert!(!apply_codex_cleanup_outcome(
+            &cleanup,
+            &mut profile_id,
+            &mut account_key,
+            &mut pending,
+        ));
+        assert_eq!(profile_id.as_deref(), Some("profile-b"));
+        assert_eq!(account_key.as_deref(), Some("codex-b"));
+        assert!(pending);
+    }
+
+    #[test]
+    fn cleanup_success_clears_identity_and_pending() {
+        let cleanup = Ok(2);
+        let mut profile_id = Some("profile-b".to_string());
+        let mut account_key = Some("codex-b".to_string());
+        let mut pending = true;
+
+        assert!(apply_codex_cleanup_outcome(
+            &cleanup,
+            &mut profile_id,
+            &mut account_key,
+            &mut pending,
+        ));
+        assert!(profile_id.is_none());
+        assert!(account_key.is_none());
+        assert!(!pending);
+    }
+
+    #[test]
+    fn recovered_cli_and_cleanup_pending_cannot_satisfy_same_profile_start() {
+        let recovered_cli = codex_launch::CodexSession::recovered("cli");
+        assert!(!codex_runtime_satisfies_start(
+            Some(&recovered_cli),
+            false,
+            Some("profile-b"),
+            "profile-b",
+        ));
+
+        let recovered_app = codex_launch::CodexSession::recovered("app");
+        assert!(codex_runtime_satisfies_start(
+            Some(&recovered_app),
+            false,
+            Some("profile-b"),
+            "profile-b",
+        ));
+        assert!(!codex_runtime_satisfies_start(
+            Some(&recovered_app),
+            true,
+            Some("profile-b"),
+            "profile-b",
+        ));
+        assert!(!codex_runtime_satisfies_start(
+            None,
+            false,
+            Some("profile-b"),
+            "profile-b",
+        ));
     }
 
     #[test]

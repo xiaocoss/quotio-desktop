@@ -651,12 +651,22 @@ pub(crate) fn inject_bound_account_unlocked(key: &str) -> Result<(), String> {
 
 // ---------- 启动生命周期：备份 / 还原 / 杀进程 ----------
 
+#[derive(Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum CodexLaunchPhase {
+    #[default]
+    Prepared,
+    Running,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub(crate) struct CodexLaunchSessionState {
     pub profile_id: String,
     pub account_key: String,
     pub launch_mode: String,
     pub pid: Option<u32>,
+    #[serde(default)]
+    pub phase: CodexLaunchPhase,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -682,6 +692,8 @@ struct CodexLaunchBackup {
 pub struct CodexSession {
     pub pid: Option<u32>,
     pub launch_mode: String,
+    /// 是否由跨重启的 Running metadata 恢复；恢复态允许在从未探测到进程时去抖结束。
+    pub recovered: bool,
     /// 监控：是否已观测到 Codex 进程在跑（启动初期进程可能还没出现，避免误判退出）。
     pub seen_running: bool,
     /// 监控：连续未观测到进程的次数（去抖：tasklist 偶发失败不算退出）。
@@ -695,6 +707,18 @@ impl CodexSession {
         Self {
             pid,
             launch_mode: launch_mode.to_string(),
+            recovered: false,
+            seen_running: false,
+            miss_count: 0,
+            started_at: std::time::Instant::now(),
+        }
+    }
+
+    pub(crate) fn recovered(launch_mode: &str) -> Self {
+        Self {
+            pid: None,
+            launch_mode: launch_mode.to_string(),
+            recovered: true,
             seen_running: false,
             miss_count: 0,
             started_at: std::time::Instant::now(),
@@ -836,11 +860,11 @@ fn load_launch_backup_status_in(home: &Path) -> Result<LaunchBackupStatus, Strin
     })
 }
 
-pub(crate) fn update_launch_session_pid_unlocked(pid: Option<u32>) -> Result<(), String> {
-    update_launch_session_pid_in(&codex_home(), pid)
+pub(crate) fn mark_launch_session_running_unlocked(pid: Option<u32>) -> Result<(), String> {
+    mark_launch_session_running_in(&codex_home(), pid)
 }
 
-fn update_launch_session_pid_in(home: &Path, pid: Option<u32>) -> Result<(), String> {
+fn mark_launch_session_running_in(home: &Path, pid: Option<u32>) -> Result<(), String> {
     let backup_path = home.join(LAUNCH_BACKUP_FILE);
     let text = std::fs::read_to_string(&backup_path)
         .map_err(|e| format!("读取 Codex 启动备份失败 {}: {e}", backup_path.display()))?;
@@ -849,7 +873,8 @@ fn update_launch_session_pid_in(home: &Path, pid: Option<u32>) -> Result<(), Str
     let session = backup
         .session
         .as_mut()
-        .ok_or_else(|| "Codex 启动备份缺少会话元数据，无法更新 pid".to_string())?;
+        .ok_or_else(|| "Codex 启动备份缺少会话元数据，无法标记运行状态".to_string())?;
+    session.phase = CodexLaunchPhase::Running;
     session.pid = pid;
     let text = serde_json::to_string_pretty(&backup)
         .map_err(|e| format!("序列化 Codex 启动备份失败: {e}"))?;
@@ -1463,13 +1488,14 @@ mod tests {
     }
 
     #[test]
-    fn launch_backup_round_trips_session_metadata_and_pid() {
+    fn launch_backup_round_trips_prepared_then_marks_running_with_pid() {
         let home = temp_codex_home("ql_codex_launch_backup_session");
         let state = CodexLaunchSessionState {
             profile_id: "profile-b".to_string(),
             account_key: "codex-b".to_string(),
             launch_mode: "app".to_string(),
             pid: None,
+            phase: CodexLaunchPhase::Prepared,
         };
 
         write_launch_backup_in(&home, Some(state.clone())).unwrap();
@@ -1478,12 +1504,45 @@ mod tests {
             LaunchBackupStatus::Managed(state.clone())
         );
 
-        update_launch_session_pid_in(&home, Some(4242)).unwrap();
+        mark_launch_session_running_in(&home, Some(4242)).unwrap();
         assert_eq!(
             load_launch_backup_status_in(&home).unwrap(),
             LaunchBackupStatus::Managed(CodexLaunchSessionState {
                 pid: Some(4242),
+                phase: CodexLaunchPhase::Running,
                 ..state
+            })
+        );
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn managed_backup_without_phase_defaults_to_prepared() {
+        let home = temp_codex_home("ql_codex_launch_backup_phase_compat");
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::write(
+            home.join(LAUNCH_BACKUP_FILE),
+            r#"{
+  "auth_json": null,
+  "config_toml": null,
+  "session": {
+    "profile_id": "profile-old",
+    "account_key": "codex-old",
+    "launch_mode": "app",
+    "pid": 8181
+  }
+}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            load_launch_backup_status_in(&home).unwrap(),
+            LaunchBackupStatus::Managed(CodexLaunchSessionState {
+                profile_id: "profile-old".to_string(),
+                account_key: "codex-old".to_string(),
+                launch_mode: "app".to_string(),
+                pid: Some(8181),
+                phase: CodexLaunchPhase::Prepared,
             })
         );
         let _ = std::fs::remove_dir_all(&home);
@@ -1507,7 +1566,7 @@ mod tests {
             LaunchBackupStatus::Legacy
         );
         let original_backup_bytes = std::fs::read(&backup_path).unwrap();
-        let error = update_launch_session_pid_in(&home, Some(4242))
+        let error = mark_launch_session_running_in(&home, Some(4242))
             .expect_err("legacy backup has no managed session metadata");
         assert!(error.contains("会话元数据"));
         assert_eq!(std::fs::read(&backup_path).unwrap(), original_backup_bytes);
