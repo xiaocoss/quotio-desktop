@@ -556,12 +556,30 @@ pub(crate) fn inject_bound_account_unlocked(key: &str) -> Result<(), String> {
 
 // ---------- 启动生命周期：备份 / 还原 / 杀进程 ----------
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub(crate) struct CodexLaunchSessionState {
+    pub profile_id: String,
+    pub account_key: String,
+    pub launch_mode: String,
+    pub pid: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum LaunchBackupStatus {
+    Missing,
+    Legacy,
+    Managed(CodexLaunchSessionState),
+}
+
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct CodexLaunchBackup {
     /// 启动前 `~/.codex/auth.json` 内容（None = 当时不存在）。
     auth_json: Option<String>,
     /// 启动前 `~/.codex/config.toml` 内容（None = 当时不存在）。
     config_toml: Option<String>,
+    /// Quotio 管理的启动会话元数据；旧备份没有此字段。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    session: Option<CodexLaunchSessionState>,
 }
 
 /// 一次「启动」的会话：记录启动的进程 pid，用于「停止」或关闭软件时杀进程。
@@ -667,10 +685,19 @@ pub fn write_launch_backup() -> Result<(), String> {
 }
 
 pub(crate) fn write_launch_backup_unlocked() -> Result<(), String> {
-    write_launch_backup_in(&codex_home())
+    write_launch_backup_in(&codex_home(), None)
 }
 
-fn write_launch_backup_in(home: &Path) -> Result<(), String> {
+pub(crate) fn write_launch_backup_for_session_unlocked(
+    session: CodexLaunchSessionState,
+) -> Result<(), String> {
+    write_launch_backup_in(&codex_home(), Some(session))
+}
+
+fn write_launch_backup_in(
+    home: &Path,
+    session: Option<CodexLaunchSessionState>,
+) -> Result<(), String> {
     std::fs::create_dir_all(home).map_err(|e| format!("创建 ~/.codex 失败: {e}"))?;
     let backup_path = home.join(LAUNCH_BACKUP_FILE);
     if backup_path.exists() {
@@ -680,10 +707,59 @@ fn write_launch_backup_in(home: &Path) -> Result<(), String> {
     let backup = CodexLaunchBackup {
         auth_json,
         config_toml,
+        session,
     };
     let text = serde_json::to_string_pretty(&backup)
         .map_err(|e| format!("序列化 Codex 启动备份失败: {e}"))?;
-    std::fs::write(&backup_path, text).map_err(|e| format!("写入 Codex 启动备份失败: {e}"))
+    quotio_platform::atomic_write(&backup_path, text.as_bytes(), true)
+        .map_err(|e| format!("写入 Codex 启动备份失败: {e}"))
+}
+
+pub(crate) fn load_launch_backup_status_unlocked() -> Result<LaunchBackupStatus, String> {
+    load_launch_backup_status_in(&codex_home())
+}
+
+fn load_launch_backup_status_in(home: &Path) -> Result<LaunchBackupStatus, String> {
+    let backup_path = home.join(LAUNCH_BACKUP_FILE);
+    let text = match std::fs::read_to_string(&backup_path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(LaunchBackupStatus::Missing);
+        }
+        Err(error) => {
+            return Err(format!(
+                "读取 Codex 启动备份失败 {}: {error}",
+                backup_path.display()
+            ));
+        }
+    };
+    let backup: CodexLaunchBackup =
+        serde_json::from_str(&text).map_err(|e| format!("解析 Codex 启动备份失败: {e}"))?;
+    Ok(match backup.session {
+        Some(session) => LaunchBackupStatus::Managed(session),
+        None => LaunchBackupStatus::Legacy,
+    })
+}
+
+pub(crate) fn update_launch_session_pid_unlocked(pid: Option<u32>) -> Result<(), String> {
+    update_launch_session_pid_in(&codex_home(), pid)
+}
+
+fn update_launch_session_pid_in(home: &Path, pid: Option<u32>) -> Result<(), String> {
+    let backup_path = home.join(LAUNCH_BACKUP_FILE);
+    let text = std::fs::read_to_string(&backup_path)
+        .map_err(|e| format!("读取 Codex 启动备份失败 {}: {e}", backup_path.display()))?;
+    let mut backup: CodexLaunchBackup =
+        serde_json::from_str(&text).map_err(|e| format!("解析 Codex 启动备份失败: {e}"))?;
+    let session = backup
+        .session
+        .as_mut()
+        .ok_or_else(|| "Codex 启动备份缺少会话元数据，无法更新 pid".to_string())?;
+    session.pid = pid;
+    let text = serde_json::to_string_pretty(&backup)
+        .map_err(|e| format!("序列化 Codex 启动备份失败: {e}"))?;
+    quotio_platform::atomic_write(&backup_path, text.as_bytes(), true)
+        .map_err(|e| format!("更新 Codex 启动会话失败 {}: {e}", backup_path.display()))
 }
 
 pub fn launch_backup_exists() -> bool {
@@ -1248,7 +1324,7 @@ mod tests {
         std::fs::write(&auth_path, "original-auth").unwrap();
         std::fs::write(&config_path, "original-config").unwrap();
 
-        write_launch_backup_in(&home).unwrap();
+        write_launch_backup_in(&home, None).unwrap();
         std::fs::write(&auth_path, "quotio-auth").unwrap();
         std::fs::write(&config_path, "quotio-config").unwrap();
 
@@ -1267,13 +1343,79 @@ mod tests {
     }
 
     #[test]
+    fn launch_backup_round_trips_session_metadata_and_pid() {
+        let home = temp_codex_home("ql_codex_launch_backup_session");
+        let state = CodexLaunchSessionState {
+            profile_id: "profile-b".to_string(),
+            account_key: "codex-b".to_string(),
+            launch_mode: "app".to_string(),
+            pid: None,
+        };
+
+        write_launch_backup_in(&home, Some(state.clone())).unwrap();
+        assert_eq!(
+            load_launch_backup_status_in(&home).unwrap(),
+            LaunchBackupStatus::Managed(state.clone())
+        );
+
+        update_launch_session_pid_in(&home, Some(4242)).unwrap();
+        assert_eq!(
+            load_launch_backup_status_in(&home).unwrap(),
+            LaunchBackupStatus::Managed(CodexLaunchSessionState {
+                pid: Some(4242),
+                ..state
+            })
+        );
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn legacy_launch_backup_without_session_metadata_still_restores() {
+        let home = temp_codex_home("ql_codex_launch_backup_legacy");
+        std::fs::create_dir_all(&home).unwrap();
+        let auth_path = home.join("auth.json");
+        let config_path = home.join("config.toml");
+        let backup_path = home.join(LAUNCH_BACKUP_FILE);
+        let legacy_backup = br#"{
+  "auth_json": "original-auth",
+  "config_toml": "original-config"
+}"#;
+        std::fs::write(&backup_path, legacy_backup).unwrap();
+
+        assert_eq!(
+            load_launch_backup_status_in(&home).unwrap(),
+            LaunchBackupStatus::Legacy
+        );
+        let original_backup_bytes = std::fs::read(&backup_path).unwrap();
+        let error = update_launch_session_pid_in(&home, Some(4242))
+            .expect_err("legacy backup has no managed session metadata");
+        assert!(error.contains("会话元数据"));
+        assert_eq!(std::fs::read(&backup_path).unwrap(), original_backup_bytes);
+
+        std::fs::write(&auth_path, "quotio-auth").unwrap();
+        std::fs::write(&config_path, "quotio-config").unwrap();
+        restore_codex_state_from_launch_backup_in(&home).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(&auth_path).unwrap(),
+            "original-auth"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&config_path).unwrap(),
+            "original-config"
+        );
+        assert!(!backup_path.exists());
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
     fn launch_backup_removes_auth_and_config_that_did_not_exist_before_launch() {
         let home = temp_codex_home("ql_codex_launch_backup_missing");
         std::fs::create_dir_all(&home).unwrap();
         let auth_path = home.join("auth.json");
         let config_path = home.join("config.toml");
 
-        write_launch_backup_in(&home).unwrap();
+        write_launch_backup_in(&home, None).unwrap();
         std::fs::write(&auth_path, "quotio-auth").unwrap();
         std::fs::write(&config_path, "quotio-config").unwrap();
 
@@ -1293,12 +1435,13 @@ mod tests {
         let config_path = home.join("config.toml");
         std::fs::write(&auth_path, "original-auth").unwrap();
         std::fs::write(&config_path, "original-config").unwrap();
-        write_launch_backup_in(&home).unwrap();
+        write_launch_backup_in(&home, None).unwrap();
 
         std::fs::write(&auth_path, "quotio-auth").unwrap();
         std::fs::write(&config_path, "quotio-config").unwrap();
 
-        let error = write_launch_backup_in(&home).expect_err("existing restore point is preserved");
+        let error =
+            write_launch_backup_in(&home, None).expect_err("existing restore point is preserved");
         assert!(error.contains("Codex 启动备份已存在"));
 
         restore_codex_state_from_launch_backup_in(&home).unwrap();
