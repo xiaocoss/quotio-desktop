@@ -425,17 +425,54 @@ pub fn atomic_write(path: &Path, contents: &[u8], sensitive: bool) -> io::Result
         set_sensitive_permissions(&temp_path)?;
     }
 
-    if cfg!(target_os = "windows") && path.exists() {
-        fs::remove_file(path)?;
-    }
-
-    fs::rename(&temp_path, path)?;
+    replace_file(&temp_path, path)?;
 
     if sensitive {
         set_sensitive_permissions(path)?;
     }
 
     Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn replace_file(source: &Path, target: &Path) -> io::Result<()> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{
+        MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH,
+    };
+
+    fn wide_path(path: &Path) -> io::Result<Vec<u16>> {
+        let mut wide = path.as_os_str().encode_wide().collect::<Vec<_>>();
+        if wide.contains(&0) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Windows path contains an interior NUL",
+            ));
+        }
+        wide.push(0);
+        Ok(wide)
+    }
+
+    let source = wide_path(source)?;
+    let target = wide_path(target)?;
+    // SAFETY: both buffers are NUL-terminated and remain alive for the duration of the call.
+    let result = unsafe {
+        MoveFileExW(
+            source.as_ptr(),
+            target.as_ptr(),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+        )
+    };
+    if result == 0 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn replace_file(source: &Path, target: &Path) -> io::Result<()> {
+    fs::rename(source, target)
 }
 
 pub fn backup_file(path: &Path, namespace: &str) -> io::Result<Option<PathBuf>> {
@@ -827,6 +864,44 @@ fn keyring_error(error: KeyringError) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn replace_file_failure_preserves_existing_target() {
+        let dir = std::env::temp_dir().join(format!(
+            "ql_atomic_replace_failure_{}_{}",
+            std::process::id(),
+            current_unix_millis()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let missing_source = dir.join("missing.tmp");
+        let target = dir.join("target.json");
+        fs::write(&target, b"original-backup").unwrap();
+
+        replace_file(&missing_source, &target).expect_err("missing source must fail replacement");
+
+        assert_eq!(fs::read(&target).unwrap(), b"original-backup");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn replace_file_replaces_existing_target() {
+        let dir = std::env::temp_dir().join(format!(
+            "ql_atomic_replace_success_{}_{}",
+            std::process::id(),
+            current_unix_millis()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let source = dir.join("replacement.tmp");
+        let target = dir.join("target.json");
+        fs::write(&source, b"updated-backup").unwrap();
+        fs::write(&target, b"original-backup").unwrap();
+
+        replace_file(&source, &target).unwrap();
+
+        assert_eq!(fs::read(&target).unwrap(), b"updated-backup");
+        assert!(!source.exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn prune_keeps_only_latest_backup_for_same_source_file() {

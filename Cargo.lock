@@ -3140,6 +3140,7 @@ version = "0.1.0"
 dependencies = [
  "keyring",
  "quotio-types",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
