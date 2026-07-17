@@ -3,6 +3,9 @@
 .rose-sidebar-profile,
 .rose-shell-petals,
 .rose-shell-corner,
+.rose-agents-portrait,
+.about-orbit--mirror,
+.rose-dashboard-hero,
 .rose-menubar-avatar {
   display: none;
 }
@@ -72,9 +75,11 @@
 :root[data-theme="rose"] .app-shell.app-shell--v2 {
   position: relative;
   isolation: isolate;
+  --rose-sidebar-width: 204px;
+  grid-template-columns: var(--rose-sidebar-width) minmax(0, 1fr);
   color: var(--rose-text);
   background:
-    linear-gradient(112deg, rgba(255, 248, 245, 0.93), rgba(255, 240, 242, 0.88)),
+    linear-gradient(112deg, rgba(255, 248, 245, 0.72), rgba(255, 240, 242, 0.55)),
     url("/rose/rose-bg.webp") center / cover no-repeat;
 }
 
@@ -86,14 +91,21 @@
 
 :root[data-theme="rose"] .app-shell--v2 .content {
   background:
-    radial-gradient(circle at 92% 4%, rgba(233, 79, 112, 0.08), transparent 28%),
-    linear-gradient(135deg, rgba(255, 251, 248, 0.7), rgba(255, 242, 244, 0.48));
+    radial-gradient(circle at 92% 4%, rgba(233, 79, 112, 0.1), transparent 30%),
+    linear-gradient(135deg, rgba(255, 251, 248, 0.3), rgba(255, 242, 244, 0.16));
+}
+
+:root[data-theme="rose"] .app-shell--v2 .content--dashboard {
+  padding-left: 38px;
+  padding-right: 30px;
 }
 
 :root[data-theme="rose"] .app-shell--v2 .sidebar {
-  gap: 14px;
+  gap: 10px;
+  padding: 14px 12px 16px;
+  overflow-x: hidden;
   color: var(--rose-text);
-  background: rgba(255, 248, 247, 0.96);
+  background: rgba(255, 248, 247, 0.9);
   border-right: 1px solid var(--rose-border);
   box-shadow: 14px 0 42px rgba(125, 67, 79, 0.09);
   backdrop-filter: none;
@@ -157,6 +169,70 @@
   background: var(--rose-primary);
   -webkit-mask: url("/rose/rose-mark.svg") center / contain no-repeat;
   mask: url("/rose/rose-mark.svg") center / contain no-repeat;
+}
+
+/* Match the mockup's compact rose wordmark instead of a profile card. */
+:root[data-theme="rose"] .rose-sidebar-profile {
+  position: relative;
+  z-index: 1;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 8px;
+  min-height: 48px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-theme="rose"] .rose-sidebar-avatar {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: var(--rose-primary);
+  box-shadow: none;
+  -webkit-mask: url("/rose/rose-mark.svg") center / contain no-repeat;
+  mask: url("/rose/rose-mark.svg") center / contain no-repeat;
+}
+
+:root[data-theme="rose"] .rose-sidebar-avatar img {
+  display: none;
+}
+
+:root[data-theme="rose"] .rose-sidebar-copy {
+  display: block;
+}
+
+:root[data-theme="rose"] .rose-sidebar-copy strong {
+  color: #d44b6d;
+  font-family: "Segoe Script", "Brush Script MT", "STKaiti", cursive;
+  font-size: 25px;
+  line-height: 32px;
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+}
+
+:root[data-theme="rose"] .rose-sidebar-copy small,
+:root[data-theme="rose"] .rose-sidebar-mark {
+  display: none;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .sidebar::after {
+  content: "";
+  position: absolute;
+  left: -92px;
+  bottom: -74px;
+  z-index: 0;
+  width: 270px;
+  height: 250px;
+  opacity: 0.52;
+  pointer-events: none;
+  background: url("/rose/rose-corner.png") center / contain no-repeat;
+  transform: scaleX(-1) rotate(-8deg);
 }
 
 :root[data-theme="rose"] .app-shell--v2 .nav-list {
@@ -223,7 +299,7 @@
   right: -38px;
   width: 430px;
   height: 255px;
-  opacity: 0.16;
+  opacity: 0.34;
   background: url("/rose/rose-petals.png") center / contain no-repeat;
 }
 
@@ -232,7 +308,7 @@
   bottom: -58px;
   width: 360px;
   height: 260px;
-  opacity: 0.2;
+  opacity: 0.42;
   background: url("/rose/rose-corner.png") center / contain no-repeat;
 }
 
@@ -396,6 +472,34 @@
     linear-gradient(135deg, rgba(255, 251, 248, 0.5), rgba(255, 241, 243, 0.32));
 }
 
+/* Preserve the paper texture and place the documented page-corner filigree on
+   the pages that use the cloud-line system. */
+:root[data-theme="rose"] :is(.agents-redesign, .settings-redesign).section-page {
+  position: relative;
+  background:
+    url("/rose/cloud-filigree-corner.svg") left 0 top 0 / 240px 128px no-repeat,
+    url("/rose/rose-corner.png") right -70px bottom -70px / 300px auto no-repeat,
+    linear-gradient(135deg, rgba(255, 252, 249, 0.36), rgba(255, 239, 242, 0.2)),
+    url("/rose/rose-bg.webp") center top / cover repeat-y;
+}
+
+:root[data-theme="rose"] .logs-redesign.section-page {
+  position: relative;
+  background:
+    url("/rose/rose-corner.png") right -70px bottom -70px / 300px auto no-repeat,
+    linear-gradient(135deg, rgba(255, 252, 249, 0.36), rgba(255, 239, 242, 0.2)),
+    url("/rose/rose-bg.webp") center top / cover repeat-y;
+}
+
+:root[data-theme="rose"] :is(.quota-redesign, .providers-redesign, .twofa-redesign).section-page,
+:root[data-theme="rose"] .about-redesign {
+  position: relative;
+  background:
+    url("/rose/rose-corner.png") right -70px bottom -70px / 290px auto no-repeat,
+    linear-gradient(135deg, rgba(255, 252, 249, 0.36), rgba(255, 239, 242, 0.2)),
+    url("/rose/rose-bg.webp") center top / cover repeat-y;
+}
+
 :root[data-theme="rose"] .app-shell--v2 .content:has(:is(.quota-redesign, .providers-redesign, .agents-redesign, .logs-redesign, .settings-redesign, .twofa-redesign)):not(.content--dashboard),
 :root[data-theme="rose"] :is(.quota-redesign, .providers-redesign, .agents-redesign, .logs-redesign, .settings-redesign, .twofa-redesign) .page-topbar,
 :root[data-theme="rose"] :is(.quota-redesign, .providers-redesign, .agents-redesign, .settings-redesign, .twofa-redesign) .page-topbar::before,
@@ -420,19 +524,278 @@
   backdrop-filter: none;
 }
 
-/* Dashboard gets the strongest character treatment; it remains a normal flex
-   item so the 960x640 layout can scroll instead of clipping controls. */
-:root[data-theme="rose"] .usage-dash .dashboard-scroll::before {
-  content: "";
-  flex: 0 0 auto;
-  min-height: 154px;
-  border: 1px solid var(--rose-border);
-  border-radius: 28px;
+/* Dashboard: integrate the portrait and ornaments into the filter area instead
+   of inserting a separate empty banner above the controls. */
+:root[data-theme="rose"] .usage-dash {
+  --trend-color: var(--rose-primary);
+  position: relative;
   background:
-    url("/rose/cloud-panel-9slice.svg") center / 100% 100% no-repeat,
-    url("/rose/character-hero.webp") right 16px center / auto 188px no-repeat,
-    linear-gradient(105deg, rgba(255, 253, 251, 0.98) 0 48%, rgba(253, 231, 235, 0.84) 70%, rgba(255, 243, 244, 0.9));
-  box-shadow: var(--rose-shadow);
+    linear-gradient(135deg, rgba(255, 252, 249, 0.42), rgba(255, 239, 242, 0.25)),
+    url("/rose/rose-bg.webp") center top / cover repeat-y;
+}
+
+:root[data-theme="rose"] .usage-dash::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: -16px;
+  z-index: 0;
+  width: 240px;
+  height: 128px;
+  opacity: 0.74;
+  pointer-events: none;
+  background: url("/rose/cloud-filigree-corner.svg") center / contain no-repeat;
+}
+
+:root[data-theme="rose"] .usage-dash > .page-topbar {
+  position: relative;
+  z-index: 5;
+}
+
+:root[data-theme="rose"] .usage-dash > .dashboard-scroll {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme="rose"] .usage-dash .dashboard-scroll {
+  position: relative;
+  gap: 10px;
+  padding-right: 4px;
+}
+
+:root[data-theme="rose"] .usage-dash .dashboard-scroll::before {
+  content: none;
+}
+
+:root[data-theme="rose"] .usage-dash .dashboard-scroll::after {
+  content: none;
+}
+
+:root[data-theme="rose"] .usage-dash .dashboard-scroll > * {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme="rose"] .usage-dash .usage-filter-bar {
+  min-height: 132px;
+  padding: 4px 500px 4px 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-theme="rose"] .usage-dash .usage-filter-bar > :not(.rose-dashboard-hero) {
+  position: relative;
+  z-index: 3;
+}
+
+:root[data-theme="rose"] .rose-dashboard-hero {
+  display: block;
+  position: absolute;
+  top: 0;
+  right: -2px;
+  z-index: 2;
+  width: 490px;
+  height: 214px;
+  overflow: hidden;
+  isolation: isolate;
+  pointer-events: none;
+}
+
+:root[data-theme="rose"] .rose-dashboard-hero::before,
+:root[data-theme="rose"] .rose-dashboard-hero::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+:root[data-theme="rose"] .rose-dashboard-hero::before {
+  top: -82px;
+  right: -72px;
+  z-index: 0;
+  width: 330px;
+  height: 300px;
+  opacity: 0.72;
+  background: url("/rose/rose-corner.png") center / contain no-repeat;
+  transform: rotate(5deg);
+}
+
+:root[data-theme="rose"] .rose-dashboard-hero::after {
+  top: 18px;
+  left: 150px;
+  z-index: 1;
+  width: 260px;
+  height: 150px;
+  opacity: 0.52;
+  background: url("/rose/rose-petals.png") center / contain no-repeat;
+}
+
+:root[data-theme="rose"] .rose-dashboard-hero img {
+  position: absolute;
+  right: 8px;
+  bottom: -4px;
+  z-index: 2;
+  width: auto;
+  height: 210px;
+  display: block;
+  object-fit: contain;
+}
+
+:root[data-theme="rose"] .rose-dashboard-sprig {
+  position: absolute;
+  top: 42px;
+  z-index: 1;
+  width: 96px;
+  height: 150px;
+  opacity: 0.68;
+  background: url("/rose/cloud-botanical-sprig.svg") center / contain no-repeat;
+}
+
+:root[data-theme="rose"] .rose-dashboard-sprig--left {
+  right: 250px;
+}
+
+:root[data-theme="rose"] .rose-dashboard-sprig--right {
+  right: -4px;
+  transform: scaleX(-1);
+}
+
+:root[data-theme="rose"] .rose-dashboard-motto {
+  position: absolute;
+  top: 58px;
+  left: 12px;
+  z-index: 3;
+  width: 214px;
+  margin: 0;
+  color: #dc6680;
+  font-family: "STKaiti", "KaiTi", "Segoe Script", cursive;
+  font-size: 22px;
+  line-height: 1.48;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-align: center;
+  white-space: pre-line;
+  text-shadow: 0 2px 10px rgba(207, 49, 88, 0.12);
+  transform: rotate(-3deg);
+}
+
+:root[data-theme="rose"] .usage-dash .range-tabs,
+:root[data-theme="rose"] .usage-dash .usage-filter-row {
+  gap: 8px;
+}
+
+:root[data-theme="rose"] .usage-dash .range-tabs {
+  margin-bottom: 8px;
+}
+
+:root[data-theme="rose"] .usage-dash .range-tabs::before {
+  content: "";
+  flex: 0 0 24px;
+  width: 24px;
+  height: 40px;
+  align-self: center;
+  opacity: 0.88;
+  pointer-events: none;
+  background: url("/rose/cloud-segment-bracket.svg") center / contain no-repeat;
+}
+
+:root[data-theme="rose"] .usage-dash .usage-filter-bar .range-tab {
+  min-width: 56px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+:root[data-theme="rose"] .usage-dash .usage-filter-bar .qselect-button {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+:root[data-theme="rose"] .usage-dash .usage-filter-row .qselect:nth-child(1) .qselect-button {
+  min-width: 130px !important;
+}
+
+:root[data-theme="rose"] .usage-dash .usage-filter-row .qselect:nth-child(2) .qselect-button,
+:root[data-theme="rose"] .usage-dash .usage-filter-row .qselect:nth-child(3) .qselect-button,
+:root[data-theme="rose"] .usage-dash .usage-filter-row .qselect:nth-child(4) .qselect-button {
+  min-width: 126px !important;
+}
+
+:root[data-theme="rose"] .usage-dash .usage-filter-row .qselect:nth-child(5) .qselect-button {
+  min-width: 155px !important;
+}
+
+:root[data-theme="rose"] .usage-dash .usage-filter-row .qselect:nth-child(6) .qselect-button {
+  min-width: 110px !important;
+}
+
+:root[data-theme="rose"] .usage-dash .usage-search-row {
+  gap: 8px;
+  margin-top: 8px;
+}
+
+:root[data-theme="rose"] .usage-dash .usage-search {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 11px;
+}
+
+:root[data-theme="rose"] .usage-dash .usage-filter-bar .ghost-action {
+  height: 34px;
+  border-radius: 10px;
+}
+
+:root[data-theme="rose"] .usage-dash .panel:not(.usage-filter-bar) {
+  border-radius: 16px;
+}
+
+:root[data-theme="rose"] .usage-dash .kpis {
+  gap: 10px;
+}
+
+:root[data-theme="rose"] .usage-dash .kpi {
+  grid-template-columns: 54px 1fr;
+  min-height: 88px;
+  padding: 13px 15px;
+}
+
+:root[data-theme="rose"] .usage-dash .orb {
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+}
+
+:root[data-theme="rose"] .usage-dash .orb svg {
+  width: 20px;
+  height: 20px;
+}
+
+:root[data-theme="rose"] .usage-dash .kpi-value {
+  margin-top: 1px;
+  font-size: 28px;
+  line-height: 32px;
+}
+
+:root[data-theme="rose"] .usage-dash .kpi-note {
+  margin-top: 1px;
+}
+
+:root[data-theme="rose"] .usage-dash .chart-panel,
+:root[data-theme="rose"] .usage-dash .account-summary-panel {
+  padding: 12px 16px;
+}
+
+:root[data-theme="rose"] .usage-dash .panel-head {
+  margin-bottom: 6px;
+}
+
+:root[data-theme="rose"] .usage-dash :is(.chart-canvas, .chart-empty) {
+  height: 150px;
 }
 
 :root[data-theme="rose"] .usage-dash :is(.dash-refresh, .dash-page-btn--active) {
@@ -540,6 +903,201 @@
   background: url("/rose/empty-endpoints.png") center / contain no-repeat;
 }
 
+
+/* ===== Documented cloud / filigree mapping ===== */
+:root[data-theme="rose"] .app-shell--v2 .sidebar > * {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .nav-list {
+  gap: 7px;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .nav-list button {
+  min-height: 36px;
+  border-radius: 10px;
+}
+
+/* Quota: the asymmetric wide-panel frame belongs on the scheduler banner. */
+:root[data-theme="rose"] .quota-redesign .strategy {
+  position: relative;
+  isolation: isolate;
+}
+
+:root[data-theme="rose"] .quota-redesign .strategy::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border: 64px solid transparent;
+  border-image: url("/rose/cloud-panel-9slice.svg") 64 fill / 64px / 0 stretch;
+  pointer-events: none;
+}
+
+:root[data-theme="rose"] .quota-redesign .strategy > * {
+  position: relative;
+  z-index: 3;
+}
+
+/* Agents: hooked discovery cards and the top-right portrait wreath. */
+:root[data-theme="rose"] .agents-redesign .discovery-card {
+  position: relative;
+  isolation: isolate;
+}
+
+:root[data-theme="rose"] .agents-redesign .discovery-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 20px solid transparent;
+  border-image: url("/rose/cloud-card-9slice.svg") 20 fill / 20px / 0 stretch;
+  pointer-events: none;
+}
+
+:root[data-theme="rose"] .agents-redesign .discovery-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme="rose"] .agents-redesign .page-topbar {
+  position: sticky;
+}
+
+:root[data-theme="rose"] .rose-agents-portrait {
+  display: block;
+  position: absolute;
+  top: -24px;
+  right: 112px;
+  z-index: 2;
+  width: 106px;
+  height: 106px;
+  pointer-events: none;
+}
+
+:root[data-theme="rose"] .rose-agents-portrait::before,
+:root[data-theme="rose"] .rose-agents-portrait::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+:root[data-theme="rose"] .rose-agents-portrait::before {
+  inset: -18px;
+  z-index: 0;
+  opacity: 0.88;
+  background: url("/rose/cloud-avatar-wreath.svg") center / contain no-repeat;
+}
+
+:root[data-theme="rose"] .rose-agents-portrait::after {
+  inset: -26px;
+  z-index: 0;
+  opacity: 0.46;
+  background: url("/rose/rose-petals.png") center / contain no-repeat;
+}
+
+:root[data-theme="rose"] .rose-agents-portrait img {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 1;
+  width: 82px;
+  height: 82px;
+  display: block;
+  object-fit: cover;
+  border: 2px solid rgba(216, 173, 114, 0.62);
+  border-radius: 50%;
+  box-shadow: 0 12px 28px rgba(130, 72, 83, 0.16);
+}
+
+/* Logs: the T-shaped junctions sit on the shell's sidebar/content boundary. */
+:root[data-theme="rose"] .app-shell.app-shell--v2:has(.logs-redesign)::before,
+:root[data-theme="rose"] .app-shell.app-shell--v2:has(.logs-redesign)::after {
+  content: "";
+  position: absolute;
+  left: var(--rose-sidebar-width);
+  z-index: 3;
+  width: 160px;
+  height: 72px;
+  opacity: 0.86;
+  pointer-events: none;
+  background: url("/rose/cloud-rail-junction.svg") center / contain no-repeat;
+  transform: translateX(-50%);
+}
+
+:root[data-theme="rose"] .app-shell.app-shell--v2:has(.logs-redesign)::before {
+  top: 0;
+}
+
+:root[data-theme="rose"] .app-shell.app-shell--v2:has(.logs-redesign)::after {
+  bottom: 0;
+  transform: translateX(-50%) rotate(180deg);
+}
+
+:root[data-theme="rose"] .logs-redesign .lr-header {
+  isolation: isolate;
+}
+
+:root[data-theme="rose"] .logs-redesign .lr-header::before {
+  content: "";
+  position: absolute;
+  top: -24px;
+  right: -20px;
+  z-index: 0;
+  width: 240px;
+  height: 128px;
+  opacity: 0.72;
+  pointer-events: none;
+  background: url("/rose/cloud-filigree-corner.svg") center / contain no-repeat;
+  transform: scaleX(-1);
+}
+
+:root[data-theme="rose"] .logs-redesign .lr-header > * {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme="rose"] .app-shell.app-shell--v2:has(.logs-redesign .modal-overlay)::before,
+:root[data-theme="rose"] .app-shell.app-shell--v2:has(.logs-redesign .modal-overlay)::after {
+  display: none;
+}
+
+/* About: portrait wreath, botanical sprig, and the asymmetric panel frame. */
+:root[data-theme="rose"] .about-redesign .about-hero::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  z-index: 0;
+  width: 188px;
+  height: 188px;
+  opacity: 0.82;
+  pointer-events: none;
+  background: url("/rose/cloud-avatar-wreath.svg") center / contain no-repeat;
+  transform: translateY(-50%);
+}
+
+:root[data-theme="rose"] .about-redesign .about-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 64px solid transparent;
+  border-image: url("/rose/cloud-panel-9slice.svg") 64 fill / 64px / 0 stretch;
+  pointer-events: none;
+}
+
+:root[data-theme="rose"] .about-redesign .about-hero > :not(.about-orbit) {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme="rose"] .about-redesign .about-mark {
+  z-index: 2;
+  border-radius: 50%;
+}
+
 /* About and API keys were not covered by the original implementation checklist. */
 :root[data-theme="rose"] .about-redesign .about-mark {
   color: transparent;
@@ -549,9 +1107,23 @@
 }
 
 :root[data-theme="rose"] .about-redesign .about-orbit {
-  right: 350px;
-  opacity: 0.74;
+  position: absolute;
+  z-index: 1;
+  left: 142px;
+  right: auto;
+  top: -12px;
+  bottom: auto;
+  width: 150px;
+  height: 210px;
+  opacity: 0.66;
   background: url("/rose/cloud-botanical-sprig.svg") center / contain no-repeat;
+  transform: scaleX(-1) rotate(-6deg);
+}
+
+:root[data-theme="rose"] .about-redesign .about-orbit--mirror {
+  display: block;
+  left: -24px;
+  transform: rotate(6deg);
 }
 
 :root[data-theme="rose"] .about-redesign :is(.about-status, .about-copy) {
@@ -657,14 +1229,21 @@
   box-shadow: 0 8px 22px rgba(130, 72, 83, 0.08);
 }
 
-@media (max-width: 1080px) {
-  :root[data-theme="rose"] .usage-dash .dashboard-scroll::before {
-    min-height: 132px;
-    background-size: 100% 100%, auto 160px, auto;
+@media (max-width: 1599px) {
+  :root[data-theme="rose"] .usage-dash .usage-filter-bar {
+    min-height: auto;
+    padding: 4px 0;
   }
 
-  :root[data-theme="rose"] .rose-sidebar-copy small {
-    letter-spacing: 0;
+  :root[data-theme="rose"] :is(.rose-dashboard-hero, .rose-agents-portrait) {
+    display: none;
+  }
+}
+
+@media (max-width: 1080px) {
+  :root[data-theme="rose"] .app-shell--v2 .content--dashboard {
+    padding-left: 26px;
+    padding-right: 26px;
   }
 }
 

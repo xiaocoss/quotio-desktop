@@ -31,7 +31,7 @@ type ModelChartRow = UsageModelBreakdownRow & {
   cost_value: number;
 };
 
-const COST_COLOR = "#ff8a00";
+const COST_COLOR = "var(--trend-color, #ff8a00)";
 const UNCACHED_COLOR = "#2e7bff";
 const CACHED_COLOR = "#8b5cf6";
 const OUTPUT_COLOR = "#20b86e";

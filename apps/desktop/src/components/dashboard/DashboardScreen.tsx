@@ -73,6 +73,13 @@ export function DashboardScreen({ initialAccount, onFocusConsumed }: DashboardSc
           </button>
         </div>
       </header>
+      <div className="rose-dashboard-hero" aria-hidden="true">
+        <p className="rose-dashboard-motto">{t("dash.roseMotto")}</p>
+        <span className="rose-dashboard-sprig rose-dashboard-sprig--left" />
+        <span className="rose-dashboard-sprig rose-dashboard-sprig--right" />
+        <img src="/rose/character-hero.webp" alt="" />
+      </div>
+
 
       <div className="dashboard-scroll">
         <UsageFilterBar

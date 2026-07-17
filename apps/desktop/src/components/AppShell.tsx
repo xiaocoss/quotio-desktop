@@ -748,6 +748,7 @@ function AboutScreen({
             </div>
           </div>
           <div className="about-orbit" aria-hidden="true" />
+          <div className="about-orbit about-orbit--mirror" aria-hidden="true" />
           <aside className="about-status">
             <div className="about-status-title">{t("about.versionStatus", "版本状态")}</div>
             <div className="about-status-ok">

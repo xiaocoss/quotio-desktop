@@ -894,6 +894,9 @@ export function AgentsScreen({
     <section className="section-page agents-page agents-redesign">
       <header className="page-topbar" data-tauri-drag-region>
         <h1 data-tauri-drag-region="false">{t("nav.agents")}</h1>
+        <div className="rose-agents-portrait" aria-hidden="true">
+          <img src="/rose/character-avatar.png" alt="" />
+        </div>
         <button
           className={`btn${isBusy ? " is-busy" : ""}`}
           type="button"
