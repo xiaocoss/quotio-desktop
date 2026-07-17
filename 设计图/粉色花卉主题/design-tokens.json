@@ -1,0 +1,49 @@
+{
+  "name": "Quotio Rose Floral",
+  "themeId": "rose",
+  "colors": {
+    "page": "#fff8f5",
+    "pageAlt": "#fff1f2",
+    "surface": "rgba(255, 252, 250, 0.9)",
+    "surfaceStrong": "#fffdfb",
+    "text": "#3d2428",
+    "textMuted": "#806970",
+    "primary": "#e94f70",
+    "primaryHover": "#d93c61",
+    "primarySoft": "#fde7eb",
+    "border": "rgba(222, 133, 148, 0.35)",
+    "gold": "#d8ad72",
+    "ornamentGold": "#e5bc96",
+    "success": "#36a763",
+    "warning": "#f29a38",
+    "danger": "#e84e5f",
+    "info": "#5b83e6",
+    "purple": "#8c62e8"
+  },
+  "radius": {
+    "control": 12,
+    "card": 20,
+    "panel": 26,
+    "pill": 999
+  },
+  "shadow": {
+    "card": "0 14px 36px rgba(130, 72, 83, 0.08)",
+    "floating": "0 24px 70px rgba(130, 72, 83, 0.14)"
+  },
+  "assets": {
+    "avatar": "/rose/character-avatar.png",
+    "hero": "/rose/character-hero.webp",
+    "corner": "/rose/rose-corner.png",
+    "petals": "/rose/rose-petals.png",
+    "emptyEndpoints": "/rose/empty-endpoints.png",
+    "background": "/rose/rose-bg.webp",
+    "mark": "/rose/rose-mark.svg",
+    "cloudPageCorner": "/rose/cloud-filigree-corner.svg",
+    "cloudPanel9Slice": "/rose/cloud-panel-9slice.svg",
+    "cloudCard9Slice": "/rose/cloud-card-9slice.svg",
+    "cloudRailJunction": "/rose/cloud-rail-junction.svg",
+    "cloudSegmentBracket": "/rose/cloud-segment-bracket.svg",
+    "cloudBotanicalSprig": "/rose/cloud-botanical-sprig.svg",
+    "cloudAvatarWreath": "/rose/cloud-avatar-wreath.svg"
+  }
+}

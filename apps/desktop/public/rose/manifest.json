@@ -1,0 +1,19 @@
+{
+  "theme": "rose",
+  "assets": {
+    "avatar": { "path": "/rose/character-avatar.png", "alpha": false },
+    "hero": { "path": "/rose/character-hero.webp", "alpha": false },
+    "corner": { "path": "/rose/rose-corner.png", "alpha": true },
+    "petals": { "path": "/rose/rose-petals.png", "alpha": true },
+    "emptyEndpoints": { "path": "/rose/empty-endpoints.png", "alpha": true },
+    "background": { "path": "/rose/rose-bg.webp", "alpha": false },
+    "mark": { "path": "/rose/rose-mark.svg", "vector": true },
+    "cloudPageCorner": { "path": "/rose/cloud-filigree-corner.svg", "vector": true },
+    "cloudPanel9Slice": { "path": "/rose/cloud-panel-9slice.svg", "vector": true },
+    "cloudCard9Slice": { "path": "/rose/cloud-card-9slice.svg", "vector": true },
+    "cloudRailJunction": { "path": "/rose/cloud-rail-junction.svg", "vector": true },
+    "cloudSegmentBracket": { "path": "/rose/cloud-segment-bracket.svg", "vector": true },
+    "cloudBotanicalSprig": { "path": "/rose/cloud-botanical-sprig.svg", "vector": true },
+    "cloudAvatarWreath": { "path": "/rose/cloud-avatar-wreath.svg", "vector": true }
+  }
+}

@@ -1,5 +1,5 @@
 /* Quotio 悬浮窗(托盘菜单栏面板)重设计样式。
-   严格对齐 设计图/悬浮窗/floating-window-reference.html 与 design-tokens.json。
+   严格对齐 设计图/原版/悬浮窗/floating-window-reference.html 与 design-tokens.json。
    作用域全部收敛在 .floating-window 下,避免影响主窗口共用的 App.css。
    背景改用纯 CSS 径向柔光(不用 feTurbulence / card-noise / background fixed),
    规避 WebView2 合成器卡顿(见记忆:大高斯模糊 SVG cover / background-attachment:fixed)。 */
