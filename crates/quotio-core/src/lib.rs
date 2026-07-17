@@ -286,6 +286,10 @@ fn codex_runtime_satisfies_start(
     session.is_some_and(|session| !(session.recovered && session.launch_mode == "cli"))
 }
 
+fn proxy_needs_start(status: &ProxyStatusKind) -> bool {
+    !matches!(status, ProxyStatusKind::Running | ProxyStatusKind::Starting)
+}
+
 #[cfg(test)]
 fn initial_codex_runtime() -> (
     Option<codex_launch::CodexSession>,
@@ -1210,6 +1214,14 @@ impl AppCore {
                 self.codex_active_profile_id.as_deref(),
                 profile_id,
             ) {
+                // A kept/recovered Codex session can outlive its local proxy. Repair only the
+                // proxy here: tearing the session down would rewrite its backup and markers.
+                let proxy_status = self.app_state().proxy.status;
+                if proxy_needs_start(&proxy_status) {
+                    self.start_proxy().map_err(|error| {
+                        ManagementCoreError::Unavailable(format!("启动代理失败：{error}"))
+                    })?;
+                }
                 return Ok("该方案已在运行".to_string());
             }
             self.codex_stop_unlocked()?;
@@ -1256,10 +1268,7 @@ impl AppCore {
                 let _ = self.scheduler_reconcile();
             }
 
-            if !matches!(
-                self.app_state().proxy.status,
-                ProxyStatusKind::Running | ProxyStatusKind::Starting
-            ) {
+            if proxy_needs_start(&self.app_state().proxy.status) {
                 self.start_proxy().map_err(|error| {
                     ManagementCoreError::Unavailable(format!("启动代理失败：{error}"))
                 })?;
@@ -4864,6 +4873,13 @@ mod tests {
             Some("profile-b"),
             "profile-b",
         ));
+    }
+
+    #[test]
+    fn same_profile_start_only_restarts_inactive_proxy() {
+        assert!(!proxy_needs_start(&ProxyStatusKind::Running));
+        assert!(!proxy_needs_start(&ProxyStatusKind::Starting));
+        assert!(proxy_needs_start(&ProxyStatusKind::Stopped));
     }
 
     #[test]

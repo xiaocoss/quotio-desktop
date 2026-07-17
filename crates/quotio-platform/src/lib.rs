@@ -520,6 +520,17 @@ fn replace_file(source: &Path, target: &Path) -> io::Result<()> {
     };
 
     fn wide_path(path: &Path) -> io::Result<Vec<u16>> {
+        let parent = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        let file_name = path.file_name().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Windows replacement path has no file name",
+            )
+        })?;
+        let path = parent.canonicalize()?.join(file_name);
         let mut wide = path.as_os_str().encode_wide().collect::<Vec<_>>();
         if wide.contains(&0) {
             return Err(io::Error::new(
@@ -979,6 +990,45 @@ mod tests {
         assert_eq!(fs::read(&target).unwrap(), b"updated-backup");
         assert!(!source.exists());
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn atomic_write_replaces_existing_file_beyond_max_path() {
+        use std::os::windows::ffi::OsStrExt;
+
+        let root = std::env::temp_dir().join(format!(
+            "ql_atomic_write_long_path_{}_{}",
+            std::process::id(),
+            current_unix_millis()
+        ));
+        fs::create_dir_all(&root).unwrap();
+
+        let mut parent = root.clone();
+        let mut target = parent.join("config.json");
+        while target.as_os_str().encode_wide().count() <= 280 {
+            parent.push("nested");
+            fs::create_dir(&parent).unwrap();
+            target = parent.join("config.json");
+        }
+
+        fs::write(&target, b"old").unwrap();
+        let write_result = atomic_write(&target, b"new", false);
+        let contents = fs::read(&target).unwrap();
+        let leaked_temp_files = fs::read_dir(&parent)
+            .unwrap()
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .filter(|path| path.to_string_lossy().contains(".quotio-tmp-"))
+            .collect::<Vec<_>>();
+        let _ = fs::remove_dir_all(&root);
+
+        write_result.unwrap();
+        assert_eq!(contents, b"new");
+        assert!(
+            leaked_temp_files.is_empty(),
+            "atomic write leaked temporary files: {leaked_temp_files:?}"
+        );
     }
 
     #[test]

@@ -1767,10 +1767,6 @@ pub fn run() {
             None,
         ))
         .plugin(tauri_plugin_notification::init())
-        .manage(DesktopState {
-            core: Arc::new(Mutex::new(AppCore::default())),
-            tunnel: Mutex::new(TunnelRuntime::default()),
-        })
         .setup(|app| {
             if let Ok(proxy_resource_root) = app
                 .path()
@@ -1778,6 +1774,14 @@ pub fn run() {
             {
                 quotio_platform::set_proxy_resource_root(proxy_resource_root);
             }
+
+            // Keep AppCore construction inside application setup. Plugins are set up first, so
+            // the single-instance plugin has already exited a duplicate process before startup
+            // recovery can reconcile markers or roll back a Prepared Codex launch transaction.
+            app.manage(DesktopState {
+                core: Arc::new(Mutex::new(AppCore::default())),
+                tunnel: Mutex::new(TunnelRuntime::default()),
+            });
 
             let show = MenuItem::with_id(app, "show", "打开 Quotio", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
