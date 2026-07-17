@@ -117,12 +117,23 @@ When `AppCore` is created:
 
 - if a launch backup contains session metadata, rebuild `CodexSession` from its
   mode and pid, restore `codex_active_profile_id`, and restore
-  `codex_active_account_key`;
+  `codex_active_account_key`; retain that account's marker and release every
+  other login-only marker left by an older broken session;
 - if no launch backup exists, any login-only marker is unambiguously stale and
   is released during startup;
 - if a legacy backup exists without session metadata, do not guess which active
   account to retain. Keep the backup untouched until the user stops or starts a
   managed session; that ending path safely releases all old markers.
+
+A parsed backup is classified as `Missing`, `Legacy`, or `Managed(state)` so a
+parse error is never mistaken for a missing backup. Parse failures preserve the
+disk state and are reported instead of performing destructive reconciliation.
+
+Unit tests that construct `AppCore::default()` must not run the production
+startup reconciliation against the developer's real home directory. Startup
+classification and runtime reconstruction are therefore factored into testable
+path-scoped and pure helpers, while the test-only default constructor skips
+global disk mutation.
 
 For a recovered app session, monitoring retains the existing conservative
 `seen_running` behavior so Store-app process-name mismatches do not cause an
@@ -144,6 +155,12 @@ The cleanup operation scans proxy auth JSON files for
 `quotio_previous_disabled` value, and removes both Quotio marker fields. A sweep
 is safe because Quotio supports only one managed Codex session; multiple markers
 are stale state, not independent live sessions.
+
+Before marking a new account, the launch flow also performs an unconditional
+no-retain reconciliation after confirming there is no current managed session.
+This covers a partial older cleanup where the launch backup was removed but one
+account-file write failed, and guarantees every successful launch starts from
+zero residual markers.
 
 Cleanup uses atomic account-file writes. Errors are logged on best-effort
 shutdown/monitor paths and returned to the caller on explicit Stop or launch
@@ -170,6 +187,7 @@ Add regression coverage for:
 - session metadata round-trip and pid update;
 - deserializing and restoring a legacy backup without metadata;
 - recovering profile id, account key, launch mode, and pid after restart;
+- managed startup retaining only the persisted active account marker;
 - releasing two residual markers while restoring each prior disabled value;
 - Stop after restart releasing markers without consulting mutable profile data;
 - replacing a legacy backup before launching a second profile;
