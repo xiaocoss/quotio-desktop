@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "../lib/tauri";
 import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import type {
   AccountQuota,
   AgentBackupFile,
@@ -93,6 +93,24 @@ export function useAppState() {
     let unlisten: (() => void) | undefined;
     void listen("scheduler-changed", () => {
       void refreshState();
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
+
+  // Settings are shared by the main and menu-bar webviews. Broadcast the
+  // saved payload so an already-open floating panel switches theme immediately
+  // instead of waiting for its next background refresh.
+  useEffect(() => {
+    if (!("__TAURI_INTERNALS__" in window)) return;
+    let unlisten: (() => void) | undefined;
+    void listen<AppSettings>("settings-changed", (event) => {
+      setAppState((current) =>
+        current ? { ...current, settings: event.payload } : current,
+      );
     }).then((fn) => {
       unlisten = fn;
     });
@@ -257,6 +275,9 @@ export function useAppState() {
       });
       setAppState(nextState);
       setCredentialStatus(nextState.credentials);
+      if ("__TAURI_INTERNALS__" in window) {
+        void emit("settings-changed", nextState.settings);
+      }
       setError(null);
     } catch (cause) {
       setError(errorMessage(cause));

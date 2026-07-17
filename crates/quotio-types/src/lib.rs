@@ -21,6 +21,7 @@ pub enum ThemeMode {
     System,
     Light,
     Dark,
+    Rose,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -1916,6 +1917,16 @@ mod tests {
             "http://127.0.0.1:28317/v0/management"
         );
         assert_eq!(proxy_config.port, 28317);
+    }
+
+    #[test]
+    fn rose_theme_uses_stable_snake_case_wire_value() {
+        let encoded = serde_json::to_value(ThemeMode::Rose).unwrap();
+        let decoded: ThemeMode = serde_json::from_value(json!("rose")).unwrap();
+
+        assert_eq!(encoded, json!("rose"));
+        assert_eq!(decoded, ThemeMode::Rose);
+        assert_eq!(AppSettings::default().theme, ThemeMode::System);
     }
 
     #[test]

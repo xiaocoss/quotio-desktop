@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import "./menubar.css";
+import "./components/rose-theme.css";
 import { invoke } from "./lib/tauri";
+import { applyTheme, resolveEffectiveTheme } from "./lib/theme";
 import { I18nProvider, resolveLocale, useT } from "./i18n";
 import { useAppState } from "./state/useAppState";
 import { quotaTone, parsePlan, matchAuthFile, parseResetCredits } from "./lib/format";
@@ -70,21 +72,14 @@ export default function MenuBarPanel() {
 
   useEffect(() => {
     const root = document.documentElement;
-    const apply = () => {
-      const effective =
-        theme === "system"
-          ? window.matchMedia("(prefers-color-scheme: dark)").matches
-            ? "dark"
-            : "light"
-          : theme;
-      root.setAttribute("data-theme", effective);
-      root.style.colorScheme = effective;
-    };
-    apply();
-    if (theme !== "system") return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
-    media.addEventListener("change", apply);
-    return () => media.removeEventListener("change", apply);
+    const syncTheme = () => {
+      applyTheme(root, resolveEffectiveTheme(theme, media.matches));
+    };
+    syncTheme();
+    if (theme !== "system") return;
+    media.addEventListener("change", syncTheme);
+    return () => media.removeEventListener("change", syncTheme);
   }, [theme]);
 
   // The panel stays pinned above other apps (alwaysOnTop) and is toggled from
@@ -186,6 +181,7 @@ function MenuBarBody({ app }: { app: ReturnType<typeof useAppState> }) {
           });
         }}
       >
+        <img className="rose-menubar-avatar" src="/rose/character-avatar.png" alt="" aria-hidden="true" />
         <div className="brand">Quotio</div>
         <div
           className={running ? "endpoint" : "endpoint is-stopped"}

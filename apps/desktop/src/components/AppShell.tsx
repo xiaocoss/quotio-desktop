@@ -289,6 +289,8 @@ export function AppShell(props: AppShellProps) {
 
   return (
     <main className="app-shell app-shell--v2">
+      <div className="rose-shell-petals" aria-hidden="true" />
+      <div className="rose-shell-corner" aria-hidden="true" />
       <aside className="sidebar">
         <div className="sidebar-titlebar">
           <div className="window-controls">
@@ -303,6 +305,17 @@ export function AppShell(props: AppShellProps) {
             </button>
           </div>
           <div className="titlebar-drag" data-tauri-drag-region />
+        </div>
+
+        <div className="rose-sidebar-profile" aria-hidden="true">
+          <span className="rose-sidebar-avatar">
+            <img src="/rose/character-avatar.png" alt="" />
+          </span>
+          <span className="rose-sidebar-copy">
+            <strong>Quotio</strong>
+            <small>Rose Edition</small>
+          </span>
+          <span className="rose-sidebar-mark" />
         </div>
 
         <nav className="nav-list" aria-label="Primary navigation">

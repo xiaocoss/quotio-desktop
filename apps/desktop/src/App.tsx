@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import "./components/shell.css";
 import "./components/about.css";
+import "./components/rose-theme.css";
 import { AppShell } from "./components/AppShell";
 import { I18nProvider, resolveLocale } from "./i18n";
+import { applyTheme, resolveEffectiveTheme } from "./lib/theme";
 import { useAppState } from "./state/useAppState";
 
 function App() {
@@ -31,21 +33,14 @@ function App() {
   const theme = app.appState?.settings.theme ?? "system";
   useEffect(() => {
     const root = document.documentElement;
-    const applyTheme = () => {
-      const effective =
-        theme === "system"
-          ? window.matchMedia("(prefers-color-scheme: dark)").matches
-            ? "dark"
-            : "light"
-          : theme;
-      root.setAttribute("data-theme", effective);
-      root.style.colorScheme = effective;
-    };
-    applyTheme();
-    if (theme !== "system") return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
-    media.addEventListener("change", applyTheme);
-    return () => media.removeEventListener("change", applyTheme);
+    const syncTheme = () => {
+      applyTheme(root, resolveEffectiveTheme(theme, media.matches));
+    };
+    syncTheme();
+    if (theme !== "system") return;
+    media.addEventListener("change", syncTheme);
+    return () => media.removeEventListener("change", syncTheme);
   }, [theme]);
 
   // 长按窗口任意处拖动:无边框窗口默认只有标题栏能拖。这里监听鼠标——左键按住约 260ms

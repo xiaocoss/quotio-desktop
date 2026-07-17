@@ -1,7 +1,7 @@
 export type AppSection = "dashboard" | "providers" | "quota" | "two_factor" | "agents" | "api_keys" | "logs" | "settings" | "about";
 export type OperatingMode = "full" | "quota_only" | "remote";
 export type ConnectionMode = "local" | "remote";
-export type ThemeMode = "system" | "light" | "dark";
+export type ThemeMode = "system" | "light" | "dark" | "rose";
 export type ProxyStatusKind = "stopped" | "starting" | "running" | "stopping" | "missing_binary" | "crashed" | "error";
 export type RoutingStrategy = "round-robin" | "fill-first";
 export type ProviderRole = "provider" | "monitor";

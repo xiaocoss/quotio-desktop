@@ -84,6 +84,7 @@ const en: Record<string, string> = {
   // Theme options
   "theme.system": "System",
   "theme.light": "Light",
+  "theme.rose": "Rose Floral",
   "theme.dark": "Dark",
   // Dashboard
   "dash.kpi.accounts": "Accounts",
@@ -526,6 +527,7 @@ const zh: Record<string, string> = {
   // Theme options
   "theme.system": "跟随系统",
   "theme.light": "浅色",
+  "theme.rose": "粉色花卉",
   "theme.dark": "深色",
   // Dashboard
   "dash.kpi.accounts": "账号",

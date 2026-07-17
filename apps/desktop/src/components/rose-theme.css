@@ -1,0 +1,680 @@
+/* Rose Floral is a presentation-only layer. Every functional override is scoped
+   to data-theme="rose"; the unscoped hooks below stay hidden in other themes. */
+.rose-sidebar-profile,
+.rose-shell-petals,
+.rose-shell-corner,
+.rose-menubar-avatar {
+  display: none;
+}
+
+:root[data-theme="rose"] {
+  --rose-page: #fff8f5;
+  --rose-page-alt: #fff0f1;
+  --rose-surface: rgba(255, 253, 251, 0.94);
+  --rose-surface-strong: #fffdfb;
+  --rose-surface-soft: #fff5f5;
+  --rose-text: #3d2428;
+  --rose-muted: #806970;
+  --rose-soft: #876b72;
+  --rose-accent: #e94f70;
+  --rose-primary: #cf3158;
+  --rose-primary-hover: #b92349;
+  --rose-primary-soft: #fde7eb;
+  --rose-border: rgba(205, 104, 125, 0.28);
+  --rose-border-strong: rgba(188, 76, 101, 0.42);
+  --rose-gold: #d8ad72;
+  --rose-success: #36a763;
+  --rose-warning: #e88b2c;
+  --rose-danger: #d93d55;
+  --rose-info: #5b83e6;
+  --rose-purple: #8c62e8;
+  --rose-shadow: 0 14px 36px rgba(130, 72, 83, 0.09), 0 2px 8px rgba(130, 72, 83, 0.05);
+  --rose-shadow-float: 0 24px 70px rgba(130, 72, 83, 0.16);
+  --rose-radius-card: 20px;
+  --rose-radius-panel: 26px;
+
+  --quotio-bg: var(--rose-page);
+  --quotio-sidebar: #fff6f5;
+  --quotio-sidebar-border: var(--rose-border);
+  --quotio-card: var(--rose-surface);
+  --quotio-card-solid: var(--rose-surface-strong);
+  --quotio-border: var(--rose-border);
+  --quotio-border-strong: var(--rose-border-strong);
+  --quotio-text: var(--rose-text);
+  --quotio-muted: var(--rose-muted);
+  --quotio-muted-2: var(--rose-soft);
+  --quotio-blue: var(--rose-primary);
+  --quotio-blue-soft: var(--rose-primary-soft);
+  --quotio-green: var(--rose-success);
+  --quotio-orange: var(--rose-warning);
+  --quotio-red: var(--rose-danger);
+  --quotio-shadow-card: var(--rose-shadow);
+  --quotio-shadow-soft: 0 8px 24px rgba(130, 72, 83, 0.07);
+
+  background: transparent;
+  scrollbar-color: rgba(207, 49, 88, 0.32) transparent;
+}
+
+:root[data-theme="rose"] body {
+  color: var(--rose-text);
+  background: transparent;
+}
+
+:root[data-theme="rose"] ::-webkit-scrollbar-thumb {
+  background-color: rgba(207, 49, 88, 0.28);
+}
+
+:root[data-theme="rose"] ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(185, 35, 73, 0.48);
+}
+
+/* ===== Shared shell ===== */
+:root[data-theme="rose"] .app-shell.app-shell--v2 {
+  position: relative;
+  isolation: isolate;
+  color: var(--rose-text);
+  background:
+    linear-gradient(112deg, rgba(255, 248, 245, 0.93), rgba(255, 240, 242, 0.88)),
+    url("/rose/rose-bg.webp") center / cover no-repeat;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .sidebar,
+:root[data-theme="rose"] .app-shell--v2 .content {
+  position: relative;
+  z-index: 2;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .content {
+  background:
+    radial-gradient(circle at 92% 4%, rgba(233, 79, 112, 0.08), transparent 28%),
+    linear-gradient(135deg, rgba(255, 251, 248, 0.7), rgba(255, 242, 244, 0.48));
+}
+
+:root[data-theme="rose"] .app-shell--v2 .sidebar {
+  gap: 14px;
+  color: var(--rose-text);
+  background: rgba(255, 248, 247, 0.96);
+  border-right: 1px solid var(--rose-border);
+  box-shadow: 14px 0 42px rgba(125, 67, 79, 0.09);
+  backdrop-filter: none;
+}
+
+:root[data-theme="rose"] .rose-sidebar-profile {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 11px;
+  min-height: 64px;
+  padding: 8px 10px;
+  border: 1px solid rgba(205, 104, 125, 0.22);
+  border-radius: 19px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(253, 231, 235, 0.68));
+  box-shadow: 0 10px 24px rgba(130, 72, 83, 0.08);
+}
+
+:root[data-theme="rose"] .rose-sidebar-avatar {
+  width: 48px;
+  height: 48px;
+  padding: 2px;
+  overflow: hidden;
+  border: 1px solid rgba(216, 173, 114, 0.58);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 7px 16px rgba(130, 72, 83, 0.12);
+}
+
+:root[data-theme="rose"] .rose-sidebar-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: 13px;
+}
+
+:root[data-theme="rose"] .rose-sidebar-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+:root[data-theme="rose"] .rose-sidebar-copy strong {
+  color: var(--rose-text);
+  font-size: 14px;
+  font-weight: 850;
+}
+
+:root[data-theme="rose"] .rose-sidebar-copy small {
+  color: var(--rose-primary);
+  font-size: 10px;
+  font-weight: 780;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+:root[data-theme="rose"] .rose-sidebar-mark {
+  width: 20px;
+  height: 20px;
+  background: var(--rose-primary);
+  -webkit-mask: url("/rose/rose-mark.svg") center / contain no-repeat;
+  mask: url("/rose/rose-mark.svg") center / contain no-repeat;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .nav-list {
+  gap: 6px;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .nav-list button {
+  color: #6f5158;
+  border-radius: 15px;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .nav-list button:hover:not(.active) {
+  color: var(--rose-primary-hover);
+  background: rgba(233, 79, 112, 0.08);
+}
+
+:root[data-theme="rose"] .app-shell--v2 .sidebar .nav-list button.active {
+  color: var(--rose-primary);
+  background: linear-gradient(135deg, rgba(233, 79, 112, 0.17), rgba(255, 255, 255, 0.7));
+  box-shadow: inset 0 0 0 1px rgba(207, 49, 88, 0.13), 0 8px 18px rgba(130, 72, 83, 0.07);
+}
+
+:root[data-theme="rose"] .app-shell--v2 .sidebar .nav-list button.active .nav-label,
+:root[data-theme="rose"] .app-shell--v2 .sidebar .nav-list button.active .nav-symbol {
+  color: var(--rose-primary);
+}
+
+:root[data-theme="rose"] .app-shell--v2 .nav-badge {
+  color: #8c4f68;
+  background: #f8dce4;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .proxy-card,
+:root[data-theme="rose"] .app-shell--v2 .sidebar .proxy-card {
+  border-color: var(--rose-border);
+  background: rgba(255, 253, 251, 0.93);
+  box-shadow: 0 12px 28px rgba(130, 72, 83, 0.09);
+}
+
+:root[data-theme="rose"] .app-shell--v2 .sidebar .proxy-card:hover:not(:disabled) {
+  background: #fff7f7;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .proxy-card-text strong {
+  color: var(--rose-text);
+}
+
+:root[data-theme="rose"] .app-shell--v2 .proxy-card-text span,
+:root[data-theme="rose"] .app-shell--v2 .proxy-status-bar,
+:root[data-theme="rose"] .app-shell--v2 .proxy-card-chevron {
+  color: var(--rose-muted);
+}
+
+:root[data-theme="rose"] .rose-shell-petals,
+:root[data-theme="rose"] .rose-shell-corner {
+  display: block;
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+}
+
+:root[data-theme="rose"] .rose-shell-petals {
+  top: -28px;
+  right: -38px;
+  width: 430px;
+  height: 255px;
+  opacity: 0.16;
+  background: url("/rose/rose-petals.png") center / contain no-repeat;
+}
+
+:root[data-theme="rose"] .rose-shell-corner {
+  right: -70px;
+  bottom: -58px;
+  width: 360px;
+  height: 260px;
+  opacity: 0.2;
+  background: url("/rose/rose-corner.png") center / contain no-repeat;
+}
+
+/* ===== Global controls and overlays ===== */
+:root[data-theme="rose"] button:focus-visible,
+:root[data-theme="rose"] input:focus-visible,
+:root[data-theme="rose"] textarea:focus-visible,
+:root[data-theme="rose"] select:focus-visible {
+  outline: 3px solid var(--rose-primary);
+  outline-offset: 2px;
+}
+
+:root[data-theme="rose"] .qselect-button,
+:root[data-theme="rose"] .qselect-menu,
+:root[data-theme="rose"] .settings-input,
+:root[data-theme="rose"] .settings-select,
+:root[data-theme="rose"] input,
+:root[data-theme="rose"] textarea,
+:root[data-theme="rose"] select {
+  color: var(--rose-text);
+  border-color: var(--rose-border-strong);
+  background-color: rgba(255, 253, 251, 0.92);
+}
+
+:root[data-theme="rose"] .qselect-button:hover,
+:root[data-theme="rose"] .qselect-option:hover {
+  background: var(--rose-primary-soft);
+}
+
+:root[data-theme="rose"] .qselect-menu {
+  border-radius: 14px;
+  background: var(--rose-surface-strong);
+  box-shadow: var(--rose-shadow-float);
+}
+
+:root[data-theme="rose"] .qselect-option--active,
+:root[data-theme="rose"] .qselect-check {
+  color: var(--rose-primary);
+}
+
+:root[data-theme="rose"] :is(.primary-action, .aam-primary-btn, .about-check-btn) {
+  color: #fff;
+  background: linear-gradient(135deg, #d73c63, #b92349);
+  box-shadow: 0 10px 24px rgba(185, 35, 73, 0.2);
+}
+
+:root[data-theme="rose"] :is(.secondary-action, .ghost-action, .link-action) {
+  color: var(--rose-primary);
+}
+
+:root[data-theme="rose"] .secondary-action {
+  background: var(--rose-primary-soft);
+}
+
+:root[data-theme="rose"] .modal-overlay {
+  background: rgba(70, 35, 43, 0.34);
+}
+
+:root[data-theme="rose"] :is(.close-dialog, .prices-dialog, .aam-modal, .loading-card) {
+  color: var(--rose-text);
+  border-color: var(--rose-border);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(255, 243, 245, 0.96)),
+    var(--rose-surface-strong);
+  box-shadow: var(--rose-shadow-float);
+}
+
+:root[data-theme="rose"] :is(.close-dialog-desc, .prices-dialog-head p, .aam-desc, .aam-hint) {
+  color: var(--rose-muted);
+}
+
+:root[data-theme="rose"] :is(.aam-tabs, .aam-url-box, .aam-device-code, .aam-mfa, .apikey-row) {
+  border-color: var(--rose-border);
+  background: rgba(255, 246, 247, 0.78);
+}
+
+:root[data-theme="rose"] .aam-tab--active {
+  color: var(--rose-primary);
+  border-color: var(--rose-primary);
+}
+
+:root[data-theme="rose"] .floating-error,
+:root[data-theme="rose"] .proxy-instability-banner {
+  color: #7a2b3d;
+  border-color: rgba(217, 61, 85, 0.34);
+  background: rgba(255, 235, 238, 0.96);
+}
+
+:root[data-theme="rose"] .quota-toast {
+  border-color: var(--rose-border);
+  background: rgba(255, 250, 248, 0.97);
+  box-shadow: var(--rose-shadow-float);
+}
+
+/* ===== Page palettes ===== */
+:root[data-theme="rose"] .usage-dash {
+  --primary: var(--rose-primary);
+  --primary-soft: var(--rose-primary-soft);
+  --cost: var(--rose-warning);
+  --success: var(--rose-success);
+  --danger: var(--rose-danger);
+  --cached: var(--rose-purple);
+  --warning: var(--rose-warning);
+  --d-surface: var(--rose-surface);
+  --d-border: var(--rose-border);
+  --d-text: var(--rose-text);
+  --d-muted: var(--rose-muted);
+  --d-soft: var(--rose-soft);
+  --d-shadow-card: var(--rose-shadow);
+  --d-shadow-hover: 0 18px 42px rgba(130, 72, 83, 0.13);
+  background-color: transparent;
+}
+
+:root[data-theme="rose"] :is(.quota-redesign, .providers-redesign, .agents-redesign, .logs-redesign, .settings-redesign, .twofa-redesign) {
+  --page: var(--rose-page);
+  --surface: var(--rose-surface);
+  --surface-strong: var(--rose-surface-strong);
+  --surface-soft: var(--rose-surface-soft);
+  --border: var(--rose-border);
+  --border-strong: var(--rose-border-strong);
+  --text: var(--rose-text);
+  --muted: var(--rose-muted);
+  --soft: var(--rose-soft);
+  --primary: var(--rose-primary);
+  --primary-strong: var(--rose-primary-hover);
+  --primary-blue: var(--rose-primary);
+  --primary-soft: var(--rose-primary-soft);
+  --success: var(--rose-success);
+  --healthy: var(--rose-success);
+  --warning: var(--rose-warning);
+  --danger: var(--rose-danger);
+  --lavender: var(--rose-purple);
+  --track: #f1dfe3;
+  --shadow-panel: var(--rose-shadow);
+  --shadow-card: var(--rose-shadow);
+}
+
+:root[data-theme="rose"] .about-redesign {
+  --primary: var(--rose-primary);
+  --primary-soft: var(--rose-primary-soft);
+  --brand-green: var(--rose-success);
+  --brand-green-strong: var(--rose-success);
+  --brand-green-soft: #e8f6ed;
+  --brand-cyan: var(--rose-info);
+  --brand-cyan-soft: #eaf0ff;
+  --lavender: var(--rose-purple);
+  --lavender-soft: #f1eafb;
+  --a-text: var(--rose-text);
+  --a-muted: var(--rose-muted);
+  --a-soft: var(--rose-soft);
+  --a-border: var(--rose-border);
+  --a-shadow: var(--rose-shadow);
+  background-color: transparent;
+}
+
+:root[data-theme="rose"] :is(.quota-redesign, .providers-redesign, .agents-redesign, .logs-redesign, .settings-redesign, .twofa-redesign).section-page,
+:root[data-theme="rose"] .usage-dash,
+:root[data-theme="rose"] .about-redesign {
+  background:
+    radial-gradient(circle at 96% 2%, rgba(233, 79, 112, 0.09), transparent 26%),
+    linear-gradient(135deg, rgba(255, 251, 248, 0.5), rgba(255, 241, 243, 0.32));
+}
+
+:root[data-theme="rose"] .app-shell--v2 .content:has(:is(.quota-redesign, .providers-redesign, .agents-redesign, .logs-redesign, .settings-redesign, .twofa-redesign)):not(.content--dashboard),
+:root[data-theme="rose"] :is(.quota-redesign, .providers-redesign, .agents-redesign, .logs-redesign, .settings-redesign, .twofa-redesign) .page-topbar,
+:root[data-theme="rose"] :is(.quota-redesign, .providers-redesign, .agents-redesign, .settings-redesign, .twofa-redesign) .page-topbar::before,
+:root[data-theme="rose"] .logs-redesign .lr-header {
+  background: transparent;
+}
+
+:root[data-theme="rose"] :is(
+  .usage-dash .panel,
+  .quota-redesign .panel,
+  .providers-redesign .panel,
+  .agents-redesign .panel,
+  .logs-redesign .lr-panel,
+  .settings-redesign .sr-panel,
+  .twofa-redesign .panel,
+  .about-redesign .panel,
+  .api-keys-panel
+) {
+  border-color: var(--rose-border);
+  background: var(--rose-surface);
+  box-shadow: var(--rose-shadow);
+  backdrop-filter: none;
+}
+
+/* Dashboard gets the strongest character treatment; it remains a normal flex
+   item so the 960x640 layout can scroll instead of clipping controls. */
+:root[data-theme="rose"] .usage-dash .dashboard-scroll::before {
+  content: "";
+  flex: 0 0 auto;
+  min-height: 154px;
+  border: 1px solid var(--rose-border);
+  border-radius: 28px;
+  background:
+    url("/rose/cloud-panel-9slice.svg") center / 100% 100% no-repeat,
+    url("/rose/character-hero.webp") right 16px center / auto 188px no-repeat,
+    linear-gradient(105deg, rgba(255, 253, 251, 0.98) 0 48%, rgba(253, 231, 235, 0.84) 70%, rgba(255, 243, 244, 0.9));
+  box-shadow: var(--rose-shadow);
+}
+
+:root[data-theme="rose"] .usage-dash :is(.dash-refresh, .dash-page-btn--active) {
+  background: linear-gradient(135deg, #d73c63, #b92349);
+}
+
+:root[data-theme="rose"] .usage-dash :is(.range-tab--active, .segmented button.active, .view-toggle button.active) {
+  color: var(--rose-primary);
+  background: var(--rose-primary-soft);
+}
+
+:root[data-theme="rose"] .usage-dash :is(.range-tab, .segmented, .view-toggle, .mini-search, .acct-card, .dash-page-btn:not(.dash-page-btn--active)) {
+  border-color: var(--rose-border);
+  background: rgba(255, 253, 251, 0.86);
+}
+
+:root[data-theme="rose"] .usage-dash .orb.blue {
+  background: linear-gradient(135deg, #fde8ed, #f7cbd5);
+}
+
+:root[data-theme="rose"] .usage-dash .orb.orange {
+  background: linear-gradient(135deg, #fff1df, #f8d9af);
+}
+
+:root[data-theme="rose"] .usage-dash .orb.red {
+  background: linear-gradient(135deg, #ffe8ec, #f9cbd2);
+}
+
+:root[data-theme="rose"] .usage-dash .orb.green {
+  background: linear-gradient(135deg, #e8f6ed, #cfead8);
+}
+
+:root[data-theme="rose"] .usage-dash .orb.purple {
+  background: linear-gradient(135deg, #f2ebfc, #ded0f5);
+}
+
+/* Dense pages: remap hard-coded white surfaces without touching status colors. */
+:root[data-theme="rose"] .quota-redesign :is(.account-card, .button:not(.primary), .quota-tab, .mini-button, .icon-button, .count, .state-banner),
+:root[data-theme="rose"] .providers-redesign :is(.pv-card, .pv-global-more, .pv-card-dropdown, .pv-custom-form textarea, .pv-custom-form .cp-form-keys-add, .empty-state),
+:root[data-theme="rose"] .agents-redesign :is(.metric, .scheme-card--idle, .discovery-card, .agent-config-panel, .detect-btn),
+:root[data-theme="rose"] .logs-redesign :is(.lr-btn, .lr-search, .lr-segmented, .lr-level, .lr-page-btn, .lr-page-size),
+:root[data-theme="rose"] .settings-redesign :is(.sr-btn, .sr-mode-card, .sr-rows, .sr-compact-rows, .sr-tool-card, .sr-input),
+:root[data-theme="rose"] .twofa-redesign :is(.tf-input, .tf-record, .tf-icon-btn, .button:not(.primary)) {
+  color: var(--rose-text);
+  border-color: var(--rose-border);
+  background: rgba(255, 253, 251, 0.88);
+}
+
+:root[data-theme="rose"] :is(.quota-redesign, .twofa-redesign) .button.primary {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #d73c63, #b92349);
+  box-shadow: 0 10px 24px rgba(185, 35, 73, 0.2);
+}
+
+:root[data-theme="rose"] .settings-redesign .sr-mode-card.is-selected {
+  border-color: var(--rose-primary);
+  background: linear-gradient(135deg, rgba(253, 231, 235, 0.96), rgba(255, 253, 251, 0.9));
+  box-shadow: 0 12px 28px rgba(130, 72, 83, 0.1);
+}
+
+:root[data-theme="rose"] .settings-redesign .switch--on {
+  background: var(--rose-primary);
+}
+
+:root[data-theme="rose"] .logs-redesign :is(.lr-tab--active, .lr-segment--active) {
+  color: var(--rose-primary);
+  background: var(--rose-primary-soft);
+}
+
+:root[data-theme="rose"] .logs-redesign .lr-table thead,
+:root[data-theme="rose"] .logs-redesign :is(.lr-stream-head, .lr-stream-footer, .lr-detail-row td) {
+  background: rgba(253, 231, 235, 0.42);
+}
+
+:root[data-theme="rose"] .logs-redesign .lr-table tbody tr:hover {
+  background: rgba(253, 231, 235, 0.38);
+}
+
+:root[data-theme="rose"] .twofa-redesign .tf-code-panel {
+  border-color: rgba(91, 131, 230, 0.3);
+  background: linear-gradient(135deg, rgba(250, 252, 255, 0.98), rgba(255, 246, 247, 0.92));
+}
+
+:root[data-theme="rose"] .twofa-redesign :is(.tf-user-code, .tf-code, code) {
+  color: #29364d;
+}
+
+:root[data-theme="rose"] .providers-redesign .empty-state {
+  position: relative;
+  overflow: hidden;
+  padding-right: 150px;
+  background: linear-gradient(135deg, rgba(255, 253, 251, 0.94), rgba(253, 231, 235, 0.62));
+}
+
+:root[data-theme="rose"] .providers-redesign .empty-state::after {
+  content: "";
+  position: absolute;
+  right: 12px;
+  bottom: -14px;
+  width: 142px;
+  height: 142px;
+  opacity: 0.82;
+  pointer-events: none;
+  background: url("/rose/empty-endpoints.png") center / contain no-repeat;
+}
+
+/* About and API keys were not covered by the original implementation checklist. */
+:root[data-theme="rose"] .about-redesign .about-mark {
+  color: transparent;
+  border: 1px solid rgba(216, 173, 114, 0.58);
+  background: url("/rose/character-avatar.png") center / cover no-repeat;
+  box-shadow: 0 24px 54px rgba(130, 72, 83, 0.16);
+}
+
+:root[data-theme="rose"] .about-redesign .about-orbit {
+  right: 350px;
+  opacity: 0.74;
+  background: url("/rose/cloud-botanical-sprig.svg") center / contain no-repeat;
+}
+
+:root[data-theme="rose"] .about-redesign :is(.about-status, .about-copy) {
+  border-color: var(--rose-border);
+  background: var(--rose-surface-strong);
+}
+
+:root[data-theme="rose"] .api-keys-page {
+  color: var(--rose-text);
+  background: transparent;
+}
+
+:root[data-theme="rose"] .api-keys-panel {
+  position: relative;
+  overflow: hidden;
+}
+
+:root[data-theme="rose"] .api-keys-panel::after {
+  content: "";
+  position: absolute;
+  right: -36px;
+  bottom: -42px;
+  width: 230px;
+  height: 170px;
+  opacity: 0.12;
+  pointer-events: none;
+  background: url("/rose/rose-corner.png") center / contain no-repeat;
+}
+
+:root[data-theme="rose"] :is(.apikey-add input, .apikey-edit input, .apikey-binding-select) {
+  color: var(--rose-text);
+  border-color: var(--rose-border-strong);
+  background: rgba(255, 253, 251, 0.94);
+}
+
+:root[data-theme="rose"] .apikey-binding-badge {
+  color: var(--rose-primary);
+  background: var(--rose-primary-soft);
+}
+
+:root[data-theme="rose"] .apikey-router-warning {
+  color: #7d4b13;
+  border-color: rgba(232, 139, 44, 0.36);
+  background: #fff3e4;
+}
+
+/* ===== Compact menu-bar window ===== */
+:root[data-theme="rose"] .floating-window {
+  --fw-page: #fff7f4;
+  --fw-surface: #fffdfb;
+  --fw-surface-muted: #fff2f3;
+  --fw-text: var(--rose-text);
+  --fw-text-secondary: var(--rose-muted);
+  --fw-text-muted: var(--rose-soft);
+  --fw-border: rgba(205, 104, 125, 0.34);
+  --fw-divider: rgba(205, 104, 125, 0.2);
+  --fw-track: #f1dfe3;
+  --fw-primary: var(--rose-primary);
+  --fw-primary-soft: var(--rose-primary-soft);
+  --fw-success: var(--rose-success);
+  --fw-warning: var(--rose-warning);
+  --fw-danger: var(--rose-danger);
+  --fw-plan: var(--rose-purple);
+  --fw-focus-ring: rgba(207, 49, 88, 0.78);
+  border-color: var(--fw-border);
+  background:
+    radial-gradient(260px 200px at 92% 2%, rgba(233, 79, 112, 0.15), transparent 65%),
+    linear-gradient(145deg, #fffaf7, #fff0f2 72%, #fff8f5);
+  box-shadow: 0 24px 58px rgba(94, 45, 56, 0.22);
+}
+
+:root[data-theme="rose"] .floating-window :is(.stop-button, .provider-tab, .window-action):focus-visible {
+  outline: none;
+}
+
+:root[data-theme="rose"] .window-header {
+  grid-template-columns: 28px auto minmax(0, 1fr) auto;
+  background: rgba(255, 253, 251, 0.9);
+}
+
+:root[data-theme="rose"] .rose-menubar-avatar {
+  display: block;
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border: 1px solid rgba(216, 173, 114, 0.58);
+  border-radius: 10px;
+}
+
+:root[data-theme="rose"] .provider-tabs,
+:root[data-theme="rose"] .window-actions {
+  background: rgba(255, 253, 251, 0.82);
+}
+
+:root[data-theme="rose"] .provider-tab.active {
+  color: var(--rose-primary);
+  border-color: var(--rose-border-strong);
+  background: var(--rose-primary-soft);
+}
+
+:root[data-theme="rose"] .account-card {
+  border-color: var(--rose-border);
+  box-shadow: 0 8px 22px rgba(130, 72, 83, 0.08);
+}
+
+@media (max-width: 1080px) {
+  :root[data-theme="rose"] .usage-dash .dashboard-scroll::before {
+    min-height: 132px;
+    background-size: 100% 100%, auto 160px, auto;
+  }
+
+  :root[data-theme="rose"] .rose-sidebar-copy small {
+    letter-spacing: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme="rose"] *,
+  :root[data-theme="rose"] *::before,
+  :root[data-theme="rose"] *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
