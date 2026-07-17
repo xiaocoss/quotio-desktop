@@ -140,7 +140,10 @@ pub fn kiro_resource_dir() -> PathBuf {
 
     if let Some(root) = configured_proxy_resource_root() {
         // root = <Resource>/resources/proxy → sibling <Resource>/resources/kiro.
-        let base = root.parent().map(|parent| parent.to_path_buf()).unwrap_or(root);
+        let base = root
+            .parent()
+            .map(|parent| parent.to_path_buf())
+            .unwrap_or(root);
         return base.join("kiro").join(platform);
     }
 
