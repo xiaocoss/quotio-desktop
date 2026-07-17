@@ -514,7 +514,11 @@ fn release_bound_account_login_only_in(dir: &Path, key: &str) -> Result<(), Stri
     if !path.exists() {
         return Ok(());
     }
-    let mut value = read_proxy_account_from(&path)?;
+    release_bound_account_login_only_at(&path).map(|_| ())
+}
+
+fn release_bound_account_login_only_at(path: &Path) -> Result<bool, String> {
+    let mut value = read_proxy_account_from(path)?;
     let object = value
         .as_object_mut()
         .ok_or_else(|| format!("账号文件不是 JSON 对象: {}", path.display()))?;
@@ -523,7 +527,7 @@ fn release_bound_account_login_only_in(dir: &Path, key: &str) -> Result<(), Stri
         .and_then(|value| value.as_bool())
         .unwrap_or(false);
     if !is_bound_login_only {
-        return Ok(());
+        return Ok(false);
     }
     let previous_disabled = object
         .get(PREVIOUS_DISABLED_FIELD)
@@ -532,7 +536,98 @@ fn release_bound_account_login_only_in(dir: &Path, key: &str) -> Result<(), Stri
     object.insert("disabled".to_string(), Value::Bool(previous_disabled));
     object.remove(BOUND_LOGIN_ONLY_FIELD);
     object.remove(PREVIOUS_DISABLED_FIELD);
-    write_proxy_account_to(&path, &value)
+    write_proxy_account_to(path, &value)?;
+    Ok(true)
+}
+
+pub(crate) fn reconcile_login_only_markers_unlocked(
+    retain_key: Option<&str>,
+) -> Result<usize, String> {
+    reconcile_login_only_markers_in(&proxy_auth_dir(), retain_key)
+}
+
+fn reconcile_login_only_markers_in(dir: &Path, retain_key: Option<&str>) -> Result<usize, String> {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+        Err(error) => {
+            return Err(format!(
+                "读取 CLIProxyAPI 账号目录失败 {}: {error}",
+                dir.display()
+            ));
+        }
+    };
+    let retain_key = retain_key.map(str::trim).filter(|key| !key.is_empty());
+    let mut released = 0;
+    let mut errors = Vec::new();
+
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                errors.push(format!(
+                    "遍历 CLIProxyAPI 账号目录失败 {}: {error}",
+                    dir.display()
+                ));
+                continue;
+            }
+        };
+        let path = entry.path();
+        let is_json = path
+            .extension()
+            .and_then(OsStr::to_str)
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("json"));
+        if !is_json {
+            continue;
+        }
+
+        let text = match std::fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(error) => {
+                errors.push(format!("读取账号文件失败 {}: {error}", path.display()));
+                continue;
+            }
+        };
+        if !text.contains(BOUND_LOGIN_ONLY_FIELD) {
+            continue;
+        }
+        let value = match serde_json::from_str::<Value>(&text) {
+            Ok(value) => value,
+            Err(error) => {
+                errors.push(format!("解析账号文件失败 {}: {error}", path.display()));
+                continue;
+            }
+        };
+        let is_bound_login_only = value
+            .get(BOUND_LOGIN_ONLY_FIELD)
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        if !is_bound_login_only {
+            continue;
+        }
+        let Some(key) = path.file_stem().and_then(OsStr::to_str) else {
+            errors.push(format!("账号文件名无法识别: {}", path.display()));
+            continue;
+        };
+        if retain_key.is_some_and(|retain_key| key.eq_ignore_ascii_case(retain_key)) {
+            continue;
+        }
+
+        match release_bound_account_login_only_at(&path) {
+            Ok(true) => released += 1,
+            Ok(false) => {}
+            Err(error) => errors.push(error),
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(released)
+    } else {
+        Err(format!(
+            "清理 Codex 登录专用账号标记失败:\n{}",
+            errors.join("\n")
+        ))
+    }
 }
 
 /// 绑定账号：把选中号的凭证写进 `~/.codex/auth.json`。
@@ -791,6 +886,31 @@ fn restore_codex_state_from_launch_backup_in(home: &Path) -> Result<(), String> 
     std::fs::remove_file(&backup_path)
         .map_err(|e| format!("删除 Codex 启动备份失败 {}: {e}", backup_path.display()))?;
     Ok(())
+}
+
+pub(crate) fn cleanup_managed_codex_disk_state_unlocked() -> Result<usize, String> {
+    cleanup_managed_codex_disk_state_in(&codex_home(), &proxy_auth_dir())
+}
+
+fn cleanup_managed_codex_disk_state_in(home: &Path, auth_dir: &Path) -> Result<usize, String> {
+    let reconciliation = reconcile_login_only_markers_in(auth_dir, None);
+    let backup_path = home.join(LAUNCH_BACKUP_FILE);
+    let restore = match backup_path.try_exists() {
+        Ok(true) => restore_codex_state_from_launch_backup_in(home),
+        Ok(false) => Ok(()),
+        Err(error) => Err(format!(
+            "检查 Codex 启动备份失败 {}: {error}",
+            backup_path.display()
+        )),
+    };
+
+    match (reconciliation, restore) {
+        (Ok(released), Ok(())) => Ok(released),
+        (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),
+        (Err(reconciliation_error), Err(restore_error)) => Err(format!(
+            "{reconciliation_error}\n恢复 Codex 启动备份失败: {restore_error}"
+        )),
+    }
 }
 
 /// 把 auth.json + config.toml 还原到备份内容（None = 原本不存在 → 删除）。
@@ -1457,6 +1577,97 @@ mod tests {
     }
 
     #[test]
+    fn managed_disk_cleanup_restores_backup_and_clears_markers() {
+        let home = temp_codex_home("ql_codex_managed_disk_cleanup");
+        let auth_dir = home.join("proxy-auth");
+        std::fs::create_dir_all(&auth_dir).unwrap();
+        let auth_path = home.join("auth.json");
+        std::fs::write(&auth_path, "original-auth").unwrap();
+
+        write_launch_backup_in(&home, None).unwrap();
+        std::fs::write(&auth_path, "quotio-auth").unwrap();
+        std::fs::write(
+            auth_dir.join("codex-a.json"),
+            r#"{"disabled":true,"quotio_bound_login_only":true,"quotio_previous_disabled":false}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            cleanup_managed_codex_disk_state_in(&home, &auth_dir).unwrap(),
+            1
+        );
+
+        assert_eq!(
+            std::fs::read_to_string(&auth_path).unwrap(),
+            "original-auth"
+        );
+        assert!(!home.join(LAUNCH_BACKUP_FILE).exists());
+        let value = read_json_for_test(&auth_dir.join("codex-a.json"));
+        assert_eq!(value["disabled"], false);
+        assert!(value.get(BOUND_LOGIN_ONLY_FIELD).is_none());
+        assert!(value.get(PREVIOUS_DISABLED_FIELD).is_none());
+        assert_eq!(
+            cleanup_managed_codex_disk_state_in(&home, &auth_dir).unwrap(),
+            0
+        );
+        assert_eq!(
+            std::fs::read_to_string(&auth_path).unwrap(),
+            "original-auth"
+        );
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn managed_disk_cleanup_restores_backup_after_marker_error() {
+        let home = temp_codex_home("ql_codex_managed_cleanup_marker_error");
+        let auth_dir = home.join("proxy-auth");
+        std::fs::create_dir_all(&auth_dir).unwrap();
+        let auth_path = home.join("auth.json");
+        std::fs::write(&auth_path, "original-auth").unwrap();
+
+        write_launch_backup_in(&home, None).unwrap();
+        std::fs::write(&auth_path, "quotio-auth").unwrap();
+        std::fs::write(
+            auth_dir.join("codex-broken.json"),
+            r#"{"quotio_bound_login_only":true"#,
+        )
+        .unwrap();
+
+        let error = cleanup_managed_codex_disk_state_in(&home, &auth_dir).unwrap_err();
+
+        assert!(error.contains("codex-broken.json"));
+        assert_eq!(
+            std::fs::read_to_string(&auth_path).unwrap(),
+            "original-auth"
+        );
+        assert!(!home.join(LAUNCH_BACKUP_FILE).exists());
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn managed_disk_cleanup_aggregates_marker_and_restore_errors() {
+        let home = temp_codex_home("ql_codex_managed_cleanup_aggregate_errors");
+        let auth_dir = home.join("proxy-auth");
+        std::fs::create_dir_all(&auth_dir).unwrap();
+        std::fs::write(home.join(LAUNCH_BACKUP_FILE), "not-json").unwrap();
+        for key in ["codex-broken-a", "codex-broken-b"] {
+            std::fs::write(
+                auth_dir.join(format!("{key}.json")),
+                r#"{"quotio_bound_login_only":true"#,
+            )
+            .unwrap();
+        }
+
+        let error = cleanup_managed_codex_disk_state_in(&home, &auth_dir).unwrap_err();
+
+        assert!(error.contains("codex-broken-a.json"));
+        assert!(error.contains("codex-broken-b.json"));
+        assert!(error.contains("解析 Codex 启动备份失败"));
+        assert!(home.join(LAUNCH_BACKUP_FILE).exists());
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
     fn marking_bound_account_disables_it_and_records_previous_state() {
         let dir = temp_codex_home("ql_codex_bound_mark");
         std::fs::create_dir_all(&dir).unwrap();
@@ -1512,6 +1723,49 @@ mod tests {
         assert_eq!(value["disabled"], true);
         assert!(value.get("quotio_bound_login_only").is_none());
         assert!(value.get("quotio_previous_disabled").is_none());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn reconciling_bound_accounts_retains_active_then_clears_all() {
+        let dir = temp_codex_home("ql_codex_bound_reconcile");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("codex-a.json"),
+            r#"{"disabled":true,"quotio_bound_login_only":true,"quotio_previous_disabled":false}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("codex-b.json"),
+            r#"{"disabled":true,"quotio_bound_login_only":true,"quotio_previous_disabled":true}"#,
+        )
+        .unwrap();
+        std::fs::write(dir.join("unrelated.json"), "not-json").unwrap();
+
+        assert_eq!(
+            reconcile_login_only_markers_in(&dir, Some("CODEX-B")).unwrap(),
+            1
+        );
+
+        let released = read_json_for_test(&dir.join("codex-a.json"));
+        assert_eq!(released["disabled"], false);
+        assert!(released.get(BOUND_LOGIN_ONLY_FIELD).is_none());
+        assert!(released.get(PREVIOUS_DISABLED_FIELD).is_none());
+        let retained = read_json_for_test(&dir.join("codex-b.json"));
+        assert_eq!(retained["disabled"], true);
+        assert_eq!(retained[BOUND_LOGIN_ONLY_FIELD], true);
+        assert_eq!(retained[PREVIOUS_DISABLED_FIELD], true);
+
+        assert_eq!(reconcile_login_only_markers_in(&dir, None).unwrap(), 1);
+
+        let released = read_json_for_test(&dir.join("codex-b.json"));
+        assert_eq!(released["disabled"], true);
+        assert!(released.get(BOUND_LOGIN_ONLY_FIELD).is_none());
+        assert!(released.get(PREVIOUS_DISABLED_FIELD).is_none());
+        assert_eq!(
+            std::fs::read_to_string(dir.join("unrelated.json")).unwrap(),
+            "not-json"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
