@@ -86,6 +86,32 @@ fn launch_backup_round_trips_prepared_then_marks_running_with_pid() {
 }
 
 #[test]
+fn managed_backup_without_phase_defaults_to_prepared() {
+    let home = temp_codex_home("ql_codex_launch_backup_phase_compat");
+    std::fs::create_dir_all(&home).unwrap();
+    std::fs::write(
+        home.join(LAUNCH_BACKUP_FILE),
+        r#"{
+  "auth_json": null,
+  "config_toml": null,
+  "session": {
+    "profile_id": "profile-old",
+    "account_key": "codex-old",
+    "launch_mode": "app",
+    "pid": 8181
+  }
+}"#,
+    )
+    .unwrap();
+
+    let LaunchBackupStatus::Managed(state) = load_launch_backup_status_in(&home).unwrap() else {
+        panic!("managed launch state expected");
+    };
+    assert_eq!(state.phase, CodexLaunchPhase::Prepared);
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn legacy_launch_backup_without_session_metadata_still_restores() {
     let home = temp_codex_home("ql_codex_legacy_launch_backup");
     std::fs::create_dir_all(&home).unwrap();
@@ -228,8 +254,6 @@ fn mark_launch_session_running_in(home: &Path, pid: Option<u32>) -> Result<(), S
 - [ ] **Step 4: Update existing backup tests and run the focused suite**
 
 Change existing test calls from `write_launch_backup_in(&home)` to `write_launch_backup_in(&home, None)`.
-Also add `managed_backup_without_phase_defaults_to_prepared`: deserialize managed
-metadata that has a pid but no phase and assert `phase == CodexLaunchPhase::Prepared`.
 
 Run:
 
@@ -641,6 +665,7 @@ if let Err(error) = codex_launch::mark_launch_session_running_unlocked(pid) {
         codex_launch::kill_process(pid);
     }
     codex_launch::close_codex_app();
+    thread::sleep(Duration::from_millis(400));
     return Err(ManagementCoreError::Unavailable(error));
 }
 self.codex_session = Some(codex_launch::CodexSession::new(pid, &mode));
@@ -803,7 +828,7 @@ rg -n 'name = "quotio-desktop"|version = "0\.7\.1"' Cargo.lock
 rg -n '0\.7\.0' package.json apps/desktop/package.json apps/desktop/src-tauri/Cargo.toml apps/desktop/src-tauri/tauri.conf.json
 ```
 
-Expected: all release version files contain `0.7.1`; the second command returns no matches.
+Expected: all release version files contain `0.7.1`; the third `0.7.0` command returns no matches.
 
 - [ ] **Step 4: Build the Windows release and portable package locally**
 
