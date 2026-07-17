@@ -1,0 +1,12 @@
+{
+  "theme": "rose",
+  "assets": {
+    "avatar": { "path": "/rose/character-avatar.png", "alpha": false },
+    "hero": { "path": "/rose/character-hero.webp", "alpha": false },
+    "corner": { "path": "/rose/rose-corner.png", "alpha": true },
+    "petals": { "path": "/rose/rose-petals.png", "alpha": true },
+    "emptyEndpoints": { "path": "/rose/empty-endpoints.png", "alpha": true },
+    "background": { "path": "/rose/rose-bg.webp", "alpha": false },
+    "mark": { "path": "/rose/rose-mark.svg", "vector": true }
+  }
+}
