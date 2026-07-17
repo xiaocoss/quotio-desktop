@@ -399,6 +399,87 @@ pub fn write_text_file(
     })
 }
 
+struct AtomicWriteTempFile {
+    file: Option<fs::File>,
+    path: Option<PathBuf>,
+}
+
+impl AtomicWriteTempFile {
+    fn new(file: fs::File, path: PathBuf) -> Self {
+        Self {
+            file: Some(file),
+            path: Some(path),
+        }
+    }
+
+    fn file_mut(&mut self) -> &mut fs::File {
+        self.file
+            .as_mut()
+            .expect("atomic write temporary file is open")
+    }
+
+    fn close(&mut self) {
+        drop(self.file.take());
+    }
+
+    fn path(&self) -> &Path {
+        self.path
+            .as_deref()
+            .expect("atomic write temporary path is armed")
+    }
+
+    fn disarm(&mut self) {
+        self.path.take();
+    }
+}
+
+impl Drop for AtomicWriteTempFile {
+    fn drop(&mut self) {
+        self.close();
+        if let Some(path) = self.path.take() {
+            let _ = fs::remove_file(path);
+        }
+    }
+}
+
+fn create_atomic_write_temp_file(
+    parent: &Path,
+    file_name: &str,
+    sensitive: bool,
+) -> io::Result<AtomicWriteTempFile> {
+    const MAX_ATTEMPTS: u32 = 100;
+
+    let nonce = current_unix_millis();
+    for attempt in 0..MAX_ATTEMPTS {
+        let temp_path = parent.join(format!(
+            ".{file_name}.quotio-tmp-{}-{nonce}-{attempt}",
+            std::process::id()
+        ));
+        let mut options = fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            if sensitive {
+                options.mode(0o600);
+            }
+        }
+        #[cfg(not(unix))]
+        let _ = sensitive;
+
+        match options.open(&temp_path) {
+            Ok(file) => return Ok(AtomicWriteTempFile::new(file, temp_path)),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error),
+        }
+    }
+
+    Err(io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        format!("无法为 {} 创建唯一临时文件", parent.display()),
+    ))
+}
+
 pub fn atomic_write(path: &Path, contents: &[u8], sensitive: bool) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
@@ -409,23 +490,17 @@ pub fn atomic_write(path: &Path, contents: &[u8], sensitive: bool) -> io::Result
         .file_name()
         .and_then(|value| value.to_str())
         .unwrap_or("quotio-file");
-    let temp_path = parent.join(format!(
-        ".{}.quotio-tmp-{}",
-        file_name,
-        current_unix_millis()
-    ));
-
-    {
-        let mut file = fs::File::create(&temp_path)?;
-        file.write_all(contents)?;
-        file.sync_all()?;
-    }
+    let mut temp_file = create_atomic_write_temp_file(parent, file_name, sensitive)?;
+    temp_file.file_mut().write_all(contents)?;
+    temp_file.file_mut().sync_all()?;
+    temp_file.close();
 
     if sensitive {
-        set_sensitive_permissions(&temp_path)?;
+        set_sensitive_permissions(temp_file.path())?;
     }
 
-    replace_file(&temp_path, path)?;
+    replace_file(temp_file.path(), path)?;
+    temp_file.disarm();
 
     if sensitive {
         set_sensitive_permissions(path)?;
@@ -901,6 +976,54 @@ mod tests {
         assert_eq!(fs::read(&target).unwrap(), b"updated-backup");
         assert!(!source.exists());
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn atomic_write_replace_failure_cleans_temp_file_and_preserves_target_directory() {
+        let dir = std::env::temp_dir().join(format!(
+            "ql_atomic_write_cleanup_{}_{}",
+            std::process::id(),
+            current_unix_millis()
+        ));
+        let target = dir.join("target.json");
+        fs::create_dir_all(&target).unwrap();
+
+        atomic_write(&target, b"sensitive-backup", true)
+            .expect_err("a file cannot atomically replace a directory");
+
+        let target_is_directory = target.is_dir();
+        let leaked_temp_files = fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .filter(|path| path.to_string_lossy().contains(".quotio-tmp-"))
+            .collect::<Vec<_>>();
+        let _ = fs::remove_dir_all(&dir);
+
+        assert!(target_is_directory);
+        assert!(
+            leaked_temp_files.is_empty(),
+            "atomic write leaked temporary files: {leaked_temp_files:?}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn atomic_write_sensitive_file_has_owner_only_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = std::env::temp_dir().join(format!(
+            "ql_atomic_write_permissions_{}_{}",
+            std::process::id(),
+            current_unix_millis()
+        ));
+        let target = dir.join("auth.json");
+
+        atomic_write(&target, b"sensitive-backup", true).unwrap();
+
+        let mode = fs::metadata(&target).unwrap().permissions().mode() & 0o777;
+        let _ = fs::remove_dir_all(&dir);
+        assert_eq!(mode, 0o600);
     }
 
     #[test]
