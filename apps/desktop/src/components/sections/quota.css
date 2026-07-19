@@ -317,6 +317,15 @@
   width: 26px;
   height: 26px;
 }
+/* 主题对齐引入的新类，玫瑰主题在 quota-rose.css 里有自己的尺寸；
+   浅色/深色下也要显式限定，否则 svg/img 按默认尺寸渲染并溢出圆形容器。 */
+.quota-redesign .provider-mark .quota-provider-brand-logo {
+  width: 26px;
+  height: 26px;
+}
+.quota-redesign .provider-mark img.quota-provider-brand-logo--codex {
+  object-fit: contain;
+}
 .quota-redesign .count {
   display: inline-flex;
   align-items: center;
