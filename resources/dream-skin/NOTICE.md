@@ -19,14 +19,18 @@ It does **not** grant rights to:
 
 ## Personal gallery presets
 
-The optional bundled presets named `pink-custom`, `wealth-worker`,
-`red-white-scifi`, `clear-custom`, `inspiration-cosmos`,
-`purple-night`, `hatsune-miku`, and `stage-black-gold` reuse the upstream
-`docs/images/gallery/skin-01.jpg` through `skin-08.jpg` preview images at the
-user's request. Those preview images may contain third-party people,
-characters, franchise art, or trademarks and are **not covered by the MIT
-license**. Keep this build for personal use unless the relevant rights have
-been cleared.
+The `pink-custom` preset uses `hero-pink-floral-v1.jpg`, a project-local
+AI-generated, UI-free reconstruction made from the requested `skin-01.jpg`
+composition. It remains a person-themed personal preset and is not granted
+additional likeness or publicity rights by the MIT license.
+
+The other optional bundled presets named `wealth-worker`, `red-white-scifi`,
+`clear-custom`, `inspiration-cosmos`, `purple-night`, `hatsune-miku`, and
+`stage-black-gold` reuse the upstream `docs/images/gallery/skin-02.jpg` through
+`skin-08.jpg` preview images at the user's request. Those preview images may
+contain third-party people, characters, franchise art, or trademarks and are
+**not covered by the MIT license**. Keep this build for personal use unless the
+relevant rights have been cleared.
 
 ## Runtime
 
