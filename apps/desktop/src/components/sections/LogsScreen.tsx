@@ -5,6 +5,7 @@ import { maskEmail } from "../../lib/format";
 import { useT } from "../../i18n";
 import { invoke } from "../../lib/tauri";
 import "./logs.css";
+import "./logs-rose.css";
 
 type LogsScreenProps = {
   appState: AppState;
@@ -98,6 +99,17 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
     }
   }
 
+  function handleExport() {
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const content = tab === "requests" ? requestCsv(filteredRequests) : filteredProxy.map((entry) => entry.raw).join("\n");
+    const blob = new Blob([content], { type: tab === "requests" ? "text/csv;charset=utf-8" : "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `quotio-${tab}-logs-${stamp}.${tab === "requests" ? "csv" : "log"}`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
   const providers = useMemo(
     () =>
       Array.from(
@@ -247,6 +259,10 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
           >
             <Icon id="refresh" />
             {t("logs.refresh", "刷新")}
+          </button>
+          <button className="lr-btn" type="button" onClick={handleExport} title={t("logs.export", "导出")}>
+            <Icon id="export" />
+            {t("logs.export", "导出")}
           </button>
           <button
             className="lr-btn lr-btn--danger"
@@ -922,4 +938,21 @@ function proxyStatusLabel(status: string, t: (key: string, fallback?: string) =>
 function formatCompact(value: number) {
   // Force en-US compact units (K/M/B/T) so tokens read as "166K", not "16.6万".
   return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+}
+
+function requestCsv(entries: RequestLogEntry[]) {
+  const cells = (values: unknown[]) => values.map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`).join(",");
+  const header = cells(["time", "status", "provider", "account", "model", "mode", "duration_ms", "input_tokens", "output_tokens"]);
+  const rows = entries.map((entry) => cells([
+    entry.timestamp,
+    entry.status_code,
+    entry.provider ?? entry.resolved_provider,
+    entry.account,
+    entry.model ?? entry.resolved_model,
+    entry.reasoning_effort,
+    entry.duration_ms,
+    entry.input_tokens,
+    entry.output_tokens,
+  ]));
+  return `\uFEFF${[header, ...rows].join("\n")}`;
 }

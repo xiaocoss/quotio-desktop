@@ -8,6 +8,7 @@ type SelectProps = {
   options: SelectOption[];
   onChange: (value: string) => void;
   disabled?: boolean;
+  className?: string;
   /** Minimum width of the trigger button, e.g. "132px". */
   minWidth?: string;
 };
@@ -23,7 +24,7 @@ type MenuPos = { top: number; right: number; minWidth: number };
 /// **层叠上下文**,把菜单的 `z-index` 困在面板内部 —— 面板本身是 static/z-auto,于是
 /// 排在它后面的卡片、面板(它们同样因 backdrop-filter 建了上下文)一律画在菜单之上,
 /// 表现为「下拉菜单被下方的 KPI 卡片切掉半截」。挂到 body 才能真正浮在最上层。
-export function Select({ value, options, onChange, disabled = false, minWidth }: SelectProps) {
+export function Select({ value, options, onChange, disabled = false, className, minWidth }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -115,7 +116,7 @@ export function Select({ value, options, onChange, disabled = false, minWidth }:
       : null;
 
   return (
-    <div className="qselect" ref={rootRef}>
+    <div className={className ? `qselect ${className}` : "qselect"} ref={rootRef}>
       <button
         type="button"
         className="qselect-button"

@@ -312,6 +312,12 @@
   width: 36px;
   height: 36px;
 }
+.providers-redesign .provider-brand-logo--codex {
+  display: block;
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+}
 .providers-redesign .provider-title-text {
   min-width: 0;
 }

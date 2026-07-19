@@ -1,0 +1,791 @@
+/* Rose-only provider composition. All rules stay inside the Providers page. */
+
+:root[data-theme="rose"] .providers-redesign {
+  --provider: #e75675;
+  --provider-soft: #fde9ed;
+  --primary: #e94f70;
+  --primary-soft: #fde7eb;
+  --lavender: #8c62e8;
+  --lavender-soft: #f1ebff;
+  --border: rgba(218, 127, 144, 0.31);
+  --border-strong: rgba(205, 82, 108, 0.45);
+  --text: #3d292d;
+  --muted: #806a70;
+  --soft: #b5969e;
+  --row-hover: rgba(253, 231, 235, 0.38);
+  --shadow-panel: 0 7px 20px rgba(130, 72, 83, 0.055);
+  --shadow-provider: 0 9px 24px rgba(164, 77, 96, 0.075);
+  color: var(--text);
+}
+
+:root[data-theme="rose"] .providers-redesign.section-page {
+  position: relative;
+  isolation: isolate;
+  padding: 22px 18px 18px 24px;
+}
+
+:root[data-theme="rose"] .providers-redesign.section-page::before {
+  content: "";
+  position: fixed;
+  top: -54px;
+  right: -42px;
+  z-index: 0;
+  width: 260px;
+  height: 176px;
+  opacity: 0.3;
+  pointer-events: none;
+  background: url("/rose/rose-corner.png") center / contain no-repeat;
+  transform: rotate(180deg);
+}
+
+:root[data-theme="rose"] .providers-redesign.section-page > * {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme="rose"] .providers-redesign .page-topbar {
+  z-index: 7;
+  min-height: 49px;
+  margin-bottom: 20px;
+  padding: 2px 76px 5px 8px;
+}
+
+:root[data-theme="rose"] .providers-redesign .page-topbar h1 {
+  color: #3c282d;
+  font-size: 23px;
+  line-height: 31px;
+  font-weight: 820;
+  letter-spacing: -0.35px;
+}
+
+:root[data-theme="rose"] .providers-redesign .page-topbar .icon-button {
+  width: 34px;
+  height: 34px;
+  color: #9f6c78;
+  border-color: rgba(218, 127, 144, 0.3);
+  border-radius: 9px;
+  background: rgba(255, 253, 251, 0.8);
+}
+
+:root[data-theme="rose"] .providers-redesign .page-topbar .icon-button:hover {
+  color: var(--primary);
+  border-color: rgba(205, 82, 108, 0.46);
+  background: #fff8f8;
+}
+
+:root[data-theme="rose"] .providers-redesign .page-topbar::after {
+  content: none;
+  top: -4px;
+  right: 9px;
+  width: 54px;
+  height: 54px;
+  border-width: 1px;
+  border-color: rgba(216, 173, 114, 0.62);
+  box-shadow: 0 8px 20px rgba(130, 72, 83, 0.12);
+}
+
+:root[data-theme="rose"] .providers-redesign .page-topbar > .pv-title-row:last-child {
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+:root[data-theme="rose"] .providers-redesign .page-topbar > .pv-title-row:first-child {
+  gap: 28px;
+}
+
+:root[data-theme="rose"] .providers-redesign .pv-topbar-count {
+  color: #67565b;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+:root[data-theme="rose"] .providers-redesign .page-topbar > .pv-title-row:last-child .pv-card-menu-anchor {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  width: 54px;
+  height: 54px;
+}
+
+:root[data-theme="rose"] .providers-redesign .page-topbar .pv-global-more {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  padding: 0;
+  overflow: hidden;
+  color: transparent;
+  border: 1px solid rgba(216, 173, 114, 0.62);
+  border-radius: 50%;
+  background:
+    url("/rose/character-avatar.png") center / cover no-repeat,
+    #fff8f5;
+  box-shadow: 0 8px 20px rgba(130, 72, 83, 0.12);
+  cursor: pointer;
+}
+
+:root[data-theme="rose"] .providers-redesign .page-topbar .pv-global-more svg {
+  opacity: 0;
+}
+
+:root[data-theme="rose"] .providers-redesign .page-topbar .pv-global-more:hover {
+  color: transparent;
+  border-color: rgba(205, 82, 108, 0.52);
+  background:
+    url("/rose/character-avatar.png") center / cover no-repeat,
+    #fff8f5;
+  box-shadow: 0 10px 24px rgba(130, 72, 83, 0.18);
+  transform: translateY(-1px);
+}
+
+:root[data-theme="rose"] .providers-redesign .page-topbar .pv-global-more:focus-visible {
+  outline: 3px solid rgba(233, 79, 112, 0.18);
+  outline-offset: 2px;
+}
+
+:root[data-theme="rose"] .providers-redesign .pv-global-dropdown {
+  top: calc(100% + 8px);
+  min-width: 220px;
+}
+
+:root[data-theme="rose"] .providers-redesign .panel {
+  border-color: var(--border);
+  border-radius: 13px;
+  background: rgba(255, 253, 251, 0.88);
+  box-shadow: var(--shadow-panel);
+}
+
+/* Overview strip */
+:root[data-theme="rose"] .providers-redesign .overview {
+  min-height: 107px;
+  height: 107px;
+  margin-bottom: 25px;
+  padding: 0;
+}
+
+:root[data-theme="rose"] .providers-redesign .overview-item {
+  grid-template-columns: 59px minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+  padding: 14px 20px;
+  border-color: rgba(218, 127, 144, 0.26);
+}
+
+:root[data-theme="rose"] .providers-redesign .overview-icon {
+  width: 55px;
+  height: 55px;
+  color: #e25975;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #fff6f5, #fbe7e9);
+}
+
+:root[data-theme="rose"] .providers-redesign .overview-icon.blue,
+:root[data-theme="rose"] .providers-redesign .overview-icon.purple {
+  color: #e25975;
+  background: linear-gradient(145deg, #fff6f5, #fbe7e9);
+}
+
+:root[data-theme="rose"] .providers-redesign .overview-icon.warn {
+  color: #ed932e;
+  background: linear-gradient(145deg, #fff9ef, #ffeedb);
+}
+
+:root[data-theme="rose"] .providers-redesign .overview-icon .pv-ico {
+  width: 25px;
+  height: 25px;
+}
+
+:root[data-theme="rose"] .providers-redesign .overview-label {
+  color: #594a4f;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 650;
+}
+
+:root[data-theme="rose"] .providers-redesign .overview-value {
+  margin-top: 2px;
+  color: #2f2226;
+  font-size: 25px;
+  line-height: 29px;
+  font-weight: 820;
+  letter-spacing: -0.45px;
+}
+
+:root[data-theme="rose"] .providers-redesign .overview-note {
+  color: #7f6b71;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Connected provider section */
+:root[data-theme="rose"] .providers-redesign > .section-head {
+  min-height: 25px;
+  margin-bottom: 15px;
+}
+
+:root[data-theme="rose"] .providers-redesign h2 {
+  color: #36262b;
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 800;
+}
+
+:root[data-theme="rose"] .providers-redesign .connected-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 23px;
+  margin-bottom: 16px;
+}
+
+:root[data-theme="rose"] .providers-redesign .provider-column {
+  gap: 16px;
+}
+
+:root[data-theme="rose"] .providers-redesign .provider-card {
+  min-height: 380px;
+  padding: 18px 20px 13px;
+  border-color: rgba(222, 111, 133, 0.34);
+  border-radius: 14px;
+  background: rgba(255, 254, 252, 0.93);
+  box-shadow: 0 8px 22px rgba(130, 72, 83, 0.06);
+}
+
+:root[data-theme="rose"] .providers-redesign .provider-head {
+  min-height: 65px;
+  padding-bottom: 13px;
+  border-color: rgba(218, 127, 144, 0.22);
+}
+
+:root[data-theme="rose"] .providers-redesign .provider-title {
+  gap: 20px;
+}
+
+:root[data-theme="rose"] .providers-redesign .provider-logo {
+  width: 52px;
+  height: 52px;
+  flex-basis: 52px;
+  border: 0;
+  border-radius: 50%;
+  background: #f1f8f1;
+  box-shadow: none;
+}
+
+:root[data-theme="rose"] .providers-redesign .provider-brand-logo {
+  width: 42px;
+  height: 42px;
+}
+
+:root[data-theme="rose"] .providers-redesign .provider-title-name {
+  gap: 8px;
+  color: #322429;
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 800;
+}
+
+:root[data-theme="rose"] .providers-redesign .provider-title-label {
+  color: #3b2b30;
+}
+
+:root[data-theme="rose"] .providers-redesign .provider-title-sub {
+  margin-top: 3px;
+  color: #806d73;
+  font-size: 11px;
+  line-height: 15px;
+  font-weight: 600;
+}
+
+:root[data-theme="rose"] .providers-redesign .provider-title-name .pill {
+  height: 20px;
+  padding: 0 8px;
+  color: #d94c6b;
+  background: #fde9ed;
+  font-size: 9px;
+}
+
+:root[data-theme="rose"] .providers-redesign .provider-head-actions {
+  gap: 10px;
+}
+
+:root[data-theme="rose"] .providers-redesign .provider-head-actions .pv-card-more,
+:root[data-theme="rose"] .providers-redesign .provider-head-actions .button {
+  height: 35px;
+  border-radius: 9px;
+}
+
+:root[data-theme="rose"] .providers-redesign .provider-head-actions .pv-card-more {
+  width: 35px;
+  color: #835e67;
+  border-color: rgba(218, 127, 144, 0.28);
+  background: rgba(255, 253, 251, 0.88);
+}
+
+:root[data-theme="rose"] .providers-redesign .provider-head-actions .button.primary {
+  min-width: 105px;
+  padding: 0 13px;
+  color: #e24d6e;
+  border-color: rgba(223, 91, 118, 0.28);
+  background: rgba(255, 251, 249, 0.9);
+  box-shadow: none;
+  font-size: 11px;
+}
+
+:root[data-theme="rose"] .providers-redesign .provider-head-actions .button.primary:hover {
+  color: #d83d62;
+  border-color: rgba(211, 61, 96, 0.42);
+  background: #fff6f7;
+}
+
+:root[data-theme="rose"] .providers-redesign .account-list {
+  gap: 0;
+  margin-top: 8px;
+  counter-reset: rose-provider-account;
+}
+
+:root[data-theme="rose"] .providers-redesign .account-row-drag {
+  min-height: 37px;
+  gap: 0;
+  padding: 0 8px;
+  border-radius: 8px;
+}
+
+:root[data-theme="rose"] .providers-redesign .account-drag-handle {
+  position: absolute;
+  left: -12px;
+  width: 16px;
+  height: 26px;
+}
+
+:root[data-theme="rose"] .providers-redesign .account-row {
+  gap: 20px;
+  padding: 6.5px 4px;
+  counter-increment: rose-provider-account;
+}
+
+:root[data-theme="rose"] .providers-redesign .account-row::before {
+  content: counter(rose-provider-account);
+  display: grid;
+  width: 21px;
+  height: 21px;
+  flex: 0 0 21px;
+  place-items: center;
+  color: #e95574;
+  border: 1px solid #e95574;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+:root[data-theme="rose"] .providers-redesign .account-row-drag:first-child .account-row::before {
+  color: #fff;
+  background: #e95574;
+}
+
+:root[data-theme="rose"] .providers-redesign .account-row:has(.account-order-badge)::before {
+  display: none;
+}
+
+:root[data-theme="rose"] .providers-redesign .account-order-badge {
+  width: 21px;
+  height: 21px;
+  color: #e95574 !important;
+  border-color: #e95574 !important;
+  background: transparent !important;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+:root[data-theme="rose"] .providers-redesign .account-order-badge--active {
+  color: #fff !important;
+  background: #e95574 !important;
+}
+
+:root[data-theme="rose"] .providers-redesign .account-logo--sm {
+  width: 24px;
+  height: 24px;
+  color: #d95973 !important;
+  border-radius: 50%;
+  background: #fff1f3 !important;
+  font-size: 9px;
+  font-weight: 750;
+}
+
+:root[data-theme="rose"] .providers-redesign .pv-account-email {
+  color: #433438;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 560;
+}
+
+:root[data-theme="rose"] .providers-redesign .pv-account-status {
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 5px;
+  font-size: 9px;
+  font-weight: 750;
+}
+
+:root[data-theme="rose"] .providers-redesign .pv-account-status--good {
+  color: #3da86b;
+  background: #eaf5e9;
+}
+
+:root[data-theme="rose"] .providers-redesign .pv-account-status--warn {
+  color: #ee8b27;
+  background: #fff0db;
+}
+
+:root[data-theme="rose"] .providers-redesign .pv-account-status--bad {
+  color: #df4c60;
+  background: #fde8eb;
+}
+
+:root[data-theme="rose"] .providers-redesign .account-row-actions {
+  gap: 7px;
+  color: #72565e;
+}
+
+:root[data-theme="rose"] .providers-redesign .row-icon-btn {
+  width: 25px;
+  height: 25px;
+  color: #5e4c51;
+  border-radius: 6px;
+}
+
+:root[data-theme="rose"] .providers-redesign .row-icon-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+:root[data-theme="rose"] .providers-redesign .row-icon-btn:hover:not(:disabled) {
+  color: #d94a6b;
+  background: #fde9ed;
+}
+
+:root[data-theme="rose"] .providers-redesign .row-icon-btn--danger {
+  color: #e54d5d;
+}
+
+:root[data-theme="rose"] .providers-redesign .account-reauth-btn {
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 5px;
+  font-size: 9px;
+}
+
+:root[data-theme="rose"] .providers-redesign .provider-foot {
+  min-height: 27px;
+  margin-top: 5px;
+  padding: 5px 8px 0;
+  color: #725d64;
+  font-size: 10.5px;
+}
+
+:root[data-theme="rose"] .providers-redesign :is(.pv-order-reset, .pv-card-toggle) {
+  color: #725d64;
+  font-size: 10.5px;
+  font-weight: 650;
+}
+
+:root[data-theme="rose"] .providers-redesign .pv-card-toggle {
+  width: auto;
+  margin-top: 0;
+  padding: 0;
+  text-align: left;
+}
+
+:root[data-theme="rose"] .providers-redesign :is(.pv-order-reset, .pv-card-toggle):hover {
+  color: #d74869;
+}
+
+/* Insights panel */
+:root[data-theme="rose"] .providers-redesign .insights {
+  min-height: 380px;
+  padding: 20px 22px;
+  border-radius: 14px;
+  background: rgba(255, 254, 252, 0.91);
+}
+
+:root[data-theme="rose"] .providers-redesign .insight-list {
+  gap: 10px;
+  margin-top: 14px;
+}
+
+:root[data-theme="rose"] .providers-redesign .insight {
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 10px;
+  min-height: 72px;
+  padding: 12px 13px;
+  border: 1px solid rgba(230, 197, 204, 0.16);
+  border-radius: 10px;
+  background: rgba(255, 252, 250, 0.72);
+}
+
+:root[data-theme="rose"] .providers-redesign .insight:last-child {
+  background: linear-gradient(105deg, rgba(255, 251, 249, 0.88), rgba(253, 236, 239, 0.58));
+}
+
+:root[data-theme="rose"] .providers-redesign .insight-icon {
+  width: 30px;
+  height: 30px;
+  color: #35aa68;
+  border-radius: 50%;
+  background: #ebf7ec;
+}
+
+:root[data-theme="rose"] .providers-redesign .insight-icon.warn {
+  color: #ed972d;
+  background: #fff2df;
+}
+
+:root[data-theme="rose"] .providers-redesign .insight-icon.blue {
+  color: #8260eb;
+  background: #f0ebff;
+}
+
+:root[data-theme="rose"] .providers-redesign .insight-icon .pv-ico {
+  width: 18px;
+  height: 18px;
+}
+
+:root[data-theme="rose"] .providers-redesign .insight-text strong {
+  color: #49383d;
+  font-size: 12px;
+  line-height: 17px;
+  font-weight: 760;
+}
+
+:root[data-theme="rose"] .providers-redesign .insight-text span {
+  margin-top: 1px;
+  color: #8b777d;
+  font-size: 10px;
+  line-height: 15px;
+  font-weight: 560;
+}
+
+:root[data-theme="rose"] .providers-redesign .insight .pill {
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 5px;
+  font-size: 9px;
+}
+
+:root[data-theme="rose"] .providers-redesign .insight .button {
+  height: 32px;
+  padding: 0 12px;
+  color: #df4768;
+  border-color: rgba(218, 92, 118, 0.26);
+  border-radius: 7px;
+  background: #fff8f8;
+  font-size: 10px;
+}
+
+/* Custom endpoint panel */
+:root[data-theme="rose"] .providers-redesign .custom {
+  min-height: 251px;
+  padding: 15px 16px 16px;
+  border-radius: 13px;
+  background: rgba(255, 253, 251, 0.88);
+}
+
+:root[data-theme="rose"] .providers-redesign .custom .section-head {
+  min-height: 40px;
+  margin-bottom: 0;
+}
+
+:root[data-theme="rose"] .providers-redesign .custom .section-head h2 {
+  margin-bottom: 1px;
+  font-size: 16px;
+  line-height: 22px;
+}
+
+:root[data-theme="rose"] .providers-redesign .custom .pv-muted {
+  color: #8a747b;
+  font-size: 10px;
+  line-height: 15px;
+  font-weight: 560;
+}
+
+:root[data-theme="rose"] .providers-redesign .custom > .section-head .button.primary {
+  height: 35px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ea5577, #df315b);
+  box-shadow: 0 7px 16px rgba(194, 45, 82, 0.18);
+  font-size: 10px;
+}
+
+:root[data-theme="rose"] .providers-redesign .templates {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(300px, 1.25fr);
+  gap: 16px;
+  margin-top: 10px;
+}
+
+:root[data-theme="rose"] .providers-redesign .template {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-rows: auto minmax(34px, 1fr) 32px;
+  column-gap: 12px;
+  row-gap: 1px;
+  min-height: 156px;
+  padding: 13px 15px 12px;
+  border: 1px solid rgba(218, 127, 144, 0.24);
+  border-radius: 8px;
+  background: rgba(255, 253, 251, 0.76);
+}
+
+:root[data-theme="rose"] .providers-redesign .template-icon {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  border-radius: 50%;
+  color: #2ca36c;
+  background: #eef8ef;
+}
+
+:root[data-theme="rose"] .providers-redesign .template-icon.blue {
+  color: #4f7ee9;
+  background: #edf3ff;
+}
+
+:root[data-theme="rose"] .providers-redesign .template-icon.orange {
+  color: #e87535;
+  background: #fff2e8;
+}
+
+:root[data-theme="rose"] .providers-redesign .pv-template-brand-logo {
+  width: 29px;
+  height: 29px;
+}
+
+:root[data-theme="rose"] .providers-redesign .template h3 {
+  grid-column: 2;
+  align-self: end;
+  margin: 0;
+  color: #46363b;
+  font-size: 12px;
+  line-height: 17px;
+  font-weight: 760;
+}
+
+:root[data-theme="rose"] .providers-redesign .template p {
+  grid-column: 2;
+  align-self: start;
+  margin: 1px 0 0;
+  color: #88757b;
+  font-size: 9.5px;
+  line-height: 14px;
+  font-weight: 540;
+}
+
+:root[data-theme="rose"] .providers-redesign .template .button {
+  grid-column: 1 / 3;
+  width: 100%;
+  height: 31px;
+  margin: 5px 0 0;
+  padding: 0 8px;
+  color: #df4b6d;
+  border-color: rgba(222, 90, 117, 0.24);
+  border-radius: 6px;
+  background: rgba(255, 252, 250, 0.7);
+  font-size: 9.5px;
+  box-shadow: none;
+}
+
+:root[data-theme="rose"] .providers-redesign .empty-state {
+  position: relative;
+  min-height: 156px;
+  padding: 96px 12px 9px;
+  overflow: hidden;
+  color: #8a757b;
+  border: 0;
+  background: transparent;
+}
+
+:root[data-theme="rose"] .providers-redesign .empty-state::after {
+  top: -2px;
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  width: 96px;
+  height: 96px;
+  opacity: 0.74;
+  transform: translateX(-50%);
+}
+
+:root[data-theme="rose"] .providers-redesign .empty-state strong {
+  margin-bottom: 2px;
+  color: #58464c;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 720;
+}
+
+:root[data-theme="rose"] .providers-redesign .empty-state span {
+  display: block;
+  font-size: 9px;
+  line-height: 13px;
+}
+
+/* Keep forms and populated custom cards inside the same rose system. */
+:root[data-theme="rose"] .providers-redesign .pv-custom-form {
+  border-color: rgba(218, 127, 144, 0.28);
+  border-radius: 12px;
+  background: rgba(255, 248, 248, 0.75);
+}
+
+:root[data-theme="rose"] .providers-redesign .pv-custom-form :is(input, textarea) {
+  border-color: rgba(218, 127, 144, 0.28);
+  background: rgba(255, 254, 252, 0.94);
+}
+
+:root[data-theme="rose"] .providers-redesign .pv-custom-form :is(input, textarea):focus {
+  border-color: rgba(211, 61, 96, 0.5);
+  box-shadow: 0 0 0 3px rgba(233, 79, 112, 0.08);
+}
+
+:root[data-theme="rose"] .providers-redesign .pv-custom-form .primary-action {
+  background: linear-gradient(135deg, #ea5577, #df315b);
+  box-shadow: 0 7px 16px rgba(194, 45, 82, 0.16);
+}
+
+:root[data-theme="rose"] .providers-redesign .pv-card-dropdown {
+  border-color: rgba(218, 127, 144, 0.3);
+  background: #fffdfb;
+  box-shadow: 0 10px 26px rgba(130, 72, 83, 0.12);
+}
+
+@media (max-width: 1320px) {
+  :root[data-theme="rose"] .providers-redesign .connected-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :root[data-theme="rose"] .providers-redesign .templates {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  :root[data-theme="rose"] .providers-redesign :is(.provider-card, .insights) {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 820px) {
+  :root[data-theme="rose"] .providers-redesign.section-page {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  :root[data-theme="rose"] .providers-redesign .overview,
+  :root[data-theme="rose"] .providers-redesign .templates {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+
+  :root[data-theme="rose"] .providers-redesign .overview-item {
+    border-right: 0;
+    border-bottom: 1px solid rgba(218, 127, 144, 0.24);
+  }
+}

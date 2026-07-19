@@ -2,8 +2,11 @@
 // 额度页(分组头)与服务商页(provider 卡头)共用,保证同一 provider 图标一致。
 // 未命中的 provider(自定义接口 / 内部网关等)走通用层叠图标 logo-generic。
 const PROVIDER_LOGO: Record<string, string> = {
+  openai: "logo-openai",
   codex: "logo-openai",
+  gemini: "logo-gemini",
   claude: "logo-claude",
+  anthropic: "logo-claude",
   copilot: "logo-copilot",
   antigravity: "logo-gemini",
   xai: "logo-grok",

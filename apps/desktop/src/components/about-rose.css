@@ -1,0 +1,754 @@
+/* Rose About page — isolated from the shell/sidebar and loaded only by App.tsx. */
+
+:root[data-theme="rose"] .app-shell--v2 .content:has(> .about-redesign):not(.content--dashboard) {
+  padding-top: 0;
+  padding-right: 0;
+  padding-bottom: 0;
+  overflow-y: hidden;
+  scrollbar-gutter: auto;
+}
+
+:root[data-theme="rose"] .about-redesign {
+  --about-rose-line: rgba(223, 116, 139, 0.28);
+  --about-rose-line-strong: rgba(209, 62, 96, 0.44);
+  --about-rose-surface: rgba(255, 252, 249, 0.94);
+  --about-rose-text: #471b27;
+  overflow: hidden;
+  isolation: isolate;
+  color: var(--about-rose-text);
+  background:
+    linear-gradient(135deg, rgba(255, 252, 249, 0.44), rgba(255, 239, 242, 0.22)),
+    url("/rose/rose-bg.webp") center top / cover repeat-y;
+}
+
+:root[data-theme="rose"] .about-redesign::before,
+:root[data-theme="rose"] .about-redesign::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  background: url("/rose/rose-corner.png") center / contain no-repeat;
+}
+
+:root[data-theme="rose"] .about-redesign::before {
+  top: -70px;
+  right: -42px;
+  width: 360px;
+  height: 300px;
+  opacity: 0.9;
+  transform: rotate(180deg);
+}
+
+:root[data-theme="rose"] .about-redesign::after {
+  right: -82px;
+  bottom: -106px;
+  width: 380px;
+  height: 340px;
+  opacity: 0.72;
+  transform: scaleX(-1);
+}
+
+:root[data-theme="rose"] .about-redesign .page-topbar,
+:root[data-theme="rose"] .about-redesign .about-scroll {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme="rose"] .about-redesign .page-topbar h1 {
+  color: #35131d;
+  font-size: 30px;
+  line-height: 36px;
+  letter-spacing: 0;
+}
+
+:root[data-theme="rose"] .about-redesign .page-topbar {
+  padding: 14px 2px 31px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-subtitle {
+  color: #7c4c58;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+:root[data-theme="rose"] .about-redesign .about-scroll {
+  gap: 26px;
+  padding-right: 5px;
+  overflow: visible;
+  scrollbar-width: none;
+}
+
+:root[data-theme="rose"] .about-redesign .about-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+:root[data-theme="rose"] .about-redesign .about-scroll::before {
+  content: "";
+  position: absolute;
+  inset: -20px 0 0;
+  z-index: 0;
+  opacity: 0.16;
+  pointer-events: none;
+  background:
+    url("/rose/rose-petals.png") 12% 12% / 420px auto no-repeat,
+    url("/rose/rose-petals.png") 88% 86% / 360px auto no-repeat;
+}
+
+:root[data-theme="rose"] .about-redesign .about-scroll > * {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme="rose"] .about-redesign .panel {
+  border-color: var(--about-rose-line);
+  background: var(--about-rose-surface);
+  box-shadow: 0 10px 24px rgba(112, 54, 68, 0.075), 0 1px 3px rgba(112, 54, 68, 0.05);
+}
+
+:root[data-theme="rose"] .about-redesign svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Hero */
+:root[data-theme="rose"] .about-redesign .about-hero {
+  height: 272px;
+  min-height: 272px;
+  overflow: visible;
+  isolation: isolate;
+  grid-template-columns: 154px 340px minmax(0, 1fr) 252px;
+  column-gap: 24px;
+  align-items: center;
+  padding: 22px 24px 22px 44px;
+  border-radius: 17px;
+  background:
+    radial-gradient(circle at 66% 52%, rgba(252, 219, 224, 0.34), transparent 28%),
+    linear-gradient(105deg, rgba(255, 252, 249, 0.98), rgba(255, 246, 244, 0.95));
+}
+
+:root[data-theme="rose"] .about-redesign .about-hero::before {
+  display: block;
+  left: 0;
+  top: 0;
+  width: auto;
+  height: auto;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.24;
+  transform: none;
+  background: url("/rose/rose-petals.png") center 44% / 24% auto no-repeat;
+}
+
+:root[data-theme="rose"] .about-redesign .about-hero::after {
+  inset: 0;
+  z-index: 4;
+  border: 56px solid transparent;
+  border-image: url("/rose/cloud-panel-9slice.svg") 64 fill / 56px / 0 stretch;
+  opacity: 0.76;
+}
+
+:root[data-theme="rose"] .about-redesign .about-hero > :not(.about-orbit) {
+  position: relative;
+  z-index: 2;
+}
+
+:root[data-theme="rose"] .about-redesign .about-mark {
+  width: 154px;
+  height: 154px;
+  overflow: visible;
+  border-color: rgba(218, 119, 139, 0.35);
+  border-radius: 31px;
+  color: #9c2142;
+  background:
+    radial-gradient(circle at 76% 23%, rgba(255, 255, 255, 0.94), transparent 27%),
+    linear-gradient(145deg, #fff8f5 2%, #f8d7dc 70%, #f1bac5);
+  box-shadow: 0 14px 30px rgba(155, 52, 76, 0.12);
+  font-family: Georgia, "Times New Roman", serif;
+  transform: translateY(-17px);
+}
+
+:root[data-theme="rose"] .about-redesign .about-mark span {
+  position: relative;
+  z-index: 1;
+  font-size: 94px;
+  font-weight: 700;
+  line-height: 1;
+  transform: translateY(-2px);
+}
+
+:root[data-theme="rose"] .about-redesign .rose-about-mark-flower {
+  position: absolute;
+  right: -29px;
+  bottom: -25px;
+  z-index: 2;
+  width: 75px;
+  height: 75px;
+  object-fit: contain;
+  filter: drop-shadow(0 7px 9px rgba(126, 50, 66, 0.14));
+}
+
+:root[data-theme="rose"] .about-redesign .about-hero-main {
+  min-width: 0;
+  margin-left: 26px;
+  align-self: center;
+  transform: translateY(-6px);
+}
+
+:root[data-theme="rose"] .about-redesign .about-name {
+  color: #5d091c;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 54px;
+  line-height: 58px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-version {
+  margin-top: 4px;
+  color: #75505a;
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 500;
+}
+
+:root[data-theme="rose"] .about-redesign .about-tagline {
+  margin-top: 8px;
+  color: #713b49;
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+:root[data-theme="rose"] .about-redesign .about-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 9px;
+  margin-top: 22px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-actions button {
+  height: 38px;
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid rgba(219, 87, 117, 0.25);
+  border-radius: 9px;
+  color: #e43e68;
+  background: rgba(255, 237, 239, 0.88);
+  box-shadow: 0 5px 12px rgba(166, 66, 89, 0.055);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+:root[data-theme="rose"] .about-redesign .about-actions button:hover {
+  border-color: rgba(209, 62, 96, 0.42);
+  background: #ffe8ec;
+}
+
+:root[data-theme="rose"] .about-redesign .about-actions button:focus-visible {
+  outline: 2px solid rgba(209, 62, 96, 0.36);
+  outline-offset: 2px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-actions svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+}
+
+:root[data-theme="rose"] .about-redesign .rose-about-portrait {
+  display: block;
+  position: relative;
+  align-self: end;
+  top: -15px;
+  height: calc(100% + 105px);
+  min-width: 0;
+  margin: 0 -12px -22px 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+:root[data-theme="rose"] .about-redesign .rose-about-portrait::before {
+  content: "";
+  position: absolute;
+  left: 58%;
+  top: 0;
+  z-index: 0;
+  width: 350px;
+  height: 350px;
+  border: 1px solid rgba(225, 142, 159, 0.32);
+  border-radius: 50%;
+  transform: translateX(-50%);
+  background:
+    url("/rose/cloud-avatar-wreath.svg") center / 112% 112% no-repeat,
+    radial-gradient(circle, rgba(255, 248, 246, 0.98) 0 56%, rgba(250, 219, 225, 0.58) 57% 59%, transparent 60%);
+  box-shadow: 0 0 28px rgba(218, 100, 126, 0.09);
+}
+
+:root[data-theme="rose"] .about-redesign .rose-about-portrait::after {
+  content: "";
+  position: absolute;
+  left: 45px;
+  bottom: -45px;
+  z-index: 1;
+  width: 245px;
+  height: 190px;
+  opacity: 0.78;
+  background: url("/rose/rose-corner.png") left bottom / contain no-repeat;
+}
+
+:root[data-theme="rose"] .about-redesign .rose-about-portrait img {
+  position: absolute;
+  left: 58%;
+  top: -80px;
+  z-index: 2;
+  width: 410px;
+  height: auto;
+  max-width: none;
+  display: block;
+  object-fit: contain;
+  transform: translateX(-50%);
+  filter: saturate(0.96) contrast(0.98);
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+:root[data-theme="rose"] .about-redesign .about-orbit {
+  display: block;
+  left: 52%;
+  right: auto;
+  top: 28px;
+  bottom: auto;
+  z-index: 1;
+  width: 175px;
+  height: 225px;
+  opacity: 0.58;
+  transform: scaleX(-1) rotate(-9deg);
+  background: url("/rose/cloud-botanical-sprig.svg") center / contain no-repeat;
+}
+
+:root[data-theme="rose"] .about-redesign .about-orbit--mirror {
+  left: auto;
+  right: 216px;
+  top: 78px;
+  width: 270px;
+  height: 190px;
+  opacity: 0.4;
+  transform: scaleX(-1);
+  background: url("/rose/rose-corner.png") left bottom / contain no-repeat;
+}
+
+:root[data-theme="rose"] .about-redesign .about-status {
+  width: 252px;
+  height: 216px;
+  align-self: center;
+  justify-self: end;
+  gap: 14px;
+  padding: 22px 27px;
+  border-color: var(--about-rose-line);
+  border-radius: 14px;
+  background: rgba(255, 250, 247, 0.92);
+  box-shadow: none;
+}
+
+:root[data-theme="rose"] .about-redesign .about-status-title {
+  color: #3d1b24;
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 850;
+}
+
+:root[data-theme="rose"] .about-redesign .about-status-ok {
+  gap: 9px;
+  color: #20a866;
+  font-size: 13px;
+  line-height: 22px;
+  white-space: nowrap;
+}
+
+:root[data-theme="rose"] .about-redesign .about-status-ok svg {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-check-btn {
+  width: 140px;
+  height: 46px;
+  align-self: center;
+  border: 1px solid rgba(188, 18, 59, 0.15);
+  border-radius: 8px;
+  color: #fff;
+  background: linear-gradient(135deg, #ee416d, #c91449);
+  box-shadow: 0 10px 20px rgba(192, 25, 66, 0.18);
+  font-size: 14px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-status-note {
+  color: #8f6a73;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* Information cards */
+:root[data-theme="rose"] .about-redesign .about-cards {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.12fr);
+  gap: 22px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-card {
+  min-height: 267px;
+  padding: 21px 17px 17px;
+  border-radius: 14px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-card-head {
+  gap: 12px;
+  margin-bottom: 13px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-card-icon {
+  width: 34px;
+  height: 34px;
+  flex-basis: 34px;
+  border-radius: 9px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-card-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-card-icon.blue,
+:root[data-theme="rose"] .about-redesign .about-card-icon.lav {
+  color: #ee315e;
+  background: #fff0f1;
+}
+
+:root[data-theme="rose"] .about-redesign .about-card-icon.green {
+  color: #169b59;
+  background: #edf8ee;
+}
+
+:root[data-theme="rose"] .about-redesign .about-card-head h2 {
+  color: #3c1c24;
+  font-size: 18px;
+  line-height: 24px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-badge {
+  height: 28px;
+  padding: 0 12px;
+  color: #169b59;
+  background: #edf7ed;
+  font-size: 12px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-rows {
+  border: 1px solid rgba(226, 164, 176, 0.26);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 253, 251, 0.54);
+}
+
+:root[data-theme="rose"] .about-redesign .about-rows > div {
+  min-height: 55px;
+  padding: 0 15px;
+  border-top-color: rgba(226, 164, 176, 0.28);
+}
+
+:root[data-theme="rose"] .about-redesign .about-rows dt,
+:root[data-theme="rose"] .about-redesign .about-config-label {
+  color: #62414a;
+  font-size: 13px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-rows dd {
+  color: #ef315d;
+  font-size: 13px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-card:nth-child(2) .about-rows dd.link {
+  color: #168cf0;
+}
+
+:root[data-theme="rose"] .about-redesign .about-card:nth-child(2) .about-rows dd.ok {
+  color: #169b59;
+}
+
+:root[data-theme="rose"] .about-redesign .about-tag {
+  color: #ef315d;
+  background: #fff0f2;
+}
+
+:root[data-theme="rose"] .about-redesign .about-config-label {
+  margin: 15px 6px 10px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-config-row {
+  min-height: 48px;
+  gap: 0;
+  padding-left: 14px;
+  border: 1px solid rgba(226, 164, 176, 0.34);
+  border-radius: 10px;
+  background: rgba(255, 253, 251, 0.72);
+}
+
+:root[data-theme="rose"] .about-redesign .about-config-row code {
+  color: #43202a;
+  font-size: 12px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-copy {
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  border: 0;
+  border-left: 1px solid rgba(226, 164, 176, 0.34);
+  border-radius: 0 9px 9px 0;
+  color: #6a3b48;
+  background: transparent;
+}
+
+:root[data-theme="rose"] .about-redesign .about-config-note {
+  margin: 13px 6px 0;
+  color: #9b727c;
+}
+
+/* Capability strip */
+:root[data-theme="rose"] .about-redesign .about-features {
+  min-height: 115px;
+  margin-top: 2px;
+  padding: 20px 7px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+:root[data-theme="rose"] .about-redesign .about-features::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 44px solid transparent;
+  border-image: url("/rose/cloud-panel-9slice.svg") 64 fill / 44px / 0 stretch;
+  opacity: 0.68;
+  pointer-events: none;
+}
+
+:root[data-theme="rose"] .about-redesign .about-feature {
+  z-index: 1;
+  gap: 18px;
+  padding: 4px 24px;
+  border-right-color: rgba(218, 151, 165, 0.34);
+}
+
+:root[data-theme="rose"] .about-redesign .about-feature-icon {
+  width: 50px;
+  height: 50px;
+  flex-basis: 50px;
+  border: 1px solid rgba(225, 143, 160, 0.3);
+  border-radius: 50%;
+}
+
+:root[data-theme="rose"] .about-redesign .about-feature-icon.blue {
+  color: #eb315d;
+  background: #fff0f2;
+}
+
+:root[data-theme="rose"] .about-redesign .about-feature-icon.green {
+  color: #179b59;
+  background: #f2f7ef;
+}
+
+:root[data-theme="rose"] .about-redesign .about-feature-icon.lav {
+  color: #7d35d2;
+  background: #faedf8;
+}
+
+:root[data-theme="rose"] .about-redesign .about-feature-icon svg {
+  width: 23px;
+  height: 23px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-feature strong {
+  color: #3e1c25;
+  font-size: 16px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-feature p {
+  margin-top: 6px;
+  color: #8a626c;
+  font-size: 12px;
+}
+
+:root[data-theme="rose"] .about-redesign .about-foot {
+  margin: 6px 2px 0;
+  color: #76505a;
+  font-size: 13px;
+}
+
+@media (min-width: 1181px) and (max-width: 1450px) {
+  :root[data-theme="rose"] .about-redesign .about-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-hero {
+    grid-template-columns: 142px 300px minmax(0, 1fr) 236px;
+    padding-left: 32px;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-mark {
+    width: 142px;
+    height: 142px;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-mark span {
+    font-size: 86px;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-hero-main {
+    margin-left: 10px;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-name {
+    font-size: 48px;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-actions button {
+    padding-inline: 10px;
+    font-size: 12px;
+  }
+
+  :root[data-theme="rose"] .about-redesign .rose-about-portrait {
+    top: 0;
+    height: calc(100% + 90px);
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-status {
+    width: 236px;
+    padding-inline: 20px;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  :root[data-theme="rose"] .about-redesign .about-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  :root[data-theme="rose"] .about-redesign .about-hero {
+    grid-template-columns: 120px minmax(0, 1fr) 224px;
+    column-gap: 20px;
+    padding: 22px 20px;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-mark {
+    width: 120px;
+    height: 120px;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-mark span {
+    font-size: 72px;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-hero-main {
+    margin-left: 0;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-name {
+    font-size: 43px;
+    line-height: 48px;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-tagline {
+    white-space: normal;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-actions {
+    flex-wrap: wrap;
+    margin-top: 15px;
+  }
+
+  :root[data-theme="rose"] .about-redesign :is(.rose-about-portrait, .about-orbit) {
+    display: none;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-status {
+    grid-column: auto;
+    width: 224px;
+    height: 218px;
+    padding-inline: 18px;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-card {
+    min-height: 250px;
+    padding-inline: 14px;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-features {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-feature {
+    padding-inline: 16px;
+    border-right: 1px solid var(--about-rose-line);
+    border-bottom: 0;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-feature:last-child {
+    border-right: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  :root[data-theme="rose"] .about-redesign .about-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  :root[data-theme="rose"] .about-redesign .about-hero {
+    height: auto;
+    min-height: 0;
+    grid-template-columns: 112px minmax(0, 1fr);
+    padding: 22px;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-mark {
+    width: 112px;
+    height: 112px;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-mark span {
+    font-size: 68px;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-hero-main {
+    margin-left: 0;
+  }
+
+  :root[data-theme="rose"] .about-redesign :is(.rose-about-portrait, .about-orbit) {
+    display: none;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-status {
+    grid-column: 1 / -1;
+    width: 100%;
+    height: auto;
+    margin-top: 4px;
+  }
+}

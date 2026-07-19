@@ -93,36 +93,42 @@ export function UsageFilterBar({
 
       <div className="usage-filter-row">
         <Select
+          className="usage-filter-control usage-filter-control--account"
           value={filters.account}
           options={withAll(t("dash.filter.allAccounts"), options.accounts, maskEmail)}
           onChange={(value) => setFilter({ account: value })}
           minWidth="160px"
         />
         <Select
+          className="usage-filter-control usage-filter-control--provider"
           value={filters.provider}
           options={withAll(t("dash.filter.allProviders"), options.providers)}
           onChange={(value) => setFilter({ provider: value })}
           minWidth="150px"
         />
         <Select
+          className="usage-filter-control usage-filter-control--model"
           value={filters.model}
           options={withAll(t("dash.filter.allModels"), options.models)}
           onChange={(value) => setFilter({ model: value })}
           minWidth="150px"
         />
         <Select
+          className="usage-filter-control usage-filter-control--channel"
           value={filters.channel}
           options={withAll(t("dash.filter.allChannels"), options.channels)}
           onChange={(value) => setFilter({ channel: value })}
           minWidth="150px"
         />
         <Select
+          className="usage-filter-control usage-filter-control--api-key"
           value={filters.apiKeyHash}
           options={apiKeyOptions}
           onChange={(value) => setFilter({ apiKeyHash: value })}
           minWidth="170px"
         />
         <Select
+          className="usage-filter-control usage-filter-control--status"
           value={filters.status}
           options={statusOptions}
           onChange={(value) => setFilter({ status: value as UsageStatusFilter })}

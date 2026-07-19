@@ -1,0 +1,173 @@
+/* Rose theme: log-page-only overrides matched to the supplied 1750×897 mockups. */
+:root[data-theme="rose"] .logs-redesign {
+  --page: transparent;
+  --surface: rgba(255, 253, 251, 0.9);
+  --surface-strong: #fffdfb;
+  --surface-soft: #fff7f6;
+  --border: rgba(217, 119, 137, 0.25);
+  --border-strong: rgba(207, 89, 113, 0.31);
+  --text: #3f2d31;
+  --muted: #74636a;
+  --soft: #a18e94;
+  --primary: #f04467;
+  --primary-strong: #d92e55;
+  --primary-soft: #fff0f2;
+  --success: #14ad57;
+  --success-soft: #e7f8ed;
+  --warning: #ff850f;
+  --warning-soft: #fff1df;
+  --danger: #ff293f;
+  --danger-soft: #ffecef;
+  --token: #f04467;
+  --token-soft: #fff0f3;
+  --lavender: #8c50ff;
+  --lavender-soft: #f3ebff;
+  --track: #eadde0;
+  --shadow-panel: 0 5px 18px rgba(128, 66, 78, 0.035);
+  --shadow-table: 0 7px 22px rgba(128, 66, 78, 0.045);
+}
+
+:root[data-theme="rose"] .logs-redesign.section-page {
+  margin: -22px -26px -26px;
+  padding: 27px 30px 20px;
+  background: transparent;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .content:has(.logs-redesign):not(.content--dashboard) {
+  background: transparent;
+}
+
+/* The reference uses a compact, mirrored rose cluster anchored to the actual
+   window corner. Keep this page-specific so the sidebar/menu remains untouched. */
+:root[data-theme="rose"] .app-shell.app-shell--v2:has(.logs-redesign) > .rose-shell-corner {
+  right: -14px;
+  bottom: -12px;
+  width: 228px;
+  height: 176px;
+  opacity: 0.86;
+  background-position: center bottom;
+  transform: scaleX(-1);
+}
+
+:root[data-theme="rose"] .logs-redesign .lr-header {
+  position: relative;
+  top: auto;
+  grid-template-columns: 230px auto minmax(20px, 1fr) auto;
+  gap: 18px;
+  min-height: 58px;
+  margin-bottom: 12px;
+  padding: 0;
+  background: transparent;
+}
+
+:root[data-theme="rose"] .logs-redesign .lr-header::before { display: none; }
+:root[data-theme="rose"] .logs-redesign .lr-title { font-size: 24px; line-height: 29px; font-weight: 800; letter-spacing: 0; }
+:root[data-theme="rose"] .logs-redesign .lr-subtitle { margin-top: 5px; font-size: 13px; font-weight: 500; }
+
+:root[data-theme="rose"] .logs-redesign .lr-tabs {
+  align-self: center;
+  margin: 0;
+  min-height: 38px;
+  padding: 0;
+  border-radius: 9px;
+  background: rgba(255,253,251,.72);
+  box-shadow: none;
+}
+:root[data-theme="rose"] .logs-redesign .lr-tab {
+  min-width: 92px;
+  height: 38px;
+  gap: 0;
+  border-right: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 650;
+}
+:root[data-theme="rose"] .logs-redesign .lr-tab:last-child { border-right: 0; }
+:root[data-theme="rose"] .logs-redesign .lr-tab .lr-icon { display: none; }
+:root[data-theme="rose"] .logs-redesign .lr-tab--active {
+  color: var(--primary);
+  border: 1px solid rgba(240,68,103,.36);
+  background: #fff5f6;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.7);
+}
+
+:root[data-theme="rose"] .logs-redesign .lr-actions { margin: 0; gap: 10px; align-self: center; }
+:root[data-theme="rose"] .logs-redesign .lr-search { width: 258px; height: 38px; border-radius: 9px; box-shadow: none; }
+:root[data-theme="rose"] .logs-redesign .lr-btn { min-height: 38px; padding: 0 14px; border-radius: 9px; box-shadow: none; font-size: 13px; }
+:root[data-theme="rose"] .logs-redesign .lr-btn:hover:not(:disabled) { transform: none; box-shadow: 0 4px 12px rgba(213,72,101,.08); }
+
+:root[data-theme="rose"] .logs-redesign .lr-panel {
+  border-radius: 11px;
+  background: rgba(255,253,251,.78);
+  box-shadow: var(--shadow-panel);
+}
+:root[data-theme="rose"] .logs-redesign .lr-metrics { gap: 18px; margin-bottom: 14px; }
+:root[data-theme="rose"] .logs-redesign .lr-metric { min-height: 94px; padding: 17px 22px; }
+:root[data-theme="rose"] .logs-redesign .lr-metric::after { display: none; }
+:root[data-theme="rose"] .logs-redesign .lr-metric-label { font-size: 13px; font-weight: 570; }
+:root[data-theme="rose"] .logs-redesign .lr-metric-value { margin-top: 7px; font-size: 27px; line-height: 30px; font-weight: 760; }
+:root[data-theme="rose"] .logs-redesign .lr-metric-value--healthy { color: var(--success); font-size: 21px; }
+:root[data-theme="rose"] .logs-redesign .lr-metric-icon { width: 42px; height: 42px; color: var(--primary); background: #fff0f3; border-radius: 50%; }
+:root[data-theme="rose"] .logs-redesign .lr-metric--success .lr-metric-icon { color: #ff7800; background: #fff5e8; }
+:root[data-theme="rose"] .logs-redesign .lr-metric--status .lr-metric-icon { color: var(--success); background: var(--success-soft); }
+:root[data-theme="rose"] .logs-redesign .lr-metric--errors .lr-metric-icon { color: var(--danger); background: var(--danger-soft); }
+:root[data-theme="rose"] .logs-redesign .lr-sparkline { width: 48px; filter: sepia(1) saturate(8) hue-rotate(325deg); }
+
+:root[data-theme="rose"] .logs-redesign .lr-health {
+  min-height: 62px;
+  margin-bottom: 16px;
+  padding: 0 20px;
+  border-radius: 11px;
+}
+:root[data-theme="rose"] .logs-redesign .lr-health-title { font-size: 14px; }
+:root[data-theme="rose"] .logs-redesign .lr-health-bar { height: 7px; }
+:root[data-theme="rose"] .logs-redesign .lr-health-slow { min-height: 30px; }
+
+:root[data-theme="rose"] .logs-redesign .lr-filters { gap: 12px; margin-bottom: 14px; }
+:root[data-theme="rose"] .logs-redesign .lr-segmented { height: 38px; padding: 0; border-radius: 9px; }
+:root[data-theme="rose"] .logs-redesign .lr-segment { min-width: 72px; height: 36px; border-right: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
+:root[data-theme="rose"] .logs-redesign .lr-segment:last-child { border-right: 0; }
+:root[data-theme="rose"] .logs-redesign .lr-segment--active { border: 1px solid rgba(240,68,103,.35); background: #fff1f3; box-shadow: none; }
+:root[data-theme="rose"] .logs-redesign .lr-filter-select { width: 170px; }
+:root[data-theme="rose"] .logs-redesign .lr-filter-select .qselect-button { height: 38px; border-radius: 9px; background: rgba(255,253,251,.84); }
+:root[data-theme="rose"] .logs-redesign .lr-reset { color: var(--primary); }
+
+:root[data-theme="rose"] .logs-redesign .lr-table-panel { border-radius: 11px; }
+:root[data-theme="rose"] .logs-redesign .lr-table-scroll { max-height: none; }
+:root[data-theme="rose"] .logs-redesign .lr-table { font-size: 12px; }
+:root[data-theme="rose"] .logs-redesign .lr-table thead { background: rgba(255,248,247,.72); }
+:root[data-theme="rose"] .logs-redesign .lr-table th { height: 40px; color: #6f6066; font-weight: 570; }
+:root[data-theme="rose"] .logs-redesign .lr-table td { height: 38px; color: #4f4450; }
+:root[data-theme="rose"] .logs-redesign .lr-table th,
+:root[data-theme="rose"] .logs-redesign .lr-table td { border-bottom-color: rgba(216,132,148,.18); }
+:root[data-theme="rose"] .logs-redesign .lr-provider { color: #34272c; }
+:root[data-theme="rose"] .logs-redesign .lr-account,
+:root[data-theme="rose"] .logs-redesign .lr-model,
+:root[data-theme="rose"] .logs-redesign .lr-token { color: #695e70; }
+:root[data-theme="rose"] .logs-redesign .lr-status { border-radius: 6px; }
+:root[data-theme="rose"] .logs-redesign .lr-details { color: var(--primary); }
+:root[data-theme="rose"] .logs-redesign .lr-table-footer { min-height: 54px; background: rgba(255,251,249,.72); }
+:root[data-theme="rose"] .logs-redesign .lr-page-btn:not(:disabled) { color: var(--primary); border-color: rgba(240,68,103,.35); background: #fff3f5; }
+:root[data-theme="rose"] .logs-redesign .lr-page-info { color: var(--primary); }
+
+:root[data-theme="rose"] .logs-redesign .lr-runtime { min-height: 68px; margin-bottom: 14px; border-radius: 11px; }
+:root[data-theme="rose"] .logs-redesign .lr-runtime-item { min-height: 44px; border-right-color: rgba(216,132,148,.22); }
+:root[data-theme="rose"] .logs-redesign .lr-runtime-item .lr-icon { color: var(--primary); }
+:root[data-theme="rose"] .logs-redesign .lr-switch--on { background: var(--primary); }
+
+:root[data-theme="rose"] .logs-redesign .lr-level { height: 38px; border-radius: 9px; }
+:root[data-theme="rose"] .logs-redesign .lr-stream { border-radius: 11px; }
+:root[data-theme="rose"] .logs-redesign .lr-stream-head { min-height: 39px; background: rgba(255,249,248,.72); }
+:root[data-theme="rose"] .logs-redesign .lr-log-scroll { max-height: 486px; background: rgba(255,253,251,.64); }
+:root[data-theme="rose"] .logs-redesign .lr-log-line { min-height: 30px; color: #425274; border-bottom-color: rgba(216,132,148,.17); }
+:root[data-theme="rose"] .logs-redesign .lr-log-line:hover { background: #fff6f6; }
+:root[data-theme="rose"] .logs-redesign .lr-log-line--warn { background: rgba(255,244,222,.66); }
+:root[data-theme="rose"] .logs-redesign .lr-log-line--error { background: rgba(255,232,235,.72); }
+:root[data-theme="rose"] .logs-redesign .lr-line-no { background: transparent; border-right-color: rgba(216,132,148,.16); }
+:root[data-theme="rose"] .logs-redesign .lr-stream-footer { min-height: 46px; background: rgba(255,249,248,.72); }
+
+@media (max-width: 1320px) {
+  :root[data-theme="rose"] .logs-redesign .lr-header { grid-template-columns: 210px auto 1fr; }
+  :root[data-theme="rose"] .logs-redesign .lr-actions { grid-column: 1 / -1; justify-self: stretch; }
+  :root[data-theme="rose"] .logs-redesign .lr-search { flex: 1; width: auto; }
+}

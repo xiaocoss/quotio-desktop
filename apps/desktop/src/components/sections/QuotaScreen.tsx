@@ -6,6 +6,7 @@ import { ProviderLogo } from "../../lib/providerLogos";
 import { useT } from "../../i18n";
 import { invoke } from "../../lib/tauri";
 import "./quota.css";
+import "./quota-rose.css";
 
 type CustomProviderBrief = {
   id: string;
@@ -58,6 +59,7 @@ export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSett
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const active = groups.find((group) => group.id === activeId) ?? groups[0] ?? null;
+  const activeUsesCodexBrand = active?.id.toLowerCase().includes("codex") ?? false;
   // 选中自定义服务商:显式选中它;或者没有内置分组、也没手动选过时,默认落到第一个自定义服务商
   // (否则「0 内置 + 1 自定义」且隐藏了 tab 时会没有任何内容可显示)。
   const activeCustom =
@@ -141,7 +143,14 @@ export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSett
         </button>
       </header>
 
-      <SchedulerCard appState={appState} onSaveSettings={onSaveSettings} onRunManagementStateAction={onRunManagementStateAction} activeProviderId={active?.id ?? null} />
+      <SchedulerCard
+        appState={appState}
+        onSaveSettings={onSaveSettings}
+        onRunManagementStateAction={onRunManagementStateAction}
+        activeProviderId={activeCustom ? null : active?.id ?? null}
+        themeAccountLabel={activeCustom ? null : sortedAccounts[0]?.account_label ?? null}
+        themeAccountCount={activeCustom ? 0 : sortedAccounts.length}
+      />
 
       {proxyUnreachable ? (
         <div className="state-banner state-banner--warn">
@@ -207,34 +216,47 @@ export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSett
             <>
               <QuotaSummary accounts={active.accounts} authFiles={authFiles} />
 
-              <div className="provider-head">
-                <div className="provider-title">
-                  <div className="provider-mark">
-                    <ProviderLogo providerId={active.id} />
+              <div className="quota-provider-panel">
+                <div className="provider-head">
+                  <div className="provider-title">
+                    <div
+                      className={activeUsesCodexBrand ? "provider-mark provider-mark--codex" : "provider-mark"}
+                    >
+                      {activeUsesCodexBrand ? (
+                        <img
+                          className="quota-provider-brand-logo quota-provider-brand-logo--codex"
+                          src="/providers/codex-openai-knot-v1.png"
+                          alt=""
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <ProviderLogo providerId={active.id} className="quota-provider-brand-logo" />
+                      )}
+                    </div>
+                    <span>{active.label}</span>
+                    <span className="count">{active.accounts.length}</span>
                   </div>
-                  <span>{active.label}</span>
-                  <span className="count">{active.accounts.length}</span>
+                  {/* 「添加账号」在「服务商」页操作,本页点它直接跳到服务商页。 */}
+                  <button className="button" type="button" onClick={onAddAccount}>
+                    <Icon id="icon-plus" />
+                    {t("quota.addAccount", "添加账号")}
+                  </button>
                 </div>
-                {/* 「添加账号」在「服务商」页操作,本页点它直接跳到服务商页。 */}
-                <button className="button" type="button" onClick={onAddAccount}>
-                  <Icon id="icon-plus" />
-                  {t("quota.addAccount", "添加账号")}
-                </button>
-              </div>
 
-              <div className="cards">
-                {sortedAccounts.map((account, index) => (
-                  <AccountQuotaCard
-                    key={account.account_key}
-                    account={account}
-                    authFiles={authFiles}
-                    order={orderForAccount(account)}
-                    index={index}
-                    onRefreshQuotas={onRefreshQuotas}
-                    onViewChart={onViewAccountChart}
-                    onViewLogs={onViewAccountLogs}
-                  />
-                ))}
+                <div className="cards">
+                  {sortedAccounts.map((account, index) => (
+                    <AccountQuotaCard
+                      key={account.account_key}
+                      account={account}
+                      authFiles={authFiles}
+                      order={orderForAccount(account)}
+                      index={index}
+                      onRefreshQuotas={onRefreshQuotas}
+                      onViewChart={onViewAccountChart}
+                      onViewLogs={onViewAccountLogs}
+                    />
+                  ))}
+                </div>
               </div>
             </>
           ) : null}
@@ -297,11 +319,15 @@ function SchedulerCard({
   onSaveSettings,
   onRunManagementStateAction,
   activeProviderId,
+  themeAccountLabel,
+  themeAccountCount,
 }: {
   appState: AppState;
   onSaveSettings: (settings: AppSettings) => void;
   onRunManagementStateAction: (command: string, args?: Record<string, unknown>) => void;
   activeProviderId: string | null;
+  themeAccountLabel: string | null;
+  themeAccountCount: number;
 }) {
   const t = useT();
   const scheduler = appState.scheduler;
@@ -447,6 +473,14 @@ function SchedulerCard({
     { id: "priority_failover", label: t("quota.scheduler.modeFailover", "顺序故障转移") },
   ];
   const activeModeLabel = modes.find((m) => m.id === rule)?.label ?? "";
+  const roseThemeLine = themeAccountLabel
+    ? t(
+        "quota.scheduler.themeLine",
+        "主题：{account} · 共 {count} 个账号（待命账号不参与调度）",
+      )
+        .replace("{account}", maskEmail(themeAccountLabel))
+        .replace("{count}", String(themeAccountCount))
+    : null;
 
   return (
     <section className="panel strategy">
@@ -459,7 +493,8 @@ function SchedulerCard({
           {activeModeLabel ? <span className="pill">{activeModeLabel}</span> : null}
         </h2>
         <p>{statusText}</p>
-        {tagText ? <small>{tagText}</small> : null}
+        {tagText ? <small className="scheduler-rule-line">{tagText}</small> : null}
+        {roseThemeLine ? <small className="rose-scheduler-theme">{roseThemeLine}</small> : null}
       </div>
       <div className="strategy-actions" role="group" aria-label={t("quota.scheduler.cardTitle", "账号调度")}>
         {modes.map((m) => (

@@ -3,6 +3,7 @@ import "./App.css";
 import "./components/shell.css";
 import "./components/about.css";
 import "./components/rose-theme.css";
+import "./components/about-rose.css";
 import { AppShell } from "./components/AppShell";
 import { I18nProvider, resolveLocale } from "./i18n";
 import { applyTheme, resolveEffectiveTheme } from "./lib/theme";

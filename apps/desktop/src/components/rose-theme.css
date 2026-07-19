@@ -4,10 +4,17 @@
 .rose-shell-petals,
 .rose-shell-corner,
 .rose-agents-portrait,
+.rose-about-portrait,
 .about-orbit--mirror,
 .rose-dashboard-hero,
+.rose-dashboard-cloud-frame,
+.rose-dashboard-bottom-flower,
 .rose-menubar-avatar {
   display: none;
+}
+
+.rose-dashboard-intro {
+  display: contents;
 }
 
 :root[data-theme="rose"] {
@@ -73,7 +80,11 @@
 
 /* ===== Shared shell ===== */
 :root[data-theme="rose"] .app-shell.app-shell--v2 {
-  position: relative;
+  position: fixed;
+  inset: 0;
+  width: auto;
+  height: auto;
+  min-height: 0;
   isolation: isolate;
   --rose-sidebar-width: 204px;
   grid-template-columns: var(--rose-sidebar-width) minmax(0, 1fr);
@@ -98,6 +109,7 @@
 :root[data-theme="rose"] .app-shell--v2 .content--dashboard {
   padding-left: 38px;
   padding-right: 30px;
+  padding-bottom: 0;
 }
 
 :root[data-theme="rose"] .app-shell--v2 .sidebar {
@@ -192,10 +204,10 @@
   overflow: visible;
   border: 0;
   border-radius: 0;
-  background: var(--rose-primary);
+  background: url("/rose/sidebar-rose-logo-v2.png") center / contain no-repeat;
   box-shadow: none;
-  -webkit-mask: url("/rose/rose-mark.svg") center / contain no-repeat;
-  mask: url("/rose/rose-mark.svg") center / contain no-repeat;
+  -webkit-mask: none;
+  mask: none;
 }
 
 :root[data-theme="rose"] .rose-sidebar-avatar img {
@@ -223,16 +235,16 @@
 
 :root[data-theme="rose"] .app-shell--v2 .sidebar::after {
   content: "";
-  position: absolute;
-  left: -92px;
-  bottom: -74px;
+  position: fixed;
+  left: 0;
+  bottom: -22px;
   z-index: 0;
-  width: 270px;
-  height: 250px;
-  opacity: 0.52;
+  width: 211px;
+  height: 289px;
+  opacity: 0.9;
   pointer-events: none;
-  background: url("/rose/rose-corner.png") center / contain no-repeat;
-  transform: scaleX(-1) rotate(-8deg);
+  background: url("/rose/sidebar-footer-floral-v1.png") left bottom / 211px 289px no-repeat;
+  transform: none;
 }
 
 :root[data-theme="rose"] .app-shell--v2 .nav-list {
@@ -265,9 +277,20 @@
   background: #f8dce4;
 }
 
+:root[data-theme="rose"] .app-shell--v2 .sidebar-footer {
+  position: relative;
+  z-index: 1;
+  width: 185px;
+  margin: auto 0 39px 1px;
+  gap: 12px;
+}
 :root[data-theme="rose"] .app-shell--v2 .proxy-card,
 :root[data-theme="rose"] .app-shell--v2 .sidebar .proxy-card {
+  min-height: 68px;
+  gap: 6px;
+  padding: 11px 12px;
   border-color: var(--rose-border);
+  border-radius: 12px;
   background: rgba(255, 253, 251, 0.93);
   box-shadow: 0 12px 28px rgba(130, 72, 83, 0.09);
 }
@@ -286,6 +309,52 @@
   color: var(--rose-muted);
 }
 
+:root[data-theme="rose"] .app-shell--v2 .proxy-card-icon {
+  width: 28px;
+  height: 28px;
+  flex-basis: 28px;
+  border-radius: 8px;
+  font-size: 0;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .proxy-card-icon::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .proxy-card-text {
+  gap: 2px;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .proxy-card-subtitle {
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .proxy-card-subtitle > span {
+  flex: 0 0 auto;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .proxy-card-chevron {
+  color: #b75f70;
+  font-size: 20px;
+  line-height: 1;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .proxy-card-separator {
+  margin: 0 3px;
+}
+
+:root[data-theme="rose"] .app-shell--v2 .proxy-status-bar {
+  gap: 9px;
+  padding: 0 6px;
+}
 :root[data-theme="rose"] .rose-shell-petals,
 :root[data-theme="rose"] .rose-shell-corner {
   display: block;
@@ -310,6 +379,13 @@
   height: 260px;
   opacity: 0.42;
   background: url("/rose/rose-corner.png") center / contain no-repeat;
+}
+
+:root[data-theme="rose"] .app-shell.app-shell--v2:has(.usage-dash) > :is(
+  .rose-shell-petals,
+  .rose-shell-corner
+) {
+  display: none;
 }
 
 /* ===== Global controls and overlays ===== */
@@ -524,27 +600,113 @@
   backdrop-filter: none;
 }
 
-/* Dashboard: integrate the portrait and ornaments into the filter area instead
-   of inserting a separate empty banner above the controls. */
+/* Dashboard: keep the portrait as a fixed decorative layer behind the filter
+   controls, so it can reach the window top without adding an empty banner. */
 :root[data-theme="rose"] .usage-dash {
   --trend-color: var(--rose-primary);
+  --rose-dashboard-hero-width: 760px;
+  --rose-dashboard-filter-reserve: 360px;
+  --rose-dashboard-search-reserve: 423px;
   position: relative;
+  overflow: visible;
+  isolation: isolate;
   background:
     linear-gradient(135deg, rgba(255, 252, 249, 0.42), rgba(255, 239, 242, 0.25)),
     url("/rose/rose-bg.webp") center top / cover repeat-y;
 }
 
-:root[data-theme="rose"] .usage-dash::before {
+:root[data-theme="rose"] .rose-dashboard-cloud-frame {
+  display: block;
+  position: fixed;
+  inset: 0 0 0 var(--rose-sidebar-width, 204px);
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+:root[data-theme="rose"] .rose-dashboard-cloud-frame::before,
+:root[data-theme="rose"] .rose-dashboard-cloud-frame::after {
   content: "";
   position: absolute;
-  top: -10px;
-  left: -16px;
-  z-index: 0;
-  width: 240px;
-  height: 128px;
-  opacity: 0.74;
+  box-sizing: border-box;
+  border: 1px solid;
+  border-radius: 0;
   pointer-events: none;
-  background: url("/rose/cloud-filigree-corner.svg") center / contain no-repeat;
+}
+
+:root[data-theme="rose"] .rose-dashboard-cloud-frame::before {
+  inset: 0;
+  border-color: rgba(229, 188, 150, 0.35);
+}
+
+:root[data-theme="rose"] .rose-dashboard-cloud-frame::after {
+  inset: 7px 7px 7px 0;
+  border-color: rgba(229, 188, 150, 0.19);
+  opacity: 1;
+}
+
+:root[data-theme="rose"] .rose-dashboard-cloud-corner {
+  position: absolute;
+  z-index: 1;
+  width: 64px;
+  height: 64px;
+  opacity: 0.72;
+  background: url("/rose/cloud-dashboard-corner.svg") center / contain no-repeat;
+}
+
+:root[data-theme="rose"] .rose-dashboard-cloud-corner--tl {
+  top: 0;
+  left: 0;
+}
+
+:root[data-theme="rose"] .rose-dashboard-cloud-corner--tr {
+  top: 0;
+  right: 0;
+  transform: scaleX(-1);
+}
+
+:root[data-theme="rose"] .rose-dashboard-cloud-corner--bl {
+  bottom: 0;
+  left: 0;
+  transform: scaleY(-1);
+}
+
+:root[data-theme="rose"] .rose-dashboard-cloud-corner--br {
+  right: 0;
+  bottom: 0;
+  transform: scale(-1);
+}
+
+:root[data-theme="rose"] .usage-dash::after {
+  content: "";
+  position: fixed;
+  inset: 0 0 0 var(--rose-sidebar-width, 204px);
+  z-index: 1;
+  opacity: 0.78;
+  pointer-events: none;
+  background: url("/rose/rose-corner.png") left -96px bottom -48px / 420px 280px no-repeat;
+}
+
+:root[data-theme="rose"] .rose-dashboard-bottom-flower--right {
+  display: block;
+  position: fixed;
+  right: 0;
+  bottom: -24px;
+  z-index: 1;
+  width: 176px;
+  height: 210px;
+  opacity: 0.78;
+  pointer-events: none;
+  background-image: url("/rose/rose-corner.png");
+  background-position: left bottom;
+  background-size: 315px 210px;
+  background-repeat: no-repeat;
+  transform: scaleX(-1);
+  transform-origin: center;
+}
+
+:root[data-theme="rose"] .usage-dash .dash-toolbar {
+  display: none;
 }
 
 :root[data-theme="rose"] .usage-dash > .page-topbar {
@@ -554,13 +716,21 @@
 
 :root[data-theme="rose"] .usage-dash > .dashboard-scroll {
   position: relative;
-  z-index: 1;
+  z-index: 3;
 }
 
 :root[data-theme="rose"] .usage-dash .dashboard-scroll {
   position: relative;
   gap: 10px;
   padding-right: 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+:root[data-theme="rose"] .usage-dash .dashboard-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 :root[data-theme="rose"] .usage-dash .dashboard-scroll::before {
@@ -576,9 +746,18 @@
   z-index: 1;
 }
 
+:root[data-theme="rose"] .rose-dashboard-intro {
+  display: block;
+  position: relative;
+  z-index: 1;
+  min-height: 130px;
+  flex: 0 0 auto;
+}
+
 :root[data-theme="rose"] .usage-dash .usage-filter-bar {
-  min-height: 132px;
-  padding: 4px 500px 4px 0;
+  min-height: 130px;
+  padding: 9px 0 2px;
+  gap: 0;
   overflow: visible;
   border: 0;
   border-radius: 0;
@@ -586,7 +765,7 @@
   box-shadow: none;
 }
 
-:root[data-theme="rose"] .usage-dash .usage-filter-bar > :not(.rose-dashboard-hero) {
+:root[data-theme="rose"] .rose-dashboard-intro > .usage-filter-bar {
   position: relative;
   z-index: 3;
 }
@@ -594,11 +773,11 @@
 :root[data-theme="rose"] .rose-dashboard-hero {
   display: block;
   position: absolute;
-  top: 0;
-  right: -2px;
+  top: -22px;
+  right: -30px;
   z-index: 2;
-  width: 490px;
-  height: 214px;
+  width: var(--rose-dashboard-hero-width);
+  height: 226px;
   overflow: hidden;
   isolation: isolate;
   pointer-events: none;
@@ -612,67 +791,69 @@
 }
 
 :root[data-theme="rose"] .rose-dashboard-hero::before {
-  top: -82px;
-  right: -72px;
-  z-index: 0;
-  width: 330px;
-  height: 300px;
-  opacity: 0.72;
+  top: -5px;
+  right: -45px;
+  z-index: 4;
+  width: 520px;
+  height: 347px;
+  opacity: 1;
   background: url("/rose/rose-corner.png") center / contain no-repeat;
-  transform: rotate(5deg);
+  transform: rotate(180deg);
 }
 
 :root[data-theme="rose"] .rose-dashboard-hero::after {
-  top: 18px;
-  left: 150px;
-  z-index: 1;
-  width: 260px;
-  height: 150px;
-  opacity: 0.52;
+  top: 8px;
+  left: 92px;
+  z-index: 3;
+  width: 520px;
+  height: 220px;
+  opacity: 0.34;
   background: url("/rose/rose-petals.png") center / contain no-repeat;
 }
 
 :root[data-theme="rose"] .rose-dashboard-hero img {
   position: absolute;
-  right: 8px;
-  bottom: -4px;
-  z-index: 2;
-  width: auto;
-  height: 210px;
+  top: 0;
+  right: 183px;
+  bottom: auto;
+  z-index: 5;
+  width: 474px;
+  height: 226px;
   display: block;
-  object-fit: contain;
+  object-fit: cover;
+  object-position: right bottom;
 }
 
 :root[data-theme="rose"] .rose-dashboard-sprig {
   position: absolute;
-  top: 42px;
-  z-index: 1;
-  width: 96px;
-  height: 150px;
-  opacity: 0.68;
+  top: 58px;
+  z-index: 4;
+  width: 92px;
+  height: 138px;
+  opacity: 0.58;
   background: url("/rose/cloud-botanical-sprig.svg") center / contain no-repeat;
 }
 
 :root[data-theme="rose"] .rose-dashboard-sprig--left {
-  right: 250px;
+  right: 360px;
 }
 
 :root[data-theme="rose"] .rose-dashboard-sprig--right {
-  right: -4px;
+  right: 86px;
   transform: scaleX(-1);
 }
 
 :root[data-theme="rose"] .rose-dashboard-motto {
   position: absolute;
-  top: 58px;
-  left: 12px;
-  z-index: 3;
-  width: 214px;
+  top: 50px;
+  left: -40px;
+  z-index: 6;
+  width: 270px;
   margin: 0;
   color: #dc6680;
   font-family: "STKaiti", "KaiTi", "Segoe Script", cursive;
-  font-size: 22px;
-  line-height: 1.48;
+  font-size: 24px;
+  line-height: 1.44;
   font-weight: 500;
   letter-spacing: 0.08em;
   text-align: center;
@@ -683,18 +864,32 @@
 
 :root[data-theme="rose"] .usage-dash .range-tabs,
 :root[data-theme="rose"] .usage-dash .usage-filter-row {
-  gap: 8px;
+  gap: 12px;
+}
+
+:root[data-theme="rose"] .usage-dash .usage-filter-row {
+  gap: 10px;
+  width: max-content;
+  max-width: calc(100% - var(--rose-dashboard-filter-reserve));
+  flex-wrap: nowrap;
 }
 
 :root[data-theme="rose"] .usage-dash .range-tabs {
-  margin-bottom: 8px;
+  align-self: flex-start;
+  width: min(404px, 100%);
+  margin-bottom: 11px;
+  gap: 4px;
+  padding: 2px 4px 2px 0;
+  border: 1px solid var(--rose-border);
+  border-radius: 12px;
+  background: rgba(255, 253, 251, 0.82);
 }
 
 :root[data-theme="rose"] .usage-dash .range-tabs::before {
   content: "";
   flex: 0 0 24px;
   width: 24px;
-  height: 40px;
+  height: 32px;
   align-self: center;
   opacity: 0.88;
   pointer-events: none;
@@ -702,77 +897,112 @@
 }
 
 :root[data-theme="rose"] .usage-dash .usage-filter-bar .range-tab {
-  min-width: 56px;
+  min-width: 0;
+  flex: 0 0 56px;
   height: 32px;
-  padding: 0 14px;
+  padding: 0 8px;
   border-radius: 10px;
   box-shadow: none;
+  white-space: nowrap;
+}
+
+:root[data-theme="rose"] .usage-dash .usage-filter-bar .range-tab:last-child {
+  flex-basis: 64px;
 }
 
 :root[data-theme="rose"] .usage-dash .usage-filter-bar .qselect-button {
-  height: 34px;
+  height: 32px;
   padding: 0 12px;
   border-radius: 10px;
   box-shadow: none;
 }
 
-:root[data-theme="rose"] .usage-dash .usage-filter-row .qselect:nth-child(1) .qselect-button {
-  min-width: 130px !important;
+:root[data-theme="rose"] .usage-dash .usage-filter-control--account .qselect-button {
+  min-width: 128px !important;
 }
 
-:root[data-theme="rose"] .usage-dash .usage-filter-row .qselect:nth-child(2) .qselect-button,
-:root[data-theme="rose"] .usage-dash .usage-filter-row .qselect:nth-child(3) .qselect-button,
-:root[data-theme="rose"] .usage-dash .usage-filter-row .qselect:nth-child(4) .qselect-button {
-  min-width: 126px !important;
+:root[data-theme="rose"] .usage-dash :is(
+  .usage-filter-control--provider,
+  .usage-filter-control--model,
+  .usage-filter-control--channel
+) .qselect-button {
+  min-width: 118px !important;
 }
 
-:root[data-theme="rose"] .usage-dash .usage-filter-row .qselect:nth-child(5) .qselect-button {
-  min-width: 155px !important;
+:root[data-theme="rose"] .usage-dash .usage-filter-control--provider .qselect-button {
+  min-width: 122px !important;
 }
 
-:root[data-theme="rose"] .usage-dash .usage-filter-row .qselect:nth-child(6) .qselect-button {
-  min-width: 110px !important;
+:root[data-theme="rose"] .usage-dash .usage-filter-control--channel .qselect-button {
+  min-width: 120px !important;
+}
+
+:root[data-theme="rose"] .usage-dash .usage-filter-control--api-key .qselect-button {
+  min-width: 150px !important;
+}
+
+:root[data-theme="rose"] .usage-dash .usage-filter-control--status .qselect-button {
+  min-width: 112px !important;
 }
 
 :root[data-theme="rose"] .usage-dash .usage-search-row {
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 11px;
 }
 
 :root[data-theme="rose"] .usage-dash .usage-search {
+  flex: 0 1 calc(100% - var(--rose-dashboard-search-reserve));
+  max-width: calc(100% - var(--rose-dashboard-search-reserve));
+  min-width: 0;
   height: 36px;
   padding: 0 12px;
   border-radius: 11px;
 }
 
 :root[data-theme="rose"] .usage-dash .usage-filter-bar .ghost-action {
+  position: relative;
+  z-index: 6;
+  margin-left: auto;
   height: 34px;
+  padding: 0 12px;
   border-radius: 10px;
 }
 
+:root[data-theme="rose"] .usage-dash .usage-filter-bar .ghost-action:disabled {
+  color: var(--rose-primary);
+  border-color: var(--rose-border-strong);
+  background: rgba(255, 250, 249, 0.9);
+  opacity: 1;
+}
+
 :root[data-theme="rose"] .usage-dash .panel:not(.usage-filter-bar) {
-  border-radius: 16px;
+  border-radius: 12px;
 }
 
 :root[data-theme="rose"] .usage-dash .kpis {
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.13fr);
+  grid-auto-rows: 98px;
+  column-gap: 12px;
+  row-gap: 9px;
 }
 
 :root[data-theme="rose"] .usage-dash .kpi {
-  grid-template-columns: 54px 1fr;
-  min-height: 88px;
-  padding: 13px 15px;
+  grid-template-columns: 58px minmax(0, 1fr);
+  column-gap: 20px;
+  height: 98px;
+  min-height: 0;
+  padding: 18px 20px;
 }
 
 :root[data-theme="rose"] .usage-dash .orb {
-  width: 46px;
-  height: 46px;
-  border-radius: 16px;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
 }
 
 :root[data-theme="rose"] .usage-dash .orb svg {
-  width: 20px;
-  height: 20px;
+  width: 23px;
+  height: 23px;
 }
 
 :root[data-theme="rose"] .usage-dash .kpi-value {
@@ -783,6 +1013,9 @@
 
 :root[data-theme="rose"] .usage-dash .kpi-note {
   margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 :root[data-theme="rose"] .usage-dash .chart-panel,
@@ -795,7 +1028,107 @@
 }
 
 :root[data-theme="rose"] .usage-dash :is(.chart-canvas, .chart-empty) {
-  height: 150px;
+  height: 121px;
+}
+
+:root[data-theme="rose"] .usage-dash .kpis + .chart-panel {
+  margin-top: -3px;
+}
+
+:root[data-theme="rose"] .usage-dash .account-summary-panel {
+  margin-top: -2px;
+  padding: 18px 22px;
+  gap: 14px;
+}
+
+:root[data-theme="rose"] .usage-dash .table-tools {
+  min-height: 38px;
+  gap: 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+:root[data-theme="rose"] .usage-dash .table-actions {
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+:root[data-theme="rose"] .usage-dash :is(
+  .table-actions .qselect-button,
+  .mini-search,
+  .view-toggle button,
+  .icon-button
+) {
+  height: 38px;
+}
+
+:root[data-theme="rose"] .usage-dash .mini-search {
+  width: 220px;
+  padding: 0 12px;
+}
+
+:root[data-theme="rose"] .usage-dash table {
+  font-size: 13px;
+  line-height: normal;
+}
+
+:root[data-theme="rose"] .usage-dash thead th {
+  padding: 12px 8px;
+  font-size: 12px;
+  line-height: normal;
+}
+
+:root[data-theme="rose"] .usage-dash tbody td {
+  padding: 12px 8px;
+}
+
+:root[data-theme="rose"] .usage-dash .account-summary-panel tbody tr {
+  height: auto;
+}
+
+:root[data-theme="rose"] .usage-dash .account-cell {
+  gap: 2px;
+}
+
+:root[data-theme="rose"] .usage-dash .account-name {
+  font-size: inherit;
+  line-height: normal;
+}
+
+:root[data-theme="rose"] .usage-dash .account-provider {
+  font-size: 11px;
+  line-height: normal;
+}
+
+:root[data-theme="rose"] .usage-dash .badge {
+  height: 24px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+:root[data-theme="rose"] .usage-dash .account-summary-panel .link-action {
+  min-height: 0;
+  padding: 0;
+  font-size: inherit;
+}
+
+:root[data-theme="rose"] .usage-dash .dash-pagination {
+  position: static;
+  justify-content: space-between;
+  min-height: 34px;
+  margin-top: 14px;
+  padding-top: 4px;
+}
+
+:root[data-theme="rose"] .usage-dash .dash-pagination-pages {
+  position: static;
+  transform: none;
+}
+
+:root[data-theme="rose"] .usage-dash .dash-page-btn {
+  min-width: 34px;
+  height: 34px;
+  border-radius: 11px;
 }
 
 :root[data-theme="rose"] .usage-dash :is(.dash-refresh, .dash-page-btn--active) {
@@ -810,6 +1143,20 @@
 :root[data-theme="rose"] .usage-dash :is(.range-tab, .segmented, .view-toggle, .mini-search, .acct-card, .dash-page-btn:not(.dash-page-btn--active)) {
   border-color: var(--rose-border);
   background: rgba(255, 253, 251, 0.86);
+}
+
+:root[data-theme="rose"] .usage-dash .usage-filter-bar .range-tab[aria-selected="false"] {
+  color: var(--rose-text);
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-theme="rose"] .usage-dash .usage-filter-bar .range-tab[aria-selected="true"] {
+  color: var(--rose-primary);
+  border-color: var(--rose-border);
+  background: var(--rose-primary-soft);
+  box-shadow: none;
 }
 
 :root[data-theme="rose"] .usage-dash .orb.blue {
@@ -849,6 +1196,60 @@
   border-color: transparent;
   background: linear-gradient(135deg, #d73c63, #b92349);
   box-shadow: 0 10px 24px rgba(185, 35, 73, 0.2);
+}
+
+/* Quota keeps the original page geometry; Rose only remaps its visual skin. */
+:root[data-theme="rose"] .quota-redesign .strategy {
+  border-color: rgba(215, 60, 99, 0.28);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(233, 79, 112, 0.15), transparent 38%),
+    linear-gradient(135deg, rgba(255, 253, 251, 0.96), rgba(255, 241, 244, 0.9));
+}
+
+:root[data-theme="rose"] .quota-redesign :is(.strategy-icon, .pill) {
+  color: var(--rose-primary);
+  background: var(--rose-primary-soft);
+}
+
+:root[data-theme="rose"] .quota-redesign .strategy small {
+  color: #9a727d;
+}
+
+:root[data-theme="rose"] .quota-redesign .button:hover:not(:disabled) {
+  border-color: var(--rose-border-strong);
+}
+
+:root[data-theme="rose"] .quota-redesign .quota-tab:hover {
+  border-color: var(--rose-border-strong);
+  background: rgba(253, 231, 235, 0.56);
+}
+
+:root[data-theme="rose"] .quota-redesign .quota-tab--active {
+  color: var(--rose-primary);
+  border-color: rgba(215, 60, 99, 0.42) !important;
+  background: var(--rose-primary-soft) !important;
+  box-shadow: 0 8px 20px rgba(185, 35, 73, 0.1);
+}
+
+:root[data-theme="rose"] .quota-redesign .quota-tab-count {
+  color: #9a5969;
+  background: rgba(215, 60, 99, 0.1);
+}
+
+:root[data-theme="rose"] .quota-redesign .quota-card {
+  border-color: var(--rose-border);
+  background: rgba(255, 253, 251, 0.96);
+  box-shadow: 0 16px 36px rgba(130, 72, 83, 0.08), 0 1px 6px rgba(130, 72, 83, 0.05);
+}
+
+:root[data-theme="rose"] .quota-redesign .provider-mark {
+  border-color: var(--rose-border);
+  background: rgba(255, 253, 251, 0.96);
+  box-shadow: 0 1px 2px rgba(130, 72, 83, 0.06);
+}
+
+:root[data-theme="rose"] .quota-redesign .track {
+  background: #f1dfe3;
 }
 
 :root[data-theme="rose"] .settings-redesign .sr-mode-card.is-selected {
@@ -917,27 +1318,6 @@
 :root[data-theme="rose"] .app-shell--v2 .nav-list button {
   min-height: 36px;
   border-radius: 10px;
-}
-
-/* Quota: the asymmetric wide-panel frame belongs on the scheduler banner. */
-:root[data-theme="rose"] .quota-redesign .strategy {
-  position: relative;
-  isolation: isolate;
-}
-
-:root[data-theme="rose"] .quota-redesign .strategy::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  border: 64px solid transparent;
-  border-image: url("/rose/cloud-panel-9slice.svg") 64 fill / 64px / 0 stretch;
-  pointer-events: none;
-}
-
-:root[data-theme="rose"] .quota-redesign .strategy > * {
-  position: relative;
-  z-index: 3;
 }
 
 /* Agents: hooked discovery cards and the top-right portrait wreath. */
@@ -1009,6 +1389,161 @@
   border: 2px solid rgba(216, 173, 114, 0.62);
   border-radius: 50%;
   box-shadow: 0 12px 28px rgba(130, 72, 83, 0.16);
+}
+
+:root[data-theme="rose"] .agents-redesign .page-subtitle {
+  margin-bottom: 12px;
+}
+
+:root[data-theme="rose"] .agents-redesign .panel {
+  padding: 0;
+}
+
+:root[data-theme="rose"] .agents-redesign .metrics {
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+:root[data-theme="rose"] .agents-redesign .metric {
+  min-height: 88px;
+  grid-template-columns: 48px 1fr;
+  gap: 14px;
+  padding: 14px 18px;
+}
+
+:root[data-theme="rose"] .agents-redesign .metric-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+}
+
+:root[data-theme="rose"] .agents-redesign .panel-head {
+  padding: 14px 16px 10px;
+}
+
+:root[data-theme="rose"] .agents-redesign .agent-list {
+  max-height: 152px;
+  padding: 0 16px 8px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+:root[data-theme="rose"] .agents-redesign .agent-row {
+  min-height: 72px;
+  grid-template-columns: 50px minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+:root[data-theme="rose"] .agents-redesign .agent-mark {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+}
+
+:root[data-theme="rose"] .agents-redesign .path {
+  margin-top: 2px;
+}
+
+:root[data-theme="rose"] .agents-redesign .panel-footer-link {
+  min-height: 36px;
+  padding: 0 16px;
+}
+
+:root[data-theme="rose"] .agents-redesign .runtime-list {
+  padding: 0 14px 10px;
+}
+
+:root[data-theme="rose"] .agents-redesign .runtime-row {
+  min-height: 40px;
+  grid-template-columns: 30px minmax(84px, 0.85fr) minmax(100px, 1.15fr);
+  padding: 0 10px;
+}
+
+:root[data-theme="rose"] .agents-redesign .route-asset {
+  display: none;
+}
+
+:root[data-theme="rose"] .agents-redesign .scheme-head {
+  align-items: center;
+  padding: 12px 16px 8px;
+}
+
+:root[data-theme="rose"] .agents-redesign .app-path {
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+:root[data-theme="rose"] .agents-redesign .scheme-note {
+  margin-top: 3px;
+  font-size: 11px;
+}
+
+:root[data-theme="rose"] .agents-redesign .scheme-list {
+  max-height: 112px;
+  gap: 8px;
+  padding: 0 16px 8px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+:root[data-theme="rose"] .agents-redesign .scheme-card {
+  min-height: 96px;
+  grid-template-columns: minmax(170px, 1.05fr) repeat(4, minmax(110px, 1fr)) auto;
+  padding: 10px 12px;
+}
+
+:root[data-theme="rose"] .agents-redesign .scheme-identity {
+  gap: 10px;
+  padding-right: 10px;
+}
+
+:root[data-theme="rose"] .agents-redesign .scheme-name {
+  font-size: 15px;
+}
+
+:root[data-theme="rose"] .agents-redesign .scheme-sub {
+  margin-top: 2px;
+  font-size: 10px;
+}
+
+:root[data-theme="rose"] .agents-redesign .scheme-field {
+  padding: 4px 10px;
+}
+
+:root[data-theme="rose"] .agents-redesign .field-value {
+  margin-top: 3px;
+  font-size: 10px;
+}
+
+:root[data-theme="rose"] .agents-redesign .scheme-actions {
+  gap: 6px;
+  padding-left: 10px;
+}
+
+:root[data-theme="rose"] .agents-redesign .scheme-actions .btn.small {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+:root[data-theme="rose"] .agents-redesign .discovery-panel {
+  padding-bottom: 10px;
+}
+
+:root[data-theme="rose"] .agents-redesign .discovery-card {
+  min-height: 104px;
+  grid-template-columns: 44px 1fr;
+  gap: 7px 10px;
+  padding: 12px;
+}
+
+:root[data-theme="rose"] .agents-redesign .discovery-mark {
+  width: 44px;
+  height: 44px;
+}
+
+:root[data-theme="rose"] .agents-redesign .discovery-footer {
+  margin-top: 8px;
 }
 
 /* Logs: the T-shaped junctions sit on the shell's sidebar/content boundary. */
@@ -1095,15 +1630,57 @@
 
 :root[data-theme="rose"] .about-redesign .about-mark {
   z-index: 2;
-  border-radius: 50%;
+  width: 124px;
+  height: 124px;
+  color: #8d1738;
+  border: 1px solid rgba(216, 173, 114, 0.58);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 72% 28%, rgba(255, 255, 255, 0.84), transparent 28%),
+    linear-gradient(145deg, #fff8f5, #f7ced5 72%, #f2b8c5);
+  box-shadow: 0 24px 54px rgba(130, 72, 83, 0.16);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 78px;
+  font-weight: 700;
 }
 
-/* About and API keys were not covered by the original implementation checklist. */
-:root[data-theme="rose"] .about-redesign .about-mark {
-  color: transparent;
-  border: 1px solid rgba(216, 173, 114, 0.58);
-  background: url("/rose/character-avatar.png") center / cover no-repeat;
-  box-shadow: 0 24px 54px rgba(130, 72, 83, 0.16);
+:root[data-theme="rose"] .about-redesign .about-hero {
+  min-height: 286px;
+  grid-template-columns: 124px minmax(220px, 0.78fr) minmax(320px, 1.15fr) 286px;
+  gap: 18px;
+  padding: 20px 24px;
+}
+
+:root[data-theme="rose"] .rose-about-portrait {
+  display: block;
+  position: relative;
+  align-self: stretch;
+  min-width: 0;
+  overflow: hidden;
+  margin: -20px -6px -20px;
+  pointer-events: none;
+}
+
+:root[data-theme="rose"] .rose-about-portrait::before {
+  content: "";
+  position: absolute;
+  inset: 18px 10px 8px;
+  z-index: 0;
+  opacity: 0.72;
+  background: url("/rose/cloud-avatar-wreath.svg") center / contain no-repeat;
+}
+
+:root[data-theme="rose"] .rose-about-portrait img {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: 72% 34%;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 10%, #000 92%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 10%, #000 92%, transparent 100%);
 }
 
 :root[data-theme="rose"] .about-redesign .about-orbit {
@@ -1118,6 +1695,34 @@
   opacity: 0.66;
   background: url("/rose/cloud-botanical-sprig.svg") center / contain no-repeat;
   transform: scaleX(-1) rotate(-6deg);
+}
+
+/* Small portrait anchors used by the reference headers on providers/2FA. */
+:root[data-theme="rose"] :is(
+  .providers-redesign,
+  .twofa-redesign
+) .page-topbar::after {
+  content: "";
+  position: absolute;
+  top: -10px;
+  z-index: 2;
+  width: 64px;
+  height: 64px;
+  border: 2px solid rgba(216, 173, 114, 0.58);
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    url("/rose/character-avatar.png") center / cover no-repeat,
+    #fff8f5;
+  box-shadow: 0 10px 24px rgba(130, 72, 83, 0.14);
+}
+
+:root[data-theme="rose"] .providers-redesign .page-topbar::after {
+  right: 72px;
+}
+
+:root[data-theme="rose"] .twofa-redesign .page-topbar::after {
+  right: 4px;
 }
 
 :root[data-theme="rose"] .about-redesign .about-orbit--mirror {
@@ -1229,13 +1834,125 @@
   box-shadow: 0 8px 22px rgba(130, 72, 83, 0.08);
 }
 
-@media (max-width: 1599px) {
+@media (min-width: 1081px) and (max-width: 1599px) {
+  :root[data-theme="rose"] .usage-dash {
+    --rose-dashboard-hero-width: clamp(560px, 48vw, 690px);
+    --rose-dashboard-filter-reserve: clamp(350px, 30vw, 430px);
+    --rose-dashboard-search-reserve: clamp(350px, 30vw, 430px);
+  }
+
   :root[data-theme="rose"] .usage-dash .usage-filter-bar {
     min-height: auto;
     padding: 4px 0;
   }
 
+  :root[data-theme="rose"] .usage-dash .usage-filter-row {
+    flex-wrap: wrap;
+  }
+
+  :root[data-theme="rose"] .usage-dash .range-tabs {
+    min-height: 36px;
+    padding-right: 4px;
+  }
+
+  :root[data-theme="rose"] .rose-dashboard-hero {
+    display: block;
+    top: -22px;
+    right: -30px;
+    width: var(--rose-dashboard-hero-width);
+    height: 226px;
+  }
+
+  :root[data-theme="rose"] .rose-dashboard-hero::before {
+    top: -5px;
+    right: -38px;
+    width: 460px;
+    height: 307px;
+  }
+
+  :root[data-theme="rose"] .rose-dashboard-hero::after {
+    top: 10px;
+    left: 76px;
+    width: 440px;
+    height: 204px;
+  }
+
+  :root[data-theme="rose"] .rose-dashboard-hero img {
+    top: -30px;
+    right: 134px;
+    bottom: auto;
+    width: 400px;
+    height: 226px;
+    object-position: right bottom;
+  }
+
+  :root[data-theme="rose"] .rose-dashboard-motto {
+    top: 24px;
+    left: 112px;
+    width: 220px;
+    font-size: 20px;
+    line-height: 1.4;
+  }
+
+  :root[data-theme="rose"] .rose-dashboard-sprig {
+    top: 62px;
+    width: 72px;
+    height: 108px;
+  }
+
+  :root[data-theme="rose"] .rose-dashboard-sprig--left {
+    right: 300px;
+  }
+
+  :root[data-theme="rose"] .rose-dashboard-sprig--right {
+    right: 52px;
+  }
+
+  :root[data-theme="rose"] .usage-dash .kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.13fr);
+  }
+
+  :root[data-theme="rose"] .agents-redesign .metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  :root[data-theme="rose"] .agents-redesign .top-grid {
+    grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  }
+
+  :root[data-theme="rose"] .rose-agents-portrait {
+    display: block;
+  }
+
+  :root[data-theme="rose"] .rose-agents-portrait {
+    top: -15px;
+    right: 92px;
+    width: 82px;
+    height: 82px;
+  }
+
+  :root[data-theme="rose"] .rose-agents-portrait img {
+    left: 10px;
+    top: 10px;
+    width: 62px;
+    height: 62px;
+  }
+}
+
+@media (max-width: 1080px) {
   :root[data-theme="rose"] :is(.rose-dashboard-hero, .rose-agents-portrait) {
+    display: none;
+  }
+
+  :root[data-theme="rose"] .usage-dash .range-tabs {
+    padding-right: 0;
+  }
+
+  :root[data-theme="rose"] :is(
+    .quota-redesign,
+    .providers-redesign,
+    .twofa-redesign
+  ) .page-topbar::after {
     display: none;
   }
 }
@@ -1244,6 +1961,22 @@
   :root[data-theme="rose"] .app-shell--v2 .content--dashboard {
     padding-left: 26px;
     padding-right: 26px;
+  }
+}
+
+@media (max-width: 1320px) {
+  :root[data-theme="rose"] .about-redesign .about-hero {
+    grid-template-columns: 108px minmax(190px, 0.8fr) minmax(270px, 1.1fr);
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-mark {
+    width: 108px;
+    height: 108px;
+    font-size: 68px;
+  }
+
+  :root[data-theme="rose"] .about-redesign .about-status {
+    grid-column: 1 / -1;
   }
 }
 

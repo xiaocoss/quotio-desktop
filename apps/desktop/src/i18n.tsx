@@ -51,6 +51,9 @@ const en: Record<string, string> = {
   "about.subtitle": "CLIProxyAPI GUI Wrapper",
   "about.version": "Version",
   "about.platform": "Platform",
+  "about.link.home": "Project home",
+  "about.link.help": "Help",
+  "about.link.license": "Open-source license",
   // Settings sections
   "settings.title": "Settings",
   "settings.openConfigDir": "Open config directory",
@@ -172,7 +175,7 @@ const en: Record<string, string> = {
   "dash.prices.cache": "Cache / 1M",
   "dash.prices.addRow": "Add model",
   "dash.prices.saving": "Saving…",
-  "dash.charts.title": "Usage charts",
+  "dash.charts.title": "Usage trends",
   "dash.charts.desc": "Cost trend, token mix, and model ranking for the current filters.",
   "dash.charts.trend": "Cost trend",
   "dash.charts.tokens": "Token mix",
@@ -233,6 +236,7 @@ const en: Record<string, string> = {
   "quota.resetNoCredits": "No reset credits available",
   "quota.empty.title": "No quota snapshot yet",
   "quota.empty.desc": "Start the local proxy and refresh, then per-account model quotas appear here by provider.",
+  "quota.scheduler.themeLine": "Theme: {account} · {count} accounts total (standby accounts do not participate in scheduling)",
   // Agents
   "agents.subtitle": "Configure CLI agents to use CLIProxyAPI",
   "agents.installed": "Installed",
@@ -495,6 +499,9 @@ const zh: Record<string, string> = {
   "about.subtitle": "CLIProxyAPI 图形界面封装",
   "about.version": "版本",
   "about.platform": "平台",
+  "about.link.home": "项目主页",
+  "about.link.help": "使用帮助",
+  "about.link.license": "开源许可",
   // Settings sections
   "settings.title": "设置",
   "settings.openConfigDir": "打开配置目录",
@@ -616,7 +623,7 @@ const zh: Record<string, string> = {
   "dash.prices.cache": "缓存 / 1M",
   "dash.prices.addRow": "添加模型",
   "dash.prices.saving": "保存中…",
-  "dash.charts.title": "用量图表",
+  "dash.charts.title": "用量趋势",
   "dash.charts.desc": "按当前筛选展示花费趋势、Token 构成和模型排行。",
   "dash.charts.trend": "花费趋势",
   "dash.charts.tokens": "Token 构成",
@@ -679,6 +686,7 @@ const zh: Record<string, string> = {
   "quota.resetNoCredits": "没有可用的主动重置次数",
   "quota.empty.title": "尚未获取额度快照",
   "quota.empty.desc": "启动本地代理并刷新管理快照后，这里会按服务商展示每个账号的模型额度。",
+  "quota.scheduler.themeLine": "主题：{account} · 共 {count} 个账号（待命账号不参与调度）",
   // Agents
   "agents.subtitle": "配置 CLI 工具以使用 CLIProxyAPI",
   "agents.installed": "已安装",

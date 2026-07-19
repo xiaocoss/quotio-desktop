@@ -51,6 +51,12 @@ export function DashboardScreen({ initialAccount, onFocusConsumed }: DashboardSc
 
   return (
     <section className="dashboard-content dashboard-content--fixed usage-dash">
+      <div className="rose-dashboard-cloud-frame" aria-hidden="true">
+        <span className="rose-dashboard-cloud-corner rose-dashboard-cloud-corner--tl" />
+        <span className="rose-dashboard-cloud-corner rose-dashboard-cloud-corner--tr" />
+        <span className="rose-dashboard-cloud-corner rose-dashboard-cloud-corner--bl" />
+        <span className="rose-dashboard-cloud-corner rose-dashboard-cloud-corner--br" />
+      </div>
       {/* Title bar is a FIXED header above the scroll body. It stays draggable via
           the empty area + title; the toolbar opts out so its controls stay clickable. */}
       <header className="page-topbar" data-tauri-drag-region>
@@ -77,24 +83,28 @@ export function DashboardScreen({ initialAccount, onFocusConsumed }: DashboardSc
         <p className="rose-dashboard-motto">{t("dash.roseMotto")}</p>
         <span className="rose-dashboard-sprig rose-dashboard-sprig--left" />
         <span className="rose-dashboard-sprig rose-dashboard-sprig--right" />
-        <img src="/rose/character-hero.webp" alt="" />
+        <img src="/rose/character-dashboard-hero-cutout-v4.png" alt="" />
       </div>
-
-
+      <span
+        className="rose-dashboard-bottom-flower rose-dashboard-bottom-flower--right"
+        aria-hidden="true"
+      />
       <div className="dashboard-scroll">
-        <UsageFilterBar
-          range={dash.range}
-          onRangeChange={dash.setRange}
-          customStart={dash.customStart}
-          onCustomStartChange={dash.setCustomStart}
-          customEnd={dash.customEnd}
-          onCustomEndChange={dash.setCustomEnd}
-          filters={dash.filters}
-          onFiltersChange={dash.setFilters}
-          options={dash.options}
-          hasActiveFilters={dash.hasActiveFilters}
-          onReset={dash.resetFilters}
-        />
+        <div className="rose-dashboard-intro">
+          <UsageFilterBar
+            range={dash.range}
+            onRangeChange={dash.setRange}
+            customStart={dash.customStart}
+            onCustomStartChange={dash.setCustomStart}
+            customEnd={dash.customEnd}
+            onCustomEndChange={dash.setCustomEnd}
+            filters={dash.filters}
+            onFiltersChange={dash.setFilters}
+            options={dash.options}
+            hasActiveFilters={dash.hasActiveFilters}
+            onReset={dash.resetFilters}
+          />
+        </div>
 
         {dash.error ? (
           <div className="dash-error" role="alert">

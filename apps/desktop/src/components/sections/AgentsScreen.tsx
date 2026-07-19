@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import type {
   AgentBackupFile,
@@ -23,6 +23,7 @@ import { useT } from "../../i18n";
 import { normalizeCodexReasoningLevels } from "../../lib/codexReasoning";
 import { invoke } from "../../lib/tauri";
 import "./agents.css";
+import "./agents-rose.css";
 
 // 内联 SVG symbol 图标(素材见 public/agents/agent-icons.svg;id 无 icon- 前缀)。
 function Icon({ name }: { name: string }) {
@@ -210,6 +211,17 @@ export function AgentsScreen({
   const [launchMsg, setLaunchMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [profileDraft, setProfileDraft] = useState<ProfileDraft | null>(null);
   const [pendingStart, setPendingStart] = useState<{ profile: CodexLaunchProfile; warnings: string[] } | null>(null);
+  const profileFormRef = useRef<HTMLDivElement>(null);
+  const profileDraftOpen = profileDraft !== null;
+  const profileDraftId = profileDraft?.id ?? null;
+
+  useEffect(() => {
+    if (!profileDraftOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      profileFormRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [profileDraftId, profileDraftOpen]);
 
   // 从运行中的代理拉它实际服务的模型。**不能只在挂载时拉一次**:用户去「服务商」页改了
   // 自定义接口(加/改模型名、加模型前缀)后,代理的 /v1/models 就变了,而本页的 proxyModels
@@ -603,6 +615,11 @@ export function AgentsScreen({
             </div>
             <span className="scheme-note">{t("agents.launch.onlyOne", "同一时刻只能启动一套")}</span>
           </div>
+          <div className="rose-scheme-toolbar" aria-hidden="true">
+            <span>{t("agents.launch.backupProfile", "备份方案")}</span>
+            <span>{t("agents.launch.restoreProfile", "恢复方案")}</span>
+            <span>{t("agents.launch.resetProfile", "重置方案")}</span>
+          </div>
           <button className="btn primary" type="button" onClick={openNewProfile}>
             <Icon name="plus" />
             {t("agents.launch.newProfile", "新建方案")}
@@ -622,6 +639,12 @@ export function AgentsScreen({
               const isStarting = startingId === profile.id;
               const keyIssue = codexKeyIssue(profile);
               const pending = pendingStart?.profile.id === profile.id ? pendingStart : null;
+              const flowEndpoint = (profile.proxy_url || appState.proxy.endpoint || "127.0.0.1:28317").replace(
+                /^https?:\/\//,
+                "",
+              );
+              const flowModel = profile.model || t("agents.launch.defaultModel", "默认模型");
+              const flowKey = profile.api_key ? maskKey(profile.api_key) : t("agents.launch.autoKey", "自动");
               return (
                 <div key={profile.id} className={`scheme-card${isRunning ? "" : " scheme-card--idle"}`}>
                   <div className="scheme-identity">
@@ -669,6 +692,57 @@ export function AgentsScreen({
                   <div className="scheme-field">
                     <div className="field-label"><Icon name="key" />{t("agents.apiKey")}</div>
                     <div className="field-value">{profile.api_key ? maskKey(profile.api_key) : t("agents.launch.autoKey", "自动")}</div>
+                  </div>
+                  <div className="rose-scheme-flow" aria-hidden="true">
+                    <div className="rose-flow-node rose-flow-node--entry">
+                      <span className="rose-flow-icon"><Icon name="play" /></span>
+                      <span className="rose-flow-copy">
+                        <strong>{t("agents.launch.entry", "入口")}</strong>
+                        <small>{t("agents.launch.appRequest", "应用请求")}</small>
+                      </span>
+                    </div>
+                    <span className="rose-flow-link" />
+                    <div className="rose-flow-node">
+                      <span className="rose-flow-icon"><Icon name="server" /></span>
+                      <span className="rose-flow-copy">
+                        <strong>{t("agents.launch.localProxy", "本地代理")}</strong>
+                        <small>{flowEndpoint}</small>
+                      </span>
+                      {isRunning ? <em className="rose-flow-chip">{t("agents.connected", "已连接")}</em> : null}
+                    </div>
+                    <span className="rose-flow-link" />
+                    <div className="rose-flow-node">
+                      <span className="rose-flow-icon"><Icon name="route" /></span>
+                      <span className="rose-flow-copy">
+                        <strong>{t("agents.launch.routeStrategy", "路由策略")}</strong>
+                        <small>{profile.name}</small>
+                      </span>
+                      {isRunning ? <em className="rose-flow-status">{t("agents.launch.running", "运行中")}</em> : null}
+                    </div>
+                    <span className="rose-flow-link" />
+                    <div className="rose-flow-node">
+                      <span className="rose-flow-icon"><Icon name="layers" /></span>
+                      <span className="rose-flow-copy">
+                        <strong>{t("agents.launch.modelProvider", "模型提供方")}</strong>
+                        <small>{flowModel}</small>
+                      </span>
+                    </div>
+                    <span className="rose-flow-link" />
+                    <div className="rose-flow-node">
+                      <span className="rose-flow-icon"><Icon name="key" /></span>
+                      <span className="rose-flow-copy">
+                        <strong>{t("agents.apiKey")}</strong>
+                        <small>{flowKey}</small>
+                      </span>
+                    </div>
+                    <span className="rose-flow-link" />
+                    <div className="rose-flow-node">
+                      <span className="rose-flow-icon"><Icon name="cube" /></span>
+                      <span className="rose-flow-copy">
+                        <strong>{t("agents.launch.targetModel", "目标模型")}</strong>
+                        <small>{flowModel}</small>
+                      </span>
+                    </div>
                   </div>
                   <div className="scheme-actions">
                     {isRunning ? (
@@ -735,7 +809,7 @@ export function AgentsScreen({
         ) : null}
 
         {profileDraft ? (
-          <div className="scheme-form">
+          <div ref={profileFormRef} className="scheme-form">
             <div className="settings-form-grid">
               <label>
                 {t("agents.launch.profileName", "方案名称")}
@@ -1061,7 +1135,7 @@ export function AgentsScreen({
           aria-label={t("agents.refresh", "重新检测")}
         >
           <Icon name="refresh" />
-          {t("agents.refreshShort", "刷新")}
+          {t("agents.refreshStatus", "刷新状态")}
         </button>
       </header>
 
@@ -1151,7 +1225,12 @@ export function AgentsScreen({
               <span className={`runtime-value${proxyRunning ? " healthy" : ""}`}>
                 <i className="tiny-dot" />
                 {proxyRunning
-                  ? `${t("agents.runtime.proxyOk", "运行正常")}${endpointHost ? ` · ${endpointHost}` : ""}`
+                  ? (
+                      <span className="runtime-value-copy">
+                        <strong>{t("agents.runtime.proxyOk", "运行正常")}</strong>
+                        {endpointHost ? <small>{endpointHost}</small> : null}
+                      </span>
+                    )
                   : t("agents.runtime.proxyDown", "未运行")}
               </span>
             </div>

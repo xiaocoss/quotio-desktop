@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n";
+import desktopPackage from "../../package.json";
 import type {
   AgentBackupFile,
   AgentConfigurationRequest,
@@ -533,7 +534,7 @@ function renderSection(section: AppSection, props: AppShellProps, updater: Retur
         />
       );
     case "two_factor":
-      return <TwoFactorAuthScreen />;
+      return <TwoFactorAuthScreen roseMode={props.appState.settings.theme === "rose"} />;
     case "api_keys":
       return (
         <ApiKeysScreen
@@ -658,12 +659,24 @@ function ProxyStatusCard({ proxy, isProxyBusy, proxyAction, onRunProxyAction }: 
         </span>
         <span className="proxy-card-text">
           <strong>{t("proxy.title")}</strong>
-          <span>
-            {isMissing
-              ? downloading
-                ? `${t("proxy.downloading")}${progress != null ? ` ${progress}%` : ""}`
-                : t("proxy.download")
-              : `${port} · ${t(`proxy.${proxy.status}`, PROXY_STATUS_LABELS[proxy.status])}`}
+          <span className="proxy-card-subtitle">
+            {isMissing ? (
+              downloading ? (
+                `${t("proxy.downloading")}${progress != null ? ` ${progress}%` : ""}`
+              ) : (
+                t("proxy.download")
+              )
+            ) : (
+              <>
+                <span className="proxy-card-port-inline">{port}</span>
+                <span className="proxy-card-separator" aria-hidden="true">
+                  {" · "}
+                </span>
+                <span className="proxy-card-state">
+                  {t(`proxy.${proxy.status}`, PROXY_STATUS_LABELS[proxy.status])}
+                </span>
+              </>
+            )}
           </span>
         </span>
         <span className="proxy-card-chevron" aria-hidden="true">
@@ -702,6 +715,7 @@ function AboutScreen({
   const t = useT();
   const [appVersion, setAppVersion] = useState("");
   const [copied, setCopied] = useState(false);
+  const roseMode = appState.settings.theme === "rose";
   useEffect(() => {
     if (!("__TAURI_INTERNALS__" in window)) return;
     void import("@tauri-apps/api/app")
@@ -710,7 +724,7 @@ function AboutScreen({
       .catch(() => {});
   }, []);
 
-  const version = appVersion ? `v${appVersion}` : "—";
+  const version = `v${appVersion || desktopPackage.version}`;
   const mode = appState.settings.operating_mode;
   const modeLabel = ABOUT_MODE_LABEL[mode] ?? mode;
   const strategyLabel = ABOUT_STRATEGY_LABEL[mode] ?? mode;
@@ -727,6 +741,19 @@ function AboutScreen({
     }
   }
 
+  async function openAboutLink(url: string) {
+    if ("__TAURI_INTERNALS__" in window) {
+      try {
+        const { openUrl } = await import("@tauri-apps/plugin-opener");
+        await openUrl(url);
+        return;
+      } catch {
+        // Fall through to the browser path when the native opener is unavailable.
+      }
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
   return (
     <section className="dashboard-content dashboard-content--fixed about-redesign">
       <header className="page-topbar" data-tauri-drag-region>
@@ -736,23 +763,48 @@ function AboutScreen({
 
       <div className="about-scroll">
         <article className="panel about-hero">
-          <div className="about-mark">Q</div>
+          <div className="about-mark">
+            <span aria-hidden="true">Q</span>
+            {roseMode ? <img className="rose-about-mark-flower" src="/rose/sidebar-rose-logo-v2.png" alt="" /> : null}
+          </div>
           <div className="about-hero-main">
             <strong className="about-name">Quotio</strong>
             <div className="about-version">{version}</div>
             <p className="about-tagline">{t("about.tagline", "多服务商 AI 代理与额度管理工具")}</p>
-            <div className="about-pills">
-              <span className="about-pill about-pill--blue">{t("about.cap.proxy", "多服务商代理")}</span>
-              <span className="about-pill about-pill--green">{t("about.cap.quota", "额度监控")}</span>
-              <span className="about-pill about-pill--lav">{t("about.cap.local", "本地管理")}</span>
-            </div>
+            {roseMode ? (
+              <div className="about-actions">
+                <button type="button" onClick={() => void openAboutLink("https://github.com/xiaocoss/quotio-desktop")}>
+                  {t("about.link.home", "项目主页")}
+                  <AboutIcon id="external" />
+                </button>
+                <button type="button" onClick={() => void openAboutLink("https://github.com/xiaocoss/quotio-desktop#readme")}>
+                  <AboutIcon id="help" />
+                  {t("about.link.help", "使用帮助")}
+                </button>
+                <button type="button" onClick={() => void openAboutLink("https://github.com/xiaocoss/quotio-desktop/blob/main/LICENSE")}>
+                  <AboutIcon id="code" />
+                  {t("about.link.license", "开源许可")}
+                </button>
+              </div>
+            ) : (
+              <div className="about-pills">
+                <span className="about-pill about-pill--blue">{t("about.cap.proxy", "多服务商代理")}</span>
+                <span className="about-pill about-pill--green">{t("about.cap.quota", "额度监控")}</span>
+                <span className="about-pill about-pill--lav">{t("about.cap.local", "本地管理")}</span>
+              </div>
+            )}
           </div>
+          {roseMode ? (
+            <div className="rose-about-portrait" aria-hidden="true">
+              <img src="/rose/about-character-cutout-v1.png" alt="" />
+            </div>
+          ) : null}
           <div className="about-orbit" aria-hidden="true" />
           <div className="about-orbit about-orbit--mirror" aria-hidden="true" />
           <aside className="about-status">
             <div className="about-status-title">{t("about.versionStatus", "版本状态")}</div>
             <div className="about-status-ok">
-              {checking ? null : <AboutIcon id="check" />}
+              {checking ? null : <AboutIcon id="check-solid" />}
               {checking ? t("update.checking", "检查中…") : t("about.upToDate", "当前已是最新版本")}
             </div>
             <button type="button" className="about-check-btn" onClick={onCheckUpdate} disabled={checking}>

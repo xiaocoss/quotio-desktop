@@ -1,0 +1,809 @@
+/* Rose artwork for the Agents page only. No selector here targets the sidebar or menu. */
+.agents-redesign .rose-scheme-toolbar,
+.agents-redesign .rose-scheme-flow {
+  display: none;
+}
+
+.agents-redesign .runtime-value-copy {
+  display: inline;
+}
+
+.agents-redesign .runtime-value-copy strong,
+.agents-redesign .runtime-value-copy small {
+  color: inherit;
+  font: inherit;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page {
+  --rose-agent-ink: #3f292d;
+  --rose-agent-muted: #806a70;
+  --rose-agent-line-soft: rgba(207, 97, 120, 0.16);
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+  overflow-y: visible;
+  padding: 24px clamp(24px, 1.8vw, 31px) 26px clamp(36px, 2.92vw, 51px);
+  color: var(--rose-agent-ink);
+  background:
+    radial-gradient(circle at 72% 6%, rgba(255, 255, 255, 0.76), transparent 30%),
+    linear-gradient(135deg, rgba(255, 252, 249, 0.28), rgba(255, 239, 242, 0.2)),
+    url("/rose/rose-bg.webp") center top / cover repeat-y;
+  box-shadow:
+    inset 1px 0 rgba(229, 188, 150, 0.46),
+    inset 7px 0 rgba(229, 188, 150, 0.18),
+    inset 0 1px rgba(229, 188, 150, 0.3),
+    inset 0 -1px rgba(229, 188, 150, 0.24);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page::before,
+:root[data-theme="rose"] .agents-redesign.agents-page::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  background: url("/rose/rose-corner.png") left bottom / contain no-repeat;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page::before {
+  top: -55px;
+  right: -30px;
+  width: 340px;
+  height: 240px;
+  opacity: 0.94;
+  transform: rotate(180deg);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page::after {
+  right: -20px;
+  bottom: 20px;
+  z-index: 2;
+  width: 245px;
+  height: 230px;
+  opacity: 0.84;
+  transform: scaleX(-1);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page > * {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .page-topbar {
+  min-height: 40px;
+  overflow: visible;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .page-topbar h1,
+:root[data-theme="rose"] .agents-redesign.agents-page .panel-title,
+:root[data-theme="rose"] .agents-redesign.agents-page .metric-value,
+:root[data-theme="rose"] .agents-redesign.agents-page .agent-name,
+:root[data-theme="rose"] .agents-redesign.agents-page .scheme-name {
+  color: var(--rose-agent-ink);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .page-topbar > .btn {
+  position: absolute;
+  top: 23px;
+  right: 3px;
+  z-index: 4;
+  min-width: 140px;
+  min-height: 38px;
+  padding: 0 15px;
+  color: #4f3d42;
+  background: rgba(255, 252, 249, 0.82);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-agents-portrait {
+  top: -30px;
+  right: 174px;
+  width: 122px;
+  height: 122px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-agents-portrait::before {
+  inset: -20px;
+  opacity: 0.96;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-agents-portrait::after {
+  inset: -30px;
+  opacity: 0.68;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-agents-portrait img {
+  top: 13px;
+  left: 13px;
+  width: 96px;
+  height: 96px;
+  border-color: rgba(216, 173, 114, 0.72);
+  box-shadow: 0 10px 24px rgba(130, 72, 83, 0.14);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .page-subtitle {
+  margin-bottom: 12px;
+  color: var(--rose-agent-muted);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page :is(.panel, .metric) {
+  border-color: rgba(207, 97, 120, 0.26);
+  border-radius: 13px;
+  background:
+    linear-gradient(135deg, rgba(255, 253, 251, 0.76), rgba(255, 247, 248, 0.62)),
+    rgba(255, 251, 249, 0.64);
+  box-shadow: 0 3px 9px rgba(130, 72, 83, 0.045), inset 0 1px rgba(255, 255, 255, 0.62);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .panel::before,
+:root[data-theme="rose"] .agents-redesign.agents-page .metric::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border: 28px solid transparent;
+  border-image: url("/rose/cloud-panel-9slice.svg") 64 fill / 28px / 0 stretch;
+  opacity: 0.68;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .metric::before {
+  border-width: 20px;
+  border-image: url("/rose/cloud-card-9slice.svg") 20 fill / 20px / 0 stretch;
+  opacity: 0.72;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page :is(.panel, .metric) > * {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .metrics {
+  gap: 14px;
+  margin-bottom: 13px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .metric {
+  min-height: 94px;
+  grid-template-columns: 46px 1fr;
+  gap: 16px;
+  padding: 15px 22px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .metric::after {
+  width: 72px;
+  height: 72px;
+  right: -30px;
+  bottom: -42px;
+  opacity: 0.12;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .metric-icon {
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(216, 173, 114, 0.24);
+  border-radius: 50%;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .metric:first-child {
+  --metric-color: #596fe7;
+  --metric-soft: rgba(240, 241, 255, 0.82);
+  --glow: rgba(89, 111, 231, 0.08);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .metric.installed {
+  --metric-color: #3f68ec;
+  --metric-soft: rgba(239, 243, 255, 0.78);
+  --glow: rgba(63, 104, 236, 0.08);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .metric.configured,
+:root[data-theme="rose"] .agents-redesign.agents-page .metric.running {
+  --metric-color: #55a867;
+  --metric-soft: rgba(239, 247, 238, 0.82);
+  --glow: rgba(77, 170, 103, 0.08);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .metric-label {
+  color: #6f5d63;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .metric-value {
+  font-size: 27px;
+  line-height: 30px;
+  font-weight: 760;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .top-grid {
+  height: 238px;
+  grid-template-columns: minmax(0, 1.52fr) minmax(0, 1fr);
+  gap: 17px;
+  margin-bottom: 10px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .top-grid > .panel {
+  height: 238px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .panel-head {
+  padding: 14px 18px 10px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .panel-title {
+  font-size: 16px;
+  font-weight: 720;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .top-grid > .panel:first-child .panel-head .panel-note,
+:root[data-theme="rose"] .agents-redesign.agents-page .runtime-panel > .panel-head .badge.running {
+  display: none;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .agent-list {
+  max-height: 152px;
+  padding: 0 18px;
+  overflow-y: auto;
+  scrollbar-gutter: auto;
+  scrollbar-width: none;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .agent-list::-webkit-scrollbar,
+:root[data-theme="rose"] .agents-redesign.agents-page .scheme-list::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .agent-row {
+  min-height: 76px;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  gap: 14px;
+  border-color: var(--rose-agent-line-soft);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .agent-mark {
+  width: 52px;
+  height: 52px;
+  border-color: rgba(207, 97, 120, 0.16);
+  border-radius: 11px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .agent-name {
+  font-weight: 700;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .path {
+  color: #927d83;
+  font-size: 11px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .panel-footer-link {
+  min-height: 36px;
+  padding: 0 18px;
+  color: #766167;
+  border-color: var(--rose-agent-line-soft);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .runtime-list {
+  margin: 0 16px 12px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(207, 97, 120, 0.22);
+  border-radius: 11px;
+  background: rgba(255, 253, 251, 0.38);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .runtime-row {
+  min-height: 43px;
+  grid-template-columns: 30px minmax(90px, 0.82fr) minmax(130px, 1.18fr);
+  padding: 0 10px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--rose-agent-line-soft);
+  border-radius: 0;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .runtime-row + .runtime-row {
+  margin-top: 0;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .runtime-row:last-child {
+  border-bottom: 0;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .runtime-value {
+  justify-self: start;
+  overflow: visible;
+  color: #735f65;
+  line-height: 17px;
+  text-align: left;
+  white-space: normal;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .runtime-value-copy {
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: middle;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .runtime-value-copy strong {
+  color: var(--rose-success);
+  font-weight: 760;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .runtime-value-copy small {
+  color: #7b6870;
+  font-size: 11px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .route-asset {
+  display: none;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .scheme-panel {
+  height: 214px;
+  margin-bottom: 9px;
+  padding-bottom: 0;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .scheme-panel:has(> .scheme-form) {
+  height: auto;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .scheme-head {
+  min-height: 76px;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 18px 8px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .scheme-head > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .app-path {
+  margin-top: 3px;
+  color: #806e73;
+  font-size: 11px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .app-path code {
+  color: #75656a;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .detect-link {
+  color: var(--rose-primary);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .scheme-note {
+  display: none;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-scheme-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-scheme-toolbar span {
+  min-width: 92px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  color: var(--rose-primary);
+  font-size: 12px;
+  font-weight: 760;
+  white-space: nowrap;
+  border: 1px solid rgba(207, 97, 120, 0.24);
+  border-radius: 9px;
+  background: rgba(255, 253, 251, 0.66);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .scheme-head > .btn.primary {
+  min-height: 38px;
+  padding: 0 15px;
+  border-radius: 9px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .scheme-list {
+  max-height: 130px;
+  gap: 8px;
+  padding: 0 12px 7px;
+  overflow-y: auto;
+  scrollbar-gutter: auto;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .scheme-card,
+:root[data-theme="rose"] .agents-redesign.agents-page .scheme-card--idle {
+  min-height: 128px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: 82px 38px;
+  gap: 4px 12px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .scheme-card > :is(.scheme-identity, .scheme-field) {
+  display: none;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-scheme-flow {
+  position: relative;
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns:
+    minmax(86px, 0.72fr) 34px
+    minmax(130px, 1.1fr) 34px
+    minmax(124px, 1fr) 34px
+    minmax(124px, 1fr) 34px
+    minmax(124px, 1fr) 34px
+    minmax(112px, 0.94fr);
+  align-items: center;
+  min-width: 0;
+  min-height: 82px;
+  padding: 8px 12px;
+  border: 1px solid rgba(207, 97, 120, 0.34);
+  border-radius: 11px;
+  background: linear-gradient(90deg, rgba(255, 247, 248, 0.82), rgba(255, 252, 249, 0.76));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.8);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-node {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid rgba(207, 97, 120, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 253, 251, 0.86);
+  box-shadow: 0 3px 10px rgba(130, 72, 83, 0.045);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-node--entry {
+  grid-template-columns: 28px minmax(0, 1fr);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: #322a2c;
+  border: 1px solid rgba(207, 97, 120, 0.2);
+  border-radius: 50%;
+  background: rgba(255, 246, 247, 0.92);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-node--entry .rose-flow-icon {
+  width: 24px;
+  height: 24px;
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(145deg, #f05a78, #d9365b);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-icon .icon {
+  width: 17px;
+  height: 17px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-node--entry .rose-flow-icon .icon {
+  width: 13px;
+  height: 13px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-copy {
+  min-width: 0;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-copy strong,
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-copy strong {
+  color: #4c393e;
+  font-size: 12px;
+  line-height: 16px;
+  font-style: normal;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-copy small {
+  margin-top: 2px;
+  color: #806d72;
+  font-family: var(--mono);
+  font-size: 9px;
+  line-height: 13px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-link {
+  position: relative;
+  z-index: 0;
+  height: 1px;
+  background: #8dbd97;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-link::before,
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-link::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border: 1px solid #77aa83;
+  border-radius: 50%;
+  background: #fffaf8;
+  transform: translateY(-50%);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-link::before {
+  left: -1px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-link::after {
+  right: -1px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page :is(.rose-flow-chip, .rose-flow-status) {
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+  margin: 0;
+  color: #4b9a5f;
+  font-size: 8px;
+  line-height: 12px;
+  font-style: normal;
+  font-weight: 760;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-chip {
+  padding: 0 5px;
+  color: #fff;
+  border-radius: 5px;
+  background: #79b482;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .scheme-actions {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: end;
+  justify-self: end;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 2px;
+  padding: 0;
+  border-left: 0;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .scheme-actions .btn.small {
+  min-height: 32px;
+  padding: 0 15px;
+  font-size: 11px;
+  border-radius: 8px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .scheme-confirm {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  z-index: 3;
+  margin: 0;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .discovery-panel {
+  height: 186px;
+  padding-bottom: 8px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .discovery-panel .panel-head {
+  padding: 8px 18px 4px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .discovery-grid {
+  gap: 14px;
+  padding: 0 18px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .discovery-card {
+  min-height: 102px;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  grid-template-rows: 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-color: rgba(207, 97, 120, 0.22);
+  border-radius: 11px;
+  background: rgba(255, 253, 251, 0.62);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .discovery-card::before {
+  border-width: 18px;
+  border-image-width: 18px;
+  opacity: 0.76;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .discovery-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .discovery-info strong {
+  color: #4a363b;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .detect-btn {
+  grid-column: 3;
+  grid-row: 1;
+  min-width: 78px;
+  min-height: 30px;
+  justify-self: end;
+  padding: 0 11px;
+  color: var(--rose-primary);
+  border-color: rgba(207, 97, 120, 0.24);
+  border-radius: 8px;
+  background: rgba(255, 253, 251, 0.72);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .discovery-footer {
+  margin: 8px 18px 0;
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .btn:not(.primary):not(.danger) {
+  color: var(--rose-primary);
+  border-color: rgba(207, 97, 120, 0.24);
+  background: rgba(255, 253, 251, 0.78);
+  box-shadow: 0 3px 10px rgba(130, 72, 83, 0.05);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .btn.primary {
+  background: linear-gradient(135deg, #ef4e72, #d7315a);
+  box-shadow: 0 8px 18px rgba(207, 49, 88, 0.18);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .btn.danger {
+  background: linear-gradient(135deg, #eb4d6c, #d52f55);
+  box-shadow: 0 8px 18px rgba(207, 49, 88, 0.18);
+}
+
+:root[data-theme="rose"] .agents-redesign.agents-page .btn.ghost-danger {
+  color: var(--rose-primary);
+  border-color: rgba(207, 97, 120, 0.24);
+  background: rgba(255, 253, 251, 0.72);
+}
+
+@media (max-width: 1500px) {
+  :root[data-theme="rose"] .agents-redesign.agents-page .rose-scheme-toolbar {
+    gap: 6px;
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .rose-scheme-toolbar span {
+    padding-inline: 10px;
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .rose-scheme-flow {
+    grid-template-columns:
+      minmax(78px, 0.68fr) 22px
+      minmax(116px, 1fr) 22px
+      minmax(108px, 0.94fr) 22px
+      minmax(108px, 0.94fr) 22px
+      minmax(108px, 0.94fr) 22px
+      minmax(102px, 0.9fr);
+  }
+}
+
+@media (max-width: 1180px) {
+  :root[data-theme="rose"] .agents-redesign.agents-page {
+    padding-inline: 28px 24px;
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .top-grid,
+  :root[data-theme="rose"] .agents-redesign.agents-page .top-grid > .panel,
+  :root[data-theme="rose"] .agents-redesign.agents-page .scheme-panel,
+  :root[data-theme="rose"] .agents-redesign.agents-page .discovery-panel {
+    height: auto;
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .top-grid {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .rose-scheme-toolbar {
+    display: none;
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .scheme-card,
+  :root[data-theme="rose"] .agents-redesign.agents-page .scheme-card--idle {
+    grid-template-rows: auto 38px;
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .scheme-list {
+    max-height: none;
+    overflow: visible;
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .rose-scheme-flow {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    min-height: 0;
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .rose-flow-link {
+    display: none;
+  }
+}
+
+@media (max-width: 960px) {
+  :root[data-theme="rose"] .agents-redesign.agents-page .rose-agents-portrait {
+    display: none;
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .page-topbar > .btn {
+    top: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  :root[data-theme="rose"] .agents-redesign.agents-page {
+    padding-inline: 20px;
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .rose-scheme-flow {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .scheme-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 620px) {
+  :root[data-theme="rose"] .agents-redesign.agents-page .metrics,
+  :root[data-theme="rose"] .agents-redesign.agents-page .discovery-grid {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .agent-row {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .agent-row-actions {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .runtime-row {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .runtime-value {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .discovery-card {
+    grid-template-columns: 40px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+  }
+
+  :root[data-theme="rose"] .agents-redesign.agents-page .detect-btn {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: stretch;
+  }
+}

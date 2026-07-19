@@ -8,6 +8,7 @@ import { invoke } from "../../lib/tauri";
 import { Select } from "../Select";
 import { AddAccountModal } from "../AddAccountModal";
 import "./providers.css";
+import "./providers-rose.css";
 
 // 内联的 SVG 符号图标(素材见 public/providers/provider-icons.svg)。
 function Icon({ id }: { id: string }) {
@@ -66,20 +67,22 @@ function GlobalActionsMenu({
     return () => document.removeEventListener("mousedown", close);
   }, [open]);
 
-  if (oauthProviders.length === 0) return null;
-
   return (
     <div className="pv-card-menu-anchor" ref={ref}>
-      <button className="pv-card-more pv-global-more" type="button" onClick={() => setOpen((v) => !v)} aria-label="添加未连接的服务商">
+      <button className="pv-card-more pv-global-more" type="button" onClick={() => setOpen((v) => !v)} aria-label="选择并添加服务商" title="选择并添加服务商">
         <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor"><circle cx="3" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="13" cy="8" r="1.3"/></svg>
       </button>
       {open ? (
         <div className="pv-card-dropdown pv-global-dropdown">
-          {oauthProviders.map((p) => (
-            <button key={p.id} type="button" onClick={() => { onSelectProvider(p); setOpen(false); }}>
-              添加 {p.display_name} 账号
-            </button>
-          ))}
+          {oauthProviders.length > 0 ? (
+            oauthProviders.map((p) => (
+              <button key={p.id} type="button" onClick={() => { onSelectProvider(p); setOpen(false); }}>
+                添加 {p.display_name} 账号
+              </button>
+            ))
+          ) : (
+            <span className="pv-dropdown-label">所有服务商均已连接</span>
+          )}
         </div>
       ) : null}
     </div>
@@ -377,6 +380,9 @@ export function ProvidersScreen({
       .catch((err) => console.warn("[ProvidersScreen] query_account_auth_health:", err));
   }, [appState.management.auth_files, appState.quotas]);
   const oauthProviders = appState.providers.filter((provider) => provider.native_oauth || provider.oauth_endpoint || provider.supports_manual_auth);
+  const addableProviders = oauthProviders.filter(
+    (provider) => !groups.some((group) => group.id === provider.id || provider.id.includes(group.id) || group.id.includes(provider.id)),
+  );
 
   // 概览 / 洞察用的聚合:把所有分组里的账号跑一遍 accountState,分出「正常」与「需重新登录」。
   // 复用页面已有的 authFailedNames / authHealth,不额外拉数据。
@@ -567,7 +573,7 @@ export function ProvidersScreen({
   }
 
   return (
-    <section className="section-page providers-page providers-redesign">
+    <section className={`section-page providers-page providers-redesign ${groups.length > 0 ? "providers-has-groups" : "providers-no-groups"}`}>
       <header className="page-topbar" data-tauri-drag-region>
         <div className="pv-title-row" data-tauri-drag-region="false">
           <h1>{t("nav.providers")}</h1>
@@ -585,10 +591,7 @@ export function ProvidersScreen({
         <div className="pv-title-row">
           <span className="pv-topbar-count">共 {groups.length} 个服务商</span>
           <GlobalActionsMenu
-            oauthProviders={oauthProviders.filter(
-              // 只列「还没连接」(没卡片)的服务商——加首个账号的唯一入口;已连接的卡片上有 +。
-              (p) => !groups.some((g) => g.id === p.id || p.id.includes(g.id) || g.id.includes(p.id)),
-            )}
+            oauthProviders={addableProviders}
             onSelectProvider={(provider) => { setReauthTarget(null); setAddAccountProvider(provider); }}
           />
         </div>
@@ -614,21 +617,21 @@ export function ProvidersScreen({
       {/* ── 概览四格:已连接服务商 / 活跃账户 / 登录过期 / 自定义接口 ── */}
       <section className="panel overview">
         <article className="overview-item">
-          <div className="overview-icon"><Icon id="icon-provider" /></div>
+          <div className="overview-icon"><Icon id="icon-plug" /></div>
           <div>
             <div className="overview-label">{t("providers.ovConnected", "已连接服务商")}</div>
             <div className="overview-value">{groups.length} <span className="overview-note">{t("providers.ovUnit", "个")}</span></div>
           </div>
         </article>
         <article className="overview-item">
-          <div className="overview-icon blue"><Icon id="icon-check" /></div>
+          <div className="overview-icon blue"><Icon id="icon-users" /></div>
           <div>
             <div className="overview-label">{t("providers.ovActive", "活跃账户")}</div>
             <div className="overview-value">{activeAccountCount} <span className="overview-note">{t("providers.ovActiveNote", "个正常")}</span></div>
           </div>
         </article>
         <article className="overview-item">
-          <div className="overview-icon warn"><Icon id="icon-alert" /></div>
+          <div className="overview-icon warn"><Icon id="icon-clock" /></div>
           <div>
             <div className="overview-label">{t("providers.ovExpired", "登录过期")}</div>
             <div className="overview-value">{expiredAccountCount} <span className="overview-note">{t("providers.ovExpiredNote", "个账户")}</span></div>
@@ -694,7 +697,7 @@ export function ProvidersScreen({
             <div className="insight-list">
               <div className="insight">
                 <div className={`insight-icon${routingReady ? "" : " blue"}`}>
-                  <Icon id={routingReady ? "icon-check" : "icon-spark"} />
+                  <Icon id={routingReady ? "icon-check-circle" : "icon-spark"} />
                 </div>
                 <div className="insight-text">
                   <strong>{t("providers.insightRouting", "路由就绪")}</strong>
@@ -710,7 +713,7 @@ export function ProvidersScreen({
               </div>
               <div className="insight">
                 <div className={`insight-icon${expiredAccountCount > 0 ? " warn" : ""}`}>
-                  <Icon id={expiredAccountCount > 0 ? "icon-alert" : "icon-check"} />
+                  <Icon id="icon-heart-pulse" />
                 </div>
                 <div className="insight-text">
                   <strong>{t("providers.insightHealth", "账户健康")}</strong>
@@ -871,7 +874,7 @@ export function ProvidersScreen({
 
         <div className="templates">
           <article className="template">
-            <div className="template-icon"><Icon id="icon-provider" /></div>
+            <div className="template-icon"><ProviderLogo providerId="openai" className="pv-template-brand-logo" /></div>
             <h3>{t("providers.tplOpenAITitle", "OpenAI 兼容")}</h3>
             <p>{t("providers.tplOpenAIDesc", "导入 OpenAI 兼容的接口地址，如 vLLM、OneAPI 等。")}</p>
             <button className="button" type="button" onClick={() => startAddCustomWithKind("openai")}>
@@ -879,7 +882,7 @@ export function ProvidersScreen({
             </button>
           </article>
           <article className="template">
-            <div className="template-icon blue"><Icon id="icon-spark" /></div>
+            <div className="template-icon blue"><ProviderLogo providerId="gemini" className="pv-template-brand-logo" /></div>
             <h3>{t("providers.tplGeminiTitle", "Gemini 兼容")}</h3>
             <p>{t("providers.tplGeminiDesc", "导入 Gemini 兼容的接口地址，如 Vertex AI Gemini 等。")}</p>
             <button className="button" type="button" onClick={() => startAddCustomWithKind("gemini")}>
@@ -887,7 +890,7 @@ export function ProvidersScreen({
             </button>
           </article>
           <article className="template">
-            <div className="template-icon orange"><Icon id="icon-code" /></div>
+            <div className="template-icon orange"><ProviderLogo providerId="claude" className="pv-template-brand-logo" /></div>
             <h3>{t("providers.tplClaudeTitle", "Claude 兼容")}</h3>
             <p>{t("providers.tplClaudeDesc", "导入 Claude 兼容的接口地址，如 Anthropic 兼容服务等。")}</p>
             <button className="button" type="button" onClick={() => startAddCustomWithKind("claude")}>
@@ -1159,12 +1162,14 @@ function ProviderCard({
     return s.tone === "bad" || s.needsReauth;
   }).length;
   const allDisabled = accounts.length > 0 && accounts.every((a) => a.disabled);
+  const isCodexProvider = group.id.toLowerCase().includes("codex");
 
   const cardStatus = badCount > 0 ? "warn" : accounts.length === 0 ? "muted" : "good";
-  const statusLabel = badCount > 0 ? `${badCount} 个异常` : allDisabled ? "已禁用" : goodCount === accounts.length ? "正常" : "多闲";
+  const statusLabel = badCount > 0 ? `${badCount} 个异常` : allDisabled ? "已禁用" : accounts.length > 1 ? "多例" : goodCount === accounts.length ? "正常" : "多闲";
 
-  const PREVIEW_COUNT = 3;
+  const PREVIEW_COUNT = 6;
   const previewAccounts = expanded ? accounts : accounts.slice(0, PREVIEW_COUNT);
+  const showAccountToggle = accounts.length >= PREVIEW_COUNT;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -1181,8 +1186,17 @@ function ProviderCard({
     <div className="panel provider-card">
       <div className="provider-head">
         <div className="provider-title">
-          <span className="provider-logo">
-            <ProviderLogo providerId={group.id} className="provider-brand-logo" />
+          <span className={`provider-logo${isCodexProvider ? " provider-logo--codex" : ""}`}>
+            {isCodexProvider ? (
+              <img
+                className="provider-brand-logo provider-brand-logo--codex"
+                src="/providers/codex-openai-knot-v1.png"
+                alt=""
+                aria-hidden="true"
+              />
+            ) : (
+              <ProviderLogo providerId={group.id} className="provider-brand-logo" />
+            )}
           </span>
           <div className="provider-title-text">
             <div className="provider-title-name">
@@ -1279,22 +1293,22 @@ function ProviderCard({
         })}
       </div>
 
-      {hasManualOrder || accounts.length > PREVIEW_COUNT ? (
+      {hasManualOrder || showAccountToggle ? (
         <div className="provider-foot">
-          {hasManualOrder ? (
+          {accounts.length > 1 ? (
             <button
               className="pv-order-reset"
               type="button"
               title="清除手动顺序,恢复按额度自动排"
               onClick={() => {
-                const first = accounts.find((a) => order.get(a.name));
+                const first = accounts.find((a) => order.get(a.name)) ?? accounts[0];
                 if (first) onReorder(first.name, "reset");
               }}
             >
               <Icon id="icon-refresh" /> 重置为自动顺序
             </button>
           ) : null}
-          {accounts.length > PREVIEW_COUNT ? (
+          {showAccountToggle ? (
             <button className="pv-card-toggle" type="button" onClick={() => setExpanded((v) => !v)}>
               {expanded ? "收起" : `查看全部 ${accounts.length} 个`}{" "}
               <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle", transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "rotate(0)" }}>

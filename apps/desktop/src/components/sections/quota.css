@@ -200,6 +200,9 @@
   font-size: 12px;
   font-weight: 680;
 }
+.quota-redesign .strategy .rose-scheduler-theme {
+  display: none;
+}
 .quota-redesign .pill {
   display: inline-flex;
   align-items: center;

@@ -7,6 +7,7 @@ import { invoke } from "../../lib/tauri";
 import { isHideSensitiveEnabled, setHideSensitiveEnabled } from "../../lib/format";
 import { TunnelCard, WarmupCard } from "../TunnelCard";
 import "./settings.css";
+import "./settings-rose.css";
 
 type SettingsScreenProps = {
   appState: AppState;
@@ -81,6 +82,7 @@ export function SettingsScreen({
   const platform = appState.platform_features;
 
   const [hideSensitive, setHideSensitive] = useState(isHideSensitiveEnabled());
+  const [showRemoteKey, setShowRemoteKey] = useState(false);
   // 窗口「关闭 / 最小化」按钮行为的记忆值(存 localStorage,与 AppShell 的对话框共用同一 key)。
   // 勾了「记住我的选择」后对话框不再弹,这里给一个随时能改 / 重置的入口。"ask" = 未记忆(仍会弹框)。
   const readWinAction = (key: string) => {
@@ -256,8 +258,8 @@ export function SettingsScreen({
       </section>
 
       {/* 基础设置 | 代理连接 */}
-      <section className="sr-grid">
-        <article className="sr-panel sr-card">
+      <section className="sr-grid sr-grid--primary">
+        <article className="sr-panel sr-card sr-base-card">
           <div className="sr-card-head">
             <h2 className="sr-card-title">
               <Icon id="settings" />
@@ -363,7 +365,7 @@ export function SettingsScreen({
           </div>
         </article>
 
-        <article className="sr-panel sr-card sr-connection-card">
+        <article className="sr-panel sr-card sr-connection-card sr-proxy-card">
           <img className="sr-connection-flow" src="/settings/connection-flow.svg" alt="" />
           <div className="sr-card-head">
             <h2 className="sr-card-title">
@@ -400,16 +402,26 @@ export function SettingsScreen({
               />
               <span />
             </div>
-            <div className="sr-field-line sr-field-line--single">
+            <div className="sr-field-line sr-field-line--single sr-field-line--secret">
               <span className="sr-field-label">{t("settings.remoteKey")}</span>
-              <input
-                className="sr-input"
-                type="password"
-                value={connDraft.remote_management_key}
-                onChange={(event) => setConnDraft({ ...connDraft, remote_management_key: event.target.value })}
-                placeholder={credentialStatus.remote_management_key_masked ?? "保存后迁入安全存储"}
-              />
-              <span />
+              <span className="sr-secret-input">
+                <input
+                  className="sr-input"
+                  type={showRemoteKey ? "text" : "password"}
+                  value={connDraft.remote_management_key}
+                  onChange={(event) => setConnDraft({ ...connDraft, remote_management_key: event.target.value })}
+                  placeholder={credentialStatus.remote_management_key_masked ?? "保存后迁入安全存储"}
+                />
+                <button
+                  className="sr-secret-toggle"
+                  type="button"
+                  onClick={() => setShowRemoteKey((visible) => !visible)}
+                  aria-label={showRemoteKey ? t("common.hide", "隐藏") : t("common.show", "显示")}
+                >
+                  <Icon id="eye" />
+                </button>
+              </span>
+              <span className="sr-secret-hint">{t("settings.secureStorageHint", "保存后注入安全存储")}</span>
             </div>
             <div className="sr-row">
               <div className="sr-row-text">
@@ -441,8 +453,8 @@ export function SettingsScreen({
       </section>
 
       {/* 管理 API | 高级设置 */}
-      <section className="sr-grid">
-        <article className="sr-panel sr-card">
+      <section className="sr-grid sr-grid--secondary">
+        <article className="sr-panel sr-card sr-management-card">
           <div className="sr-card-head">
             <h2 className="sr-card-title">
               <Icon id="debug" />
@@ -586,7 +598,7 @@ export function SettingsScreen({
           {managementAction ? <p className="sr-note sr-note--busy">{t("settings.writing", "写入中…")} {managementAction}</p> : null}
         </article>
 
-        <article className="sr-panel sr-card">
+        <article className="sr-panel sr-card sr-advanced-card">
           <div className="sr-card-head">
             <h2 className="sr-card-title">
               <Icon id="brain" />
