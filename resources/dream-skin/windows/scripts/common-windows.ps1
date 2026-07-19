@@ -578,7 +578,20 @@ function Stop-DreamSkinRecordedInjector {
       (Test-DreamSkinCommandLineToken -CommandLine $commandLine -Token "$($State.themeDir)")
   }
   $startedAt = Get-DreamSkinProcessStartedAt -ProcessId $processId
-  $startMatches = -not $State.injectorStartedAt -or $startedAt -eq "$($State.injectorStartedAt)"
+  $startMatches = $true
+  if ($State.injectorStartedAt) {
+    try {
+      $recordedUtc = if ($State.injectorStartedAt -is [DateTime]) {
+        ([DateTime]$State.injectorStartedAt).ToUniversalTime()
+      } else {
+        ([DateTimeOffset]::Parse("$($State.injectorStartedAt)")).UtcDateTime
+      }
+      $actualUtc = ([DateTimeOffset]::Parse("$startedAt")).UtcDateTime
+      $startMatches = [Math]::Abs(($recordedUtc - $actualUtc).TotalSeconds) -lt 1
+    } catch {
+      $startMatches = $false
+    }
+  }
   $identityMatches = [bool]($isNodeExecutable -and $nodeMatches -and $injectorMatches -and $startMatches)
 
   if (-not $identityMatches) {

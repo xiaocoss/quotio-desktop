@@ -428,19 +428,124 @@ async function verifySession(session) {
     const home = document.querySelector('.dream-home');
     const suggestions = home?.querySelector('.group\\\\/home-suggestions') ?? null;
     const cards = suggestions ? [...suggestions.querySelectorAll('button')].map(box) : [];
+    const hero = box(home?.firstElementChild?.firstElementChild?.firstElementChild);
+    const composer = box(document.querySelector('.composer-surface-chrome'));
+    const sidebarNode = document.querySelector('aside.app-shell-left-panel');
+    const sidebar = box(sidebarNode);
+    const sidebarInner = box(sidebarNode?.firstElementChild);
+    const mainNode = document.querySelector('main.main-surface');
+    const main = box(mainNode);
+    const headerNode = document.querySelector('main.main-surface > header.app-header-tint');
+    const header = box(headerNode);
+    const headerContentNode = headerNode
+      ? [...headerNode.children].sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width)[0] ?? null
+      : null;
+    const headerContent = box(headerContentNode);
+    const chromeNode = document.getElementById('codex-dream-skin-chrome');
+    const chrome = box(chromeNode);
+    const brandNode = chromeNode?.querySelector('.dream-brand') ?? null;
+    const brand = box(brandNode);
+    const polaroidNode = chromeNode?.querySelector('.dream-polaroid') ?? null;
+    const polaroid = box(polaroidNode);
+    const polaroidStyle = polaroidNode ? getComputedStyle(polaroidNode) : null;
+    const polaroidVisible = Boolean(polaroid && polaroid.width > 0 && polaroid.height > 0 &&
+      polaroidStyle?.display !== 'none');
+    const polaroidContent = polaroidStyle ? {
+      width: Number.parseFloat(polaroidStyle.width),
+      height: Number.parseFloat(polaroidStyle.height),
+    } : null;
+    const theme = window.__CODEX_DREAM_SKIN_STATE__?.theme?.id ?? null;
+    const layoutScale = Number(document.documentElement.dataset.dreamPinkScale || 1);
+    const near = (actual, expected, tolerance = 4) =>
+      Number.isFinite(actual) && Number.isFinite(expected) && Math.abs(actual - expected) <= tolerance;
+    const sidebarAligned = Boolean(sidebar && main) &&
+      Math.abs(main.x - (sidebar.x + sidebar.width)) <= 2;
+    const sidebarInnerAligned = Boolean(sidebar && sidebarInner) &&
+      Math.abs(sidebarInner.x - sidebar.x) <= 2 &&
+      Math.abs(sidebarInner.width - sidebar.width) <= 2;
+    const headerAligned = Boolean(header && main) &&
+      Math.abs(header.x - main.x) <= 2 && Math.abs(header.width - main.width) <= 2;
+    const headerContentAligned = !headerContent || !main || headerContent.width < 100 ||
+      Math.abs(headerContent.x - (main.x + 8)) <= 40;
+    const chromeAligned = Boolean(chrome && main) &&
+      Math.abs(chrome.x - main.x) <= 2 && Math.abs(chrome.width - main.width) <= 2;
+    const brandAligned = theme !== 'pink-custom' || Boolean(brand && main) &&
+      (home && hero
+        ? Math.abs(brand.x - Math.max(main.x + 18, hero.x - 20)) <= 4
+        : Math.abs(brand.x - (main.x + 27)) <= 4);
+    const cardsInsideHero = Boolean(hero) && cards.length > 0 && cards.every((card) =>
+      card.y >= hero.y - 2 && card.y + card.height <= hero.y + hero.height + 2);
+    const homeStructurePass = !home || (Boolean(hero) && (
+      theme === 'pink-custom'
+        ? Boolean(suggestions) && cards.length >= 2 && cards.length <= 4 && cardsInsideHero
+        : !suggestions || (cards.length >= 2 && cards.length <= 4)
+    ));
+    const pinkLayoutAligned = theme !== 'pink-custom' ||
+      (Boolean(sidebar) && sidebarAligned && sidebarInnerAligned && chromeAligned &&
+        brandAligned && headerContentAligned && (!header || headerAligned));
+    const pinkUniformScale = theme !== 'pink-custom' || !home || (
+      Number.isFinite(layoutScale) && layoutScale >= .75 && layoutScale <= 2.5 &&
+      Boolean(hero) && Boolean(composer) && Boolean(sidebar) &&
+      near(hero.width, 974 * layoutScale) && near(hero.height, 511 * layoutScale) &&
+      near(composer.width, 847 * layoutScale) &&
+      cards.every((card) => near(card.height, 184 * layoutScale, 6))
+    );
+    const polaroidExpected = Boolean(home) && innerWidth > 1120;
+    const polaroidGeometry = !polaroidExpected ? !polaroidVisible :
+      Boolean(polaroid) && polaroidVisible && Boolean(polaroidContent) &&
+      near(polaroidContent.width, 108 * layoutScale, 3) &&
+      near(polaroidContent.height, 154 * layoutScale, 3) &&
+      polaroid.x >= 0 && polaroid.x + polaroid.width <= innerWidth + 4 &&
+      polaroid.y >= 0 && polaroid.y + polaroid.height <= innerHeight + 4;
+    const pinkCompositionGeometry = theme !== 'pink-custom' || !home || (
+      pinkUniformScale && polaroidGeometry &&
+      near(composer.x - hero.x, 22 * layoutScale, 8) &&
+      near(composer.y - (hero.y + hero.height), 69 * layoutScale, 8) &&
+      cards.every((card) =>
+        near(card.width, 210 * layoutScale, 10) &&
+        near(card.y - hero.y, 327 * layoutScale, 8)) &&
+      near(cards[0]?.x - hero.x, 35 * layoutScale, 8) &&
+      near((hero.x + hero.width) - (cards.at(-1)?.x + cards.at(-1)?.width), 59 * layoutScale, 12) &&
+      document.documentElement.scrollWidth <= document.documentElement.clientWidth &&
+      document.documentElement.scrollHeight <= document.documentElement.clientHeight
+    );
+    const surfacePresent = Boolean(composer || main);
     const result = {
       installed: document.documentElement.classList.contains('codex-dream-skin'),
       version: window.__CODEX_DREAM_SKIN_STATE__?.version ?? null,
       expectedVersion: ${JSON.stringify(SKIN_VERSION)},
+      theme,
+      layoutScale,
       stylePresent: Boolean(document.getElementById('codex-dream-skin-style')),
       chromePresent: Boolean(document.getElementById('codex-dream-skin-chrome')),
       chromePointerEvents: getComputedStyle(document.getElementById('codex-dream-skin-chrome') || document.body).pointerEvents,
       homePresent: Boolean(home),
       suggestionsPresent: Boolean(suggestions),
-      hero: box(home?.firstElementChild?.firstElementChild?.firstElementChild),
+      hero,
       cards,
-      composer: box(document.querySelector('.composer-surface-chrome')),
-      sidebar: box(document.querySelector('aside.app-shell-left-panel')),
+      cardsInsideHero,
+      homeStructurePass,
+      pinkLayoutAligned,
+      pinkUniformScale,
+      pinkCompositionGeometry,
+      surfacePresent,
+      composer,
+      sidebar,
+      sidebarInner,
+      main,
+      header,
+      headerContent,
+      chrome,
+      brand,
+      polaroid,
+      polaroidContent,
+      sidebarAligned,
+      sidebarInnerAligned,
+      headerAligned,
+      headerContentAligned,
+      chromeAligned,
+      brandAligned,
+      polaroidVisible,
       viewport: { width: innerWidth, height: innerHeight },
       documentOverflow: {
         x: document.documentElement.scrollWidth > document.documentElement.clientWidth,
@@ -449,9 +554,9 @@ async function verifySession(session) {
     };
     result.pass = result.installed && result.version === result.expectedVersion &&
       result.stylePresent && result.chromePresent &&
-      result.chromePointerEvents === 'none' && Boolean(result.composer) && Boolean(result.sidebar) &&
-      (!result.homePresent || (Boolean(result.hero) &&
-        (!result.suggestionsPresent || (result.cards.length >= 2 && result.cards.length <= 4))));
+      result.chromePointerEvents === 'none' && result.surfacePresent && Boolean(result.sidebar) &&
+      result.homeStructurePass && result.pinkLayoutAligned &&
+      result.pinkUniformScale && result.pinkCompositionGeometry;
     return result;
   })()`);
 }
