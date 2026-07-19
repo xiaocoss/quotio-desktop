@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex, MutexGuard,
+};
 
 use quotio_core::{
     management::{ManagementApiClient, ManagementApiError},
@@ -23,6 +26,7 @@ use tauri_plugin_autostart::ManagerExt;
 struct DesktopState {
     core: Arc<Mutex<AppCore>>,
     tunnel: Mutex<TunnelRuntime>,
+    shutdown_started: AtomicBool,
 }
 
 /// 取 core 锁,毒化时恢复并清除毒化标记。
@@ -42,6 +46,30 @@ fn lock_core(core: &Mutex<AppCore>) -> MutexGuard<'_, AppCore> {
 struct TunnelRuntime {
     child: Option<std::process::Child>,
     public_url: Option<String>,
+}
+
+fn begin_desktop_shutdown(shutdown_started: &AtomicBool) -> bool {
+    !shutdown_started.swap(true, Ordering::AcqRel)
+}
+
+fn cleanup_desktop_state(app_handle: &AppHandle) {
+    let Some(state) = app_handle.try_state::<DesktopState>() else {
+        return;
+    };
+    if !begin_desktop_shutdown(&state.shutdown_started) {
+        return;
+    }
+
+    // Run before the single-instance plugin receives RunEvent::Exit and releases
+    // its mutex. This keeps a restarted process from recovering Codex state while
+    // the previous process is still restoring backups or account markers.
+    lock_core(&state.core).shutdown();
+    if let Ok(mut tunnel) = state.tunnel.lock() {
+        if let Some(mut child) = tunnel.child.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    };
 }
 
 #[derive(serde::Serialize)]
@@ -1798,6 +1826,7 @@ pub fn run() {
             app.manage(DesktopState {
                 core: Arc::new(Mutex::new(AppCore::default())),
                 tunnel: Mutex::new(TunnelRuntime::default()),
+                shutdown_started: AtomicBool::new(false),
             });
 
             let show = MenuItem::with_id(app, "show", "打开 Quotio", true, None::<&str>)?;
@@ -1966,21 +1995,13 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
-            if let tauri::RunEvent::Exit = event {
-                // Release resources on every exit path (close dialog / tray / menu
-                // bar): stop a Quotio-started proxy + the tunnel, and terminate the
-                // adopted/external proxy by its port so it doesn't linger.
-                if let Some(state) = app_handle.try_state::<DesktopState>() {
-                    if let Ok(mut core) = state.core.lock() {
-                        core.shutdown();
-                    }
-                    if let Ok(mut tunnel) = state.tunnel.lock() {
-                        if let Some(mut child) = tunnel.child.take() {
-                            let _ = child.kill();
-                            let _ = child.wait();
-                        }
-                    }
-                }
+            if matches!(
+                event,
+                tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
+            ) {
+                // ExitRequested runs before plugins see Exit. Exit is retained as
+                // an idempotent fallback for platform-specific shutdown paths.
+                cleanup_desktop_state(app_handle);
             }
         });
 }
@@ -1992,6 +2013,14 @@ mod tests {
     use quotio_types::{AgentConfigMode, AgentConfigStorageOption, AgentSetupMode};
 
     use super::*;
+
+    #[test]
+    fn desktop_shutdown_gate_runs_only_once() {
+        let shutdown_started = AtomicBool::new(false);
+
+        assert!(begin_desktop_shutdown(&shutdown_started));
+        assert!(!begin_desktop_shutdown(&shutdown_started));
+    }
 
     #[test]
     fn configure_agent_blocking_returns_unknown_agent_error_without_state() {
