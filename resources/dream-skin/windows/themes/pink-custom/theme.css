@@ -487,6 +487,21 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] .ProseMirror {
   caret-color: #b55776 !important;
 }
 
+/* Keep the whole delegated input surface visibly text-editable while native
+   buttons retain their own explicit cursor style. */
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-home-composer,
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-home-composer .ProseMirror {
+  cursor: text !important;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-home-composer .ProseMirror {
+  caret-color: #b55776 !important;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-home-composer .ProseMirror:focus {
+  outline: none !important;
+}
+
 html.codex-dream-skin[data-dream-theme="pink-custom"] .composer-surface-chrome button[class~="bg-token-foreground"] {
   background: linear-gradient(145deg, #e39ab0, #b45473) !important;
   box-shadow: 0 5px 13px rgba(133, 64, 85, .20) !important;
@@ -499,13 +514,13 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .
   height: 154px;
   display: none !important;
   background-image: var(--dream-art);
-  background-size: auto 275%;
-  background-position: 70% 13%;
+  background-size: auto 180%;
+  background-position: 75% 0%;
   border: 7px solid rgba(255, 253, 250, .98) !important;
-  border-bottom-width: 22px !important;
+  border-bottom-width: 48px !important;
   border-radius: 2px;
-  box-shadow: 0 12px 28px rgba(108, 59, 73, .17), 0 0 0 1px rgba(188, 112, 135, .24) !important;
-  transform: rotate(-7deg);
+  box-shadow: 0 8px 18px rgba(108, 59, 73, .14), 0 0 0 1px rgba(188, 112, 135, .20) !important;
+  transform: rotate(-8deg);
 }
 
 html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome.dream-home-shell .dream-polaroid {
@@ -513,23 +528,42 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome.d
 }
 
 html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .dream-polaroid::before {
-  content: "🌹";
-  left: -19px;
-  top: -22px;
-  font-size: 28px;
-  filter: drop-shadow(0 3px 4px rgba(156, 75, 99, .22));
+  content: "";
+  left: -8px;
+  top: -6px;
+  z-index: 2;
+  width: 30px;
+  height: 45px;
+  background: transparent url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MiA1OCI+PGcgc3Ryb2tlPSIjZDk4MjlkIiBzdHJva2Utd2lkdGg9IjEuMjUiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xOS41IDE4QzE0IDggNSAyLjggMi44IDkuMi42IDE1LjkgNi4zIDI0LjQgMTguOCAyM1oiIGZpbGw9IiNmNmIyYzMiLz48cGF0aCBkPSJNMjIuNSAxOEMyOCA4IDM3IDIuOCAzOS4yIDkuMmMyLjIgNi43LTMuNSAxNS4yLTE2IDEzLjhaIiBmaWxsPSIjZWY5ZGI0Ii8+PGVsbGlwc2UgY3g9IjIxIiBjeT0iMjAiIHJ4PSI0LjQiIHJ5PSI1LjIiIGZpbGw9IiNkZTgyOWUiLz48cGF0aCBkPSJNMTggMjQgOC4yIDQ2LjVsOS4xLTQuOSAzLjYgMTIuMSAxLTI4LjRaIiBmaWxsPSIjZjRhOWJkIi8+PHBhdGggZD0ibTI0IDI0IDkuNiAyMS44LTguOC00LjEtMy45IDEyLjEtMS0yOC41WiIgZmlsbD0iI2U5OTNhZCIvPjwvZz48cGF0aCBkPSJNOC41IDQ5LjVjLTIuMi0yLTUuOC0uNS01LjMgMi41LjQgMi42IDUuMyA1LjIgNS4zIDUuMnM0LjktMi42IDUuMy01LjJjLjUtMy0zLjEtNC41LTUuMy0yLjVaIiBmaWxsPSIjZjFhNWJhIi8+PC9zdmc+") center / contain no-repeat;
+  filter: drop-shadow(0 3px 4px rgba(156, 75, 99, .18));
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .dream-polaroid-tape {
+  position: absolute;
+  left: 58%;
+  top: -5%;
+  z-index: 3;
+  width: 25%;
+  height: 7%;
+  display: block;
+  opacity: .76;
+  background: linear-gradient(90deg, rgba(235, 143, 165, .58), rgba(255, 222, 226, .82), rgba(226, 125, 153, .56));
+  box-shadow: 0 1px 2px rgba(137, 72, 91, .12);
+  clip-path: polygon(3% 12%, 97% 0, 93% 88%, 5% 100%);
+  transform: translateX(-50%) rotate(2deg);
 }
 
 html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .dream-polaroid::after {
-  content: "与你一起创造美好 ♡";
+  content: "一直陪伴\A是最温暖的应援 ♥";
   position: absolute;
   left: -4px;
   right: -4px;
-  bottom: -18px;
+  bottom: -36px;
   color: #b17484;
   text-align: center;
-  font: 500 8px/1 "Microsoft YaHei UI", sans-serif;
-  letter-spacing: .04em;
+  white-space: pre;
+  font: 500 8px/1.45 "KaiTi", "STKaiti", "FangSong", "Microsoft YaHei UI", sans-serif;
+  letter-spacing: .02em;
 }
 
 html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-sparkles i {
@@ -659,7 +693,7 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-hero > div:nth-chil
 html.codex-dream-skin[data-dream-theme="pink-custom"][data-dream-gallery="true"] [role="main"].dream-home .dream-home-stage > .dream-hero > div:nth-child(2) {
   left: 3.2% !important;
   right: 6.1% !important;
-  bottom: 2.8% !important;
+  bottom: var(--pink-card-frame-bottom, 14px) !important;
   height: 34.8% !important;
 }
 
@@ -765,13 +799,13 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome.d
 }
 
 html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome.dream-home-shell .dream-polaroid {
-  right: calc((100% - var(--pink-canvas-width)) / 2 + 10px) !important;
+  right: auto !important;
 }
 
 /* Final interactive details are anchored by renderer-injected stable hooks. */
 html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-approval-mode {
   min-width: 76px;
-  font-size: 0 !important;
+  font-size: var(--pink-approval-font-size, 11px) !important;
   color: #9c5a70 !important;
   border: 1px solid rgba(189, 111, 136, .22) !important;
   border-radius: 999px !important;
@@ -779,7 +813,8 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-approval-mode {
 }
 
 html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-approval-mode::after {
-  content: "完全访问  ♡";
+  content: "♡";
+  margin-left: 2px;
   font: 500 11px/1 "Microsoft YaHei UI", "Segoe UI", sans-serif;
 }
 
@@ -813,6 +848,19 @@ html.codex-dream-skin[data-dream-theme="pink-custom"][data-dream-gallery="true"]
 html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-home-composer .ProseMirror p.placeholder::before {
   content: "随心输入，让灵感陪你一起写代码吧～" !important;
   color: rgba(145, 101, 111, .54) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-home-composer .ProseMirror p.placeholder::after {
+  content: none !important;
+}
+
+/* ProseMirror keeps the empty paragraph's placeholder class while focused.
+   Hide only its generated copy so the real caret remains visible. */
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-home-composer .ProseMirror:focus p.placeholder::before,
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-home-composer .ProseMirror:focus p.placeholder::after,
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-home-composer .ProseMirror:focus-within p.placeholder::before,
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-home-composer .ProseMirror:focus-within p.placeholder::after {
+  content: none !important;
 }
 
 html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .dream-brand .dream-note {
@@ -888,6 +936,7 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-suggestion-card > s
   width: 74px !important;
   height: 74px !important;
   box-sizing: border-box;
+  position: relative !important;
   display: grid !important;
   place-items: center !important;
   margin: 0 !important;
@@ -904,6 +953,13 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-suggestion-card > s
 }
 
 html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-suggestion-card > span:first-child > span:first-child::before {
+  content: "";
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  display: block !important;
+  margin: 0 !important;
+  transform: translate(-50%, -50%) !important;
   width: 44px !important;
   height: 44px !important;
   background-position: center !important;
@@ -1067,8 +1123,10 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-fallback-suggestion
 }
 
 html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-fallback-suggestions .dream-suggestion-card > span:first-child {
-  display: flex !important;
-  width: 100%;
+  display: grid !important;
+  place-items: center !important;
+  width: var(--pink-card-icon-size, 74px) !important;
+  height: var(--pink-card-icon-size, 74px) !important;
 }
 
 html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-fallback-suggestions .dream-suggestion-card > span:last-child {
@@ -1201,6 +1259,11 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-home-composer > .co
   zoom: var(--pink-layout-scale, 1);
 }
 
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-home-composer > .contents > div:has(.ProseMirror) {
+  min-height: 109px !important;
+  align-content: space-between !important;
+}
+
 html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-home-composer {
   min-height: var(--pink-composer-min-height, 141px) !important;
   border-radius: 0 0 var(--pink-panel-radius, 18px) var(--pink-panel-radius, 18px) !important;
@@ -1225,19 +1288,20 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .
   width: var(--pink-polaroid-width, 108px) !important;
   height: var(--pink-polaroid-height, 154px) !important;
   border-width: var(--pink-polaroid-border, 7px) !important;
-  border-bottom-width: var(--pink-polaroid-bottom-border, 22px) !important;
+  border-bottom-width: var(--pink-polaroid-bottom-border, 48px) !important;
 }
 
 html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .dream-polaroid::before {
-  left: -17.6% !important;
-  top: -14.3% !important;
-  font-size: var(--pink-polaroid-rose-size, 28px) !important;
+  left: -7.4% !important;
+  top: -3.9% !important;
+  width: var(--pink-polaroid-bow-width, 30px) !important;
+  height: var(--pink-polaroid-bow-height, 45px) !important;
 }
 
 html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .dream-polaroid::after {
   left: -3.7% !important;
   right: -3.7% !important;
-  bottom: -11.7% !important;
+  bottom: -23.4% !important;
   font-size: var(--pink-polaroid-label-size, 8px) !important;
-  line-height: var(--pink-polaroid-label-size, 8px) !important;
+  line-height: 1.45 !important;
 }

@@ -2,6 +2,8 @@
   const STATE_KEY = "__CODEX_DREAM_SKIN_STATE__";
   const STYLE_ID = "codex-dream-skin-style";
   const CHROME_ID = "codex-dream-skin-chrome";
+  const SKIN_VERSION = "1.1.5";
+  const STYLE_VERSION = "6";
   const PINK_PLACEHOLDER = "随心输入，让灵感陪你一起写代码吧～";
   window.__CODEX_DREAM_SKIN_DISABLED__ = false;
 
@@ -22,6 +24,7 @@
     copyTop: 167,
     copyLeft: 74,
     cardHeight: 184,
+    cardFrameBottom: 14,
     cardFrameLeft: 35,
     cardFrameRight: 59,
     cardGridGap: 12,
@@ -66,9 +69,12 @@
     polaroidWidth: 108,
     polaroidHeight: 154,
     polaroidBorder: 7,
-    polaroidBottomBorder: 22,
+    polaroidBottomBorder: 48,
     polaroidLabelSize: 8,
-    polaroidRoseSize: 28,
+    polaroidBowWidth: 30,
+    polaroidBowHeight: 45,
+    polaroidComposerGap: 24,
+    polaroidBottomInset: 7,
   });
   const MANAGED_CLASSES = Object.freeze([
     "dream-home-flow",
@@ -185,6 +191,9 @@
   if (previous?.scheduler?.timeout) clearTimeout(previous.scheduler.timeout);
   if (previous?.layoutScheduler?.frame != null) cancelAnimationFrame(previous.layoutScheduler.frame);
   if (previous?.resizeHandler) window.removeEventListener("resize", previous.resizeHandler);
+  if (previous?.composerPointerHandler) {
+    document.removeEventListener("pointerdown", previous.composerPointerHandler, true);
+  }
   let previousArtUrl = previous?.artUrl || null;
   const artUrl = (() => {
     const comma = artDataUrl.indexOf(",");
@@ -197,10 +206,32 @@
   const existingStyle = document.getElementById(STYLE_ID);
   if (existingStyle) {
     existingStyle.textContent = cssText;
-    existingStyle.dataset.dreamVersion = "1";
+    existingStyle.dataset.dreamVersion = STYLE_VERSION;
   }
 
   let observeLayoutTargets = () => {};
+
+  // When the responsive home composer is taller than its editor content,
+  // delegate clicks in the remaining surface to the real editor. Keep native
+  // controls (and direct editor clicks) on their normal event path.
+  const composerPointerHandler = (event) => {
+    if (theme?.id !== "pink-custom" || event.button !== 0) return;
+    const target = event.target instanceof Element ? event.target : null;
+    const composer = target?.closest(".dream-home-composer");
+    if (!composer || target.closest([
+      "button",
+      "a",
+      "input",
+      "textarea",
+      "select",
+      "[role='button']",
+      "[role='combobox']",
+      "[contenteditable='true']",
+    ].join(","))) return;
+    const editor = composer.querySelector(".ProseMirror[contenteditable='true']");
+    editor?.focus({ preventScroll: true });
+  };
+  document.addEventListener("pointerdown", composerPointerHandler, true);
 
   const ensure = () => {
     if (window.__CODEX_DREAM_SKIN_DISABLED__) return;
@@ -225,9 +256,9 @@
       style.id = STYLE_ID;
       (document.head || root).appendChild(style);
     }
-    if (style.dataset.dreamVersion !== "1") {
+    if (style.dataset.dreamVersion !== STYLE_VERSION) {
       style.textContent = cssText;
-      style.dataset.dreamVersion = "1";
+      style.dataset.dreamVersion = STYLE_VERSION;
     }
 
     const shellMain = document.querySelector("main.main-surface") || document.querySelector("main");
@@ -297,7 +328,10 @@
     composer?.classList.add("dream-home-composer");
     composerRail?.classList.add("dream-composer-rail");
     composer?.querySelectorAll("button").forEach((button) => {
-      if (/替我审批|ask for approval/i.test(button.textContent || "")) button.classList.add("dream-approval-mode");
+      if (button.matches('[data-composer-navigation-target="permissions"]') ||
+          /替我审批|请求批准|完全访问|ask for approval|request approval|full access/i.test(button.textContent || "")) {
+        button.classList.add("dream-approval-mode");
+      }
     });
     if (home) homeHeader?.classList.add("dream-home-header");
     nativeHeaderContext?.classList.add("dream-header-native-context");
@@ -348,6 +382,7 @@
         "--pink-subtitle-size": px(PINK_LAYOUT.subtitleSize),
         "--pink-subtitle-line-height": px(PINK_LAYOUT.subtitleLineHeight),
         "--pink-card-height": px(PINK_LAYOUT.cardHeight),
+        "--pink-card-frame-bottom": px(PINK_LAYOUT.cardFrameBottom),
         "--pink-card-grid-gap": px(PINK_LAYOUT.cardGridGap),
         "--pink-card-radius": px(PINK_LAYOUT.cardRadius),
         "--pink-card-hover-lift": px(PINK_LAYOUT.cardHoverLift),
@@ -379,7 +414,8 @@
         "--pink-polaroid-border": px(PINK_LAYOUT.polaroidBorder),
         "--pink-polaroid-bottom-border": px(PINK_LAYOUT.polaroidBottomBorder),
         "--pink-polaroid-label-size": px(PINK_LAYOUT.polaroidLabelSize),
-        "--pink-polaroid-rose-size": px(PINK_LAYOUT.polaroidRoseSize),
+        "--pink-polaroid-bow-width": px(PINK_LAYOUT.polaroidBowWidth),
+        "--pink-polaroid-bow-height": px(PINK_LAYOUT.polaroidBowHeight),
       });
       setManagedInlineStyles(homeFlow, {
         "padding-top": px(PINK_LAYOUT.flowTop),
@@ -413,7 +449,7 @@
         right: px(PINK_LAYOUT.cardFrameRight),
         width: "auto",
         top: "auto",
-        bottom: "0",
+        bottom: px(PINK_LAYOUT.cardFrameBottom),
         height: px(PINK_LAYOUT.cardHeight),
         "margin-top": "0",
         "margin-right": "0",
@@ -498,7 +534,7 @@
         <div class="dream-signature">${escapeHtml(theme?.signature || theme?.name || "Dream ♡")}</div>
         <div class="dream-sparkles"><i></i><i></i><i></i><i></i><i></i><i></i></div>
         <div class="dream-ribbon"><span>♡</span>🎀<span>✦</span></div>
-        <div class="dream-polaroid"></div>`;
+        <div class="dream-polaroid"><span class="dream-polaroid-tape"></span></div>`;
       document.body.appendChild(chrome);
     }
     const brandTitle = chrome.querySelector(".dream-brand b");
@@ -518,14 +554,24 @@
       const composerBox = composer?.getBoundingClientRect() || null;
       const brand = chrome.querySelector(".dream-brand");
       const polaroid = chrome.querySelector(".dream-polaroid");
+      const scale = Number(root.dataset.dreamPinkScale || 1);
+      if (polaroid && !polaroid.querySelector(".dream-polaroid-tape")) {
+        const tape = document.createElement("span");
+        tape.className = "dream-polaroid-tape";
+        polaroid.appendChild(tape);
+      }
       setManagedInlineStyles(brand, {
         left: `${Math.round(Math.max(18, heroBox.left - shellBox.left - 20))}px`,
         top: "3px",
       });
       setManagedInlineStyles(polaroid, {
-        left: `${Math.round(heroBox.right - shellBox.left - (140 * Number(root.dataset.dreamPinkScale || 1)))}px`,
+        left: composerBox
+          ? `${Math.round(composerBox.right - shellBox.left + (PINK_LAYOUT.polaroidComposerGap * scale))}px`
+          : `${Math.round(heroBox.right - shellBox.left - (88 * scale))}px`,
         right: "auto",
-        top: composerBox ? `${Math.round(composerBox.top - shellBox.top - (25 * Number(root.dataset.dreamPinkScale || 1)))}px` : "auto",
+        top: composerBox
+          ? `${Math.round(composerBox.bottom - shellBox.top - ((PINK_LAYOUT.polaroidHeight + PINK_LAYOUT.polaroidBottomInset) * scale))}px`
+          : "auto",
         bottom: "auto",
       });
     }
@@ -558,6 +604,9 @@
     if (state?.scheduler?.timeout) clearTimeout(state.scheduler.timeout);
     if (state?.layoutScheduler?.frame != null) cancelAnimationFrame(state.layoutScheduler.frame);
     if (state?.resizeHandler) window.removeEventListener("resize", state.resizeHandler);
+    if (state?.composerPointerHandler) {
+      document.removeEventListener("pointerdown", state.composerPointerHandler, true);
+    }
     if (state?.artUrl) URL.revokeObjectURL(state.artUrl);
     delete window[STATE_KEY];
     return true;
@@ -615,11 +664,12 @@
     scheduler,
     layoutScheduler,
     resizeHandler,
+    composerPointerHandler,
     artUrl,
     theme,
-    version: "1.1.0",
+    version: SKIN_VERSION,
   };
   observeLayoutTargets();
   ensure();
-  return { installed: true, version: "1.1.0", theme: theme?.id || "dream" };
+  return { installed: true, version: SKIN_VERSION, theme: theme?.id || "dream" };
 })(__DREAM_CSS_JSON__, __DREAM_ART_JSON__, __DREAM_THEME_JSON__)

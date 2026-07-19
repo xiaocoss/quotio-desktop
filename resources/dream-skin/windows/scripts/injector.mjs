@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
-const SKIN_VERSION = "1.1.0";
+const SKIN_VERSION = "1.1.5";
+const PINK_CARD_FRAME_BOTTOM = 14;
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
 const BROWSER_ID_PATTERN = /^[A-Za-z0-9._-]{1,200}$/;
 
@@ -427,9 +428,22 @@ async function verifySession(session) {
     };
     const home = document.querySelector('.dream-home');
     const suggestions = home?.querySelector('.group\\\\/home-suggestions') ?? null;
-    const cards = suggestions ? [...suggestions.querySelectorAll('button')].map(box) : [];
+    const cardNodes = suggestions ? [...suggestions.querySelectorAll('button')] : [];
+    const cards = cardNodes.map(box);
     const hero = box(home?.firstElementChild?.firstElementChild?.firstElementChild);
-    const composer = box(document.querySelector('.composer-surface-chrome'));
+    const composerNode = document.querySelector('.composer-surface-chrome');
+    const composer = box(composerNode);
+    const composerEditor = composerNode?.querySelector('.ProseMirror[contenteditable="true"]') ?? null;
+    const composerFooter = composerEditor?.closest('.dream-home-composer > .contents > div') ?? null;
+    const composerFooterBox = box(composerFooter);
+    const composerButtons = composerNode ? [...composerNode.querySelectorAll('button')] : [];
+    const composerToolbarBottom = composerButtons.length
+      ? Math.max(...composerButtons.map((button) => button.getBoundingClientRect().bottom))
+      : null;
+    const composerRawBox = composerNode?.getBoundingClientRect() ?? null;
+    const composerToolbarBottomGap = composerRawBox && Number.isFinite(composerToolbarBottom)
+      ? composerRawBox.bottom - composerToolbarBottom
+      : null;
     const sidebarNode = document.querySelector('aside.app-shell-left-panel');
     const sidebar = box(sidebarNode);
     const sidebarInner = box(sidebarNode?.firstElementChild);
@@ -448,16 +462,55 @@ async function verifySession(session) {
     const polaroidNode = chromeNode?.querySelector('.dream-polaroid') ?? null;
     const polaroid = box(polaroidNode);
     const polaroidStyle = polaroidNode ? getComputedStyle(polaroidNode) : null;
+    const polaroidBeforeStyle = polaroidNode ? getComputedStyle(polaroidNode, '::before') : null;
+    const polaroidAfterStyle = polaroidNode ? getComputedStyle(polaroidNode, '::after') : null;
+    const polaroidTapeNode = polaroidNode?.querySelector('.dream-polaroid-tape') ?? null;
     const polaroidVisible = Boolean(polaroid && polaroid.width > 0 && polaroid.height > 0 &&
       polaroidStyle?.display !== 'none');
     const polaroidContent = polaroidStyle ? {
       width: Number.parseFloat(polaroidStyle.width),
       height: Number.parseFloat(polaroidStyle.height),
     } : null;
+
     const theme = window.__CODEX_DREAM_SKIN_STATE__?.theme?.id ?? null;
     const layoutScale = Number(document.documentElement.dataset.dreamPinkScale || 1);
     const near = (actual, expected, tolerance = 4) =>
       Number.isFinite(actual) && Number.isFinite(expected) && Math.abs(actual - expected) <= tolerance;
+    const polaroidVisualDetails = theme === 'pink-custom' && home
+      ? Boolean(polaroidStyle && polaroidBeforeStyle && polaroidAfterStyle && polaroidTapeNode) &&
+        near(Number.parseFloat(polaroidStyle.borderBottomWidth), 48 * layoutScale, 3) &&
+        polaroidStyle.backgroundSize === 'auto 180%' &&
+        polaroidStyle.backgroundPosition === '75% 0%' &&
+        polaroidBeforeStyle.backgroundImage !== 'none' &&
+        polaroidAfterStyle.content.includes('一直陪伴') &&
+        polaroidAfterStyle.content.includes('应援')
+      : true;
+    const glyphAlignment = cardNodes.map((cardNode) => {
+      const inner = cardNode.querySelector(':scope > span:first-child > span:first-child');
+      if (!inner) return { centered: false };
+      const innerBox = inner.getBoundingClientRect();
+      const style = getComputedStyle(inner, '::before');
+      const width = Number.parseFloat(style.width);
+      const height = Number.parseFloat(style.height);
+      const left = Number.parseFloat(style.left);
+      const top = Number.parseFloat(style.top);
+      const values = (style.transform.match(/^matrix(?:3d)?\\(([^)]+)\\)$/)?.[1] || '')
+        .split(',').map(Number);
+      const translateX = values.length === 6 ? values[4] : values.length === 16 ? values[12] : 0;
+      const translateY = values.length === 6 ? values[5] : values.length === 16 ? values[13] : 0;
+      const glyphCenterX = left + translateX + (width / 2);
+      const glyphCenterY = top + translateY + (height / 2);
+      return {
+        centered: style.position === 'absolute' && style.display !== 'none' &&
+          near(glyphCenterX, innerBox.width / 2, 2) && near(glyphCenterY, innerBox.height / 2, 2),
+        glyphCenterX,
+        glyphCenterY,
+        innerCenterX: innerBox.width / 2,
+        innerCenterY: innerBox.height / 2,
+      };
+    });
+    const glyphsCentered = theme !== 'pink-custom' || !home ||
+      (glyphAlignment.length === cards.length && glyphAlignment.every((item) => item.centered));
     const sidebarAligned = Boolean(sidebar && main) &&
       Math.abs(main.x - (sidebar.x + sidebar.width)) <= 2;
     const sidebarInnerAligned = Boolean(sidebar && sidebarInner) &&
@@ -490,20 +543,41 @@ async function verifySession(session) {
       near(composer.width, 847 * layoutScale) &&
       cards.every((card) => near(card.height, 184 * layoutScale, 6))
     );
+    const composerContentGeometry = theme !== 'pink-custom' || !home || (
+      Boolean(composer && composerEditor && composerFooterBox) &&
+      near(composerFooterBox.height, 109 * layoutScale, 5) &&
+      near(composerToolbarBottomGap, 18 * layoutScale, 5)
+    );
+    const composerPointerReady = theme !== 'pink-custom' || !home ||
+      typeof window.__CODEX_DREAM_SKIN_STATE__?.composerPointerHandler === 'function';
     const polaroidExpected = Boolean(home) && innerWidth > 1120;
+    const polaroidComposerGap = polaroid && composer
+      ? polaroid.x - (composer.x + composer.width)
+      : null;
+    const polaroidBottomGap = polaroid && composer
+      ? (composer.y + composer.height) - (polaroid.y + polaroid.height)
+      : null;
+    const polaroidPositionAligned = theme !== 'pink-custom' || !home ||
+      (polaroidExpected
+        ? Number.isFinite(polaroidComposerGap) && polaroidComposerGap >= 8 &&
+          polaroidComposerGap <= 52 && near(polaroidBottomGap, 0, 16)
+        : !polaroidVisible);
     const polaroidGeometry = !polaroidExpected ? !polaroidVisible :
       Boolean(polaroid) && polaroidVisible && Boolean(polaroidContent) &&
       near(polaroidContent.width, 108 * layoutScale, 3) &&
       near(polaroidContent.height, 154 * layoutScale, 3) &&
+      polaroidVisualDetails && polaroidPositionAligned &&
       polaroid.x >= 0 && polaroid.x + polaroid.width <= innerWidth + 4 &&
       polaroid.y >= 0 && polaroid.y + polaroid.height <= innerHeight + 4;
     const pinkCompositionGeometry = theme !== 'pink-custom' || !home || (
-      pinkUniformScale && polaroidGeometry &&
+      pinkUniformScale && glyphsCentered && composerContentGeometry && composerPointerReady && polaroidGeometry &&
       near(composer.x - hero.x, 22 * layoutScale, 8) &&
       near(composer.y - (hero.y + hero.height), 69 * layoutScale, 8) &&
       cards.every((card) =>
         near(card.width, 210 * layoutScale, 10) &&
-        near(card.y - hero.y, 327 * layoutScale, 8)) &&
+        near(card.y - hero.y, (511 - 184 - ${JSON.stringify(PINK_CARD_FRAME_BOTTOM)}) * layoutScale, 8)) &&
+      near(hero.y + hero.height - (cards.at(-1)?.y + cards.at(-1)?.height),
+        ${JSON.stringify(PINK_CARD_FRAME_BOTTOM)} * layoutScale, 8) &&
       near(cards[0]?.x - hero.x, 35 * layoutScale, 8) &&
       near((hero.x + hero.width) - (cards.at(-1)?.x + cards.at(-1)?.width), 59 * layoutScale, 12) &&
       document.documentElement.scrollWidth <= document.documentElement.clientWidth &&
@@ -523,6 +597,8 @@ async function verifySession(session) {
       suggestionsPresent: Boolean(suggestions),
       hero,
       cards,
+      glyphAlignment,
+      glyphsCentered,
       cardsInsideHero,
       homeStructurePass,
       pinkLayoutAligned,
@@ -530,6 +606,10 @@ async function verifySession(session) {
       pinkCompositionGeometry,
       surfacePresent,
       composer,
+      composerFooter: composerFooterBox,
+      composerToolbarBottomGap,
+      composerContentGeometry,
+      composerPointerReady,
       sidebar,
       sidebarInner,
       main,
@@ -539,6 +619,10 @@ async function verifySession(session) {
       brand,
       polaroid,
       polaroidContent,
+      polaroidVisualDetails,
+      polaroidComposerGap,
+      polaroidBottomGap,
+      polaroidPositionAligned,
       sidebarAligned,
       sidebarInnerAligned,
       headerAligned,
