@@ -1,7 +1,7 @@
 {
   "name": "quotio-desktop-workspace",
   "private": true,
-  "version": "0.7.2",
+  "version": "0.7.3",
   "scripts": {
     "desktop:install": "npm --prefix apps/desktop install",
     "desktop:dev": "npm --prefix apps/desktop run tauri dev",
