@@ -168,11 +168,9 @@ jobs:
       - name: Build and publish to Release
         uses: tauri-apps/tauri-action@v0
         env:
-          # 用 PAT(RELEASE_TOKEN)发 Release —— 内置 GITHUB_TOKEN 即使有 contents:write
-          # 也会在 create-release 时报 "Resource not accessible by integration"(GitHub
-          # 侧的 integration 限制)。PAT 以用户身份跑,绕过该限制。没配 PAT 时回退到
-          # GITHUB_TOKEN(可能仍失败)。
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          # 使用 GitHub Actions 内置 token；上面的 contents: write 权限允许创建/上传 Release。
+          # 直接使用 workflow token，避免失效的个人 PAT 阻断发布。
+          GITHUB_TOKEN: ${{ github.token }}
           # 自动更新签名密钥(在仓库 Settings → Secrets and variables → Actions 配置)。
           # 缺失时不会生成 latest.json / .sig,自动更新不可用,但安装包照常构建。
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -205,8 +203,8 @@ jobs:
     steps:
       - name: Rewrite latest.json download URLs through ghproxy
         env:
-          # 同 build:用 PAT 改写/上传 latest.json,绕过内置 token 的 integration 限制。
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          # 使用同一个 workflow token 改写/上传 latest.json。
+          GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
           # 镜像挂了随时换:在仓库 Settings → Variables 设 GHPROXY_PREFIX 覆盖(末尾带 /)。
           GHPROXY: ${{ vars.GHPROXY_PREFIX || 'https://ghfast.top/' }}
