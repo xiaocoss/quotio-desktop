@@ -165,6 +165,12 @@
 
 /* ---------- 筛选区 ---------- */
 .usage-dash .usage-filter-bar {
+  /* 筛选栏现在包在 .rose-dashboard-intro 里，不再是 .dashboard-scroll 的直接子项，
+     吃不到下方「> * 禁止压扁」的保护；display:contents 只穿透布局、不穿透选择器。
+     浅色/深色下 wrapper 是 display:contents，筛选栏自己就是 flex 子项，
+     .panel 的 overflow:hidden 会让它随默认 flex-shrink:1 被压到近 0。 */
+  min-width: 0;
+  flex-shrink: 0;
   padding: 18px;
 }
 .usage-dash .range-tabs,
