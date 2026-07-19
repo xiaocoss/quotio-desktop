@@ -306,7 +306,18 @@ fn codex_runtime_satisfies_start(
 }
 
 fn proxy_needs_start(status: &ProxyStatusKind) -> bool {
-    !matches!(status, ProxyStatusKind::Running | ProxyStatusKind::Starting)
+    !matches!(status, ProxyStatusKind::Running)
+}
+
+fn validate_proxy_running(proxy: &ProxyState) -> Result<(), ManagementCoreError> {
+    if matches!(&proxy.status, ProxyStatusKind::Running) {
+        Ok(())
+    } else {
+        Err(ManagementCoreError::Unavailable(format!(
+            "启动代理失败：{}",
+            proxy.message
+        )))
+    }
 }
 
 #[cfg(test)]
@@ -522,8 +533,28 @@ impl AppCore {
     }
 
     pub fn start_proxy(&mut self) -> Result<AppState, ProxyCoreError> {
-        self.proxy.start(&self.settings)?;
+        if let Err(error) = self.proxy.start(&self.settings) {
+            if matches!(self.proxy.state.status, ProxyStatusKind::Starting) {
+                let detail = error.to_string();
+                self.proxy.state.status = ProxyStatusKind::Error;
+                self.proxy.state.health = ProxyHealthState::unhealthy(now_unix_seconds(), &detail);
+                self.proxy.state.message = detail;
+            }
+            return Err(error);
+        }
         Ok(self.app_state())
+    }
+
+    fn ensure_proxy_running(&mut self) -> Result<(), ManagementCoreError> {
+        let proxy = self.app_state().proxy;
+        if !proxy_needs_start(&proxy.status) {
+            return validate_proxy_running(&proxy);
+        }
+
+        match self.start_proxy() {
+            Ok(state) => validate_proxy_running(&state.proxy),
+            Err(_) => validate_proxy_running(&self.proxy.state),
+        }
     }
 
     pub fn stop_proxy(&mut self) -> Result<AppState, ProxyCoreError> {
@@ -1235,12 +1266,7 @@ impl AppCore {
             ) {
                 // A kept/recovered Codex session can outlive its local proxy. Repair only the
                 // proxy here: tearing the session down would rewrite its backup and markers.
-                let proxy_status = self.app_state().proxy.status;
-                if proxy_needs_start(&proxy_status) {
-                    self.start_proxy().map_err(|error| {
-                        ManagementCoreError::Unavailable(format!("启动代理失败：{error}"))
-                    })?;
-                }
+                self.ensure_proxy_running()?;
                 return Ok("该方案已在运行".to_string());
             }
             self.codex_stop_unlocked()?;
@@ -1287,11 +1313,7 @@ impl AppCore {
                 let _ = self.scheduler_reconcile();
             }
 
-            if proxy_needs_start(&self.app_state().proxy.status) {
-                self.start_proxy().map_err(|error| {
-                    ManagementCoreError::Unavailable(format!("启动代理失败：{error}"))
-                })?;
-            }
+            self.ensure_proxy_running()?;
             let local_endpoint = self.app_state().proxy.endpoint.clone();
             // 方案指定了代理地址就用它（让不同方案走不同账号池）；留空回退本机端点。
             let proxy_url = if profile.proxy_url.trim().is_empty() {
@@ -4922,8 +4944,31 @@ mod tests {
     #[test]
     fn same_profile_start_only_restarts_inactive_proxy() {
         assert!(!proxy_needs_start(&ProxyStatusKind::Running));
-        assert!(!proxy_needs_start(&ProxyStatusKind::Starting));
+        assert!(proxy_needs_start(&ProxyStatusKind::Starting));
         assert!(proxy_needs_start(&ProxyStatusKind::Stopped));
+    }
+
+    #[test]
+    fn proxy_running_validation_accepts_only_running_and_preserves_message() {
+        let mut proxy = ProxyState::stopped(&AppSettings::default());
+        proxy.message = "proxy final state detail".to_string();
+
+        proxy.status = ProxyStatusKind::Running;
+        assert!(validate_proxy_running(&proxy).is_ok());
+
+        for status in [
+            ProxyStatusKind::Starting,
+            ProxyStatusKind::Stopping,
+            ProxyStatusKind::MissingBinary,
+            ProxyStatusKind::Stopped,
+            ProxyStatusKind::Crashed,
+            ProxyStatusKind::Error,
+        ] {
+            proxy.status = status;
+            let error = validate_proxy_running(&proxy)
+                .expect_err("every non-running final status must fail Codex startup");
+            assert!(error.to_string().contains("proxy final state detail"));
+        }
     }
 
     #[test]
