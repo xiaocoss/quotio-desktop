@@ -75,23 +75,99 @@ function Get-DreamSkinProcessExecutablePath {
   }
 }
 
+function Get-DreamSkinNodeRegistryPathCandidates {
+  # The spawning process may hold a stale PATH snapshot (e.g. the app started
+  # before Node was installed). The registry view is what a freshly launched
+  # shell would see, so probe it as a fallback.
+  $candidates = @()
+  foreach ($scope in @('Machine', 'User')) {
+    $pathValue = [Environment]::GetEnvironmentVariable('Path', $scope)
+    if (-not $pathValue) { continue }
+    foreach ($entry in ($pathValue -split ';')) {
+      $directory = "$entry".Trim().Trim('"')
+      if (-not $directory) { continue }
+      $candidate = Join-Path $directory 'node.exe'
+      if (Test-Path -LiteralPath $candidate -PathType Leaf) { $candidates += $candidate }
+    }
+  }
+  return $candidates
+}
+
+function Get-DreamSkinNodeFallbackCandidates {
+  $candidates = @()
+  foreach ($scope in @('User', 'Machine')) {
+    $nvmSymlink = [Environment]::GetEnvironmentVariable('NVM_SYMLINK', $scope)
+    if ($nvmSymlink) {
+      $candidates += (Join-Path $nvmSymlink 'node.exe')
+      break
+    }
+  }
+  $candidates += Get-DreamSkinNodeRegistryPathCandidates
+  $nvmHome = $null
+  foreach ($scope in @('User', 'Machine')) {
+    $nvmHome = [Environment]::GetEnvironmentVariable('NVM_HOME', $scope)
+    if ($nvmHome) { break }
+  }
+  if ($nvmHome -and (Test-Path -LiteralPath $nvmHome -PathType Container)) {
+    $versionDirs = @(Get-ChildItem -LiteralPath $nvmHome -Directory -Filter 'v*' -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -match '^v\d+\.\d+\.\d+$' } |
+      Sort-Object { [version]($_.Name.Substring(1)) } -Descending)
+    foreach ($versionDir in $versionDirs) {
+      $candidates += (Join-Path $versionDir.FullName 'node.exe')
+    }
+  }
+  $wellKnownRoots = @('C:\nvm4w\nodejs')
+  if ($env:ProgramFiles) { $wellKnownRoots += (Join-Path $env:ProgramFiles 'nodejs') }
+  if (${env:ProgramFiles(x86)}) { $wellKnownRoots += (Join-Path ${env:ProgramFiles(x86)} 'nodejs') }
+  if ($env:LOCALAPPDATA) {
+    $wellKnownRoots += (Join-Path $env:LOCALAPPDATA 'Programs\nodejs')
+    $wellKnownRoots += (Join-Path $env:LOCALAPPDATA 'Volta\bin')
+  }
+  if ($env:USERPROFILE) {
+    $wellKnownRoots += (Join-Path $env:USERPROFILE 'scoop\apps\nodejs\current')
+    $wellKnownRoots += (Join-Path $env:USERPROFILE 'scoop\apps\nodejs-lts\current')
+    $wellKnownRoots += (Join-Path $env:USERPROFILE '.volta\bin')
+  }
+  foreach ($root in $wellKnownRoots) {
+    $candidates += (Join-Path $root 'node.exe')
+  }
+  return $candidates
+}
+
 function Get-DreamSkinNodeRuntime {
   param([int]$MinimumMajor = 22)
 
+  $candidates = @()
   $command = Get-Command node.exe -ErrorAction SilentlyContinue
   if (-not $command) { $command = Get-Command node -ErrorAction SilentlyContinue }
-  if (-not $command) { throw "Node.js $MinimumMajor or newer is required and was not found in PATH." }
-  $version = "$(& $command.Source -p 'process.versions.node' 2>$null)".Trim()
-  if ($LASTEXITCODE -ne 0 -or -not $version) { throw 'The Node.js runtime could not be validated.' }
-  $runtimePath = "$(& $command.Source -p 'process.execPath' 2>$null)".Trim()
-  if ($LASTEXITCODE -ne 0 -or -not $runtimePath -or -not (Test-Path -LiteralPath $runtimePath)) {
-    throw 'The Node.js executable path could not be validated.'
+  if ($command -and "$($command.Source)") { $candidates += "$($command.Source)" }
+  $candidates += Get-DreamSkinNodeFallbackCandidates
+
+  $seen = @{}
+  $foundVersion = $null
+  $foundPath = $null
+  foreach ($candidate in $candidates) {
+    if (-not $candidate) { continue }
+    $key = "$candidate".ToLowerInvariant()
+    if ($seen.ContainsKey($key)) { continue }
+    $seen[$key] = $true
+    if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { continue }
+    $version = "$(& $candidate -p 'process.versions.node' 2>$null)".Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $version) { continue }
+    $runtimePath = "$(& $candidate -p 'process.execPath' 2>$null)".Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $runtimePath -or -not (Test-Path -LiteralPath $runtimePath)) { continue }
+    $major = 0
+    if (-not [int]::TryParse(($version -split '\.')[0], [ref]$major)) { continue }
+    if ($major -ge $MinimumMajor) {
+      return [pscustomobject]@{ Path = $runtimePath; Version = $version; Major = $major }
+    }
+    if (-not $foundVersion) { $foundVersion = $version; $foundPath = $runtimePath }
   }
-  $major = 0
-  if (-not [int]::TryParse(($version -split '\.')[0], [ref]$major) -or $major -lt $MinimumMajor) {
-    throw "Node.js $MinimumMajor or newer is required; found $version at $runtimePath."
+
+  if ($foundVersion) {
+    throw "Node.js $MinimumMajor or newer is required; found $foundVersion at $foundPath."
   }
-  return [pscustomobject]@{ Path = $runtimePath; Version = $version; Major = $major }
+  throw "Node.js $MinimumMajor or newer is required and was not found in PATH or the standard install locations."
 }
 
 function ConvertTo-DreamSkinCodexInstall {
