@@ -227,7 +227,7 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-hero {
   min-height: var(--pink-hero-height) !important;
   flex: 0 0 auto !important;
   padding: 0 !important;
-  overflow: hidden !important;
+  overflow: visible !important;
   border: 1px solid rgba(192, 118, 139, .34) !important;
   border-radius: 18px !important;
   background-image: var(--dream-art) !important;
@@ -576,7 +576,7 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-sparkles i {
 html.codex-dream-skin[data-dream-theme="pink-custom"][data-dream-gallery="true"] [role="main"].dream-home .dream-home-stage > .dream-hero {
   height: var(--pink-hero-height) !important;
   min-height: var(--pink-hero-height) !important;
-  overflow: hidden !important;
+  overflow: visible !important;
   border-radius: 18px !important;
   background-image: var(--dream-art) !important;
   background-size: cover !important;
@@ -1304,4 +1304,235 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .
   bottom: -23.4% !important;
   font-size: var(--pink-polaroid-label-size, 8px) !important;
   line-height: 1.45 !important;
+}
+
+
+/* ---------------------------------------------------------------------------
+   skin-01.jpg alignment pass: richer rose surfaces, styled window menu bar,
+   larger brand block, bolder hero copy. Geometry stays with the verified
+   PINK_LAYOUT contract; this layer only deepens color and typography. */
+
+/* Native window menu strip (文件/编辑/视图/帮助) — join the pink composition. */
+html.codex-dream-skin[data-dream-theme="pink-custom"] [class~="group/application-menu-top-bar"] {
+  color: #6d3d47 !important;
+  background: linear-gradient(90deg, #fdf1f4 0%, #fbe4ea 58%, #f9dce6 100%) !important;
+  border-bottom: 1px solid rgba(180, 93, 122, .16) !important;
+  box-shadow: 0 1px 8px rgba(126, 68, 84, .05) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] [class~="group/application-menu-top-bar"] button,
+html.codex-dream-skin[data-dream-theme="pink-custom"] [class~="group/application-menu-top-bar"] [role="button"] {
+  color: #6d3d47 !important;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] [class~="group/application-menu-top-bar"] button:hover {
+  background: rgba(255, 255, 255, .55) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] [class~="group/application-menu-top-bar"] svg {
+  color: #a8546a !important;
+}
+
+/* Page surfaces: visibly rose instead of near-white. */
+html.codex-dream-skin[data-dream-theme="pink-custom"] body {
+  background:
+    radial-gradient(circle at 88% 3%, rgba(238, 181, 196, .38), transparent 30%),
+    radial-gradient(circle at 28% 9%, rgba(255, 255, 255, .85), transparent 31%),
+    linear-gradient(145deg, #fdf3f5, #fae8ec 58%, #f7dfe5) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] main.main-surface {
+  background:
+    radial-gradient(circle at 79% 4%, rgba(237, 175, 192, .22), transparent 31%),
+    radial-gradient(circle at 6% 96%, rgba(240, 190, 203, .18), transparent 26%),
+    linear-gradient(180deg, #fdf3f5, #fbe8ec) !important;
+}
+
+/* Sidebar: rose tint with stronger pink icons and wordmark. */
+html.codex-dream-skin[data-dream-theme="pink-custom"] aside.app-shell-left-panel {
+  color: #6d3d47 !important;
+  background: linear-gradient(180deg, #fdf1f4, #fbe3ea) !important;
+  border-right: 1px solid rgba(188, 106, 128, .30) !important;
+  box-shadow: 7px 0 24px rgba(111, 56, 72, .07) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] aside.app-shell-left-panel button {
+  color: #6d3d47 !important;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] aside.app-shell-left-panel button svg {
+  color: #c05f77 !important;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] aside.app-shell-left-panel button:is([aria-label^="切换模式"], [aria-label^="Switch mode"]) > span::before {
+  color: #a8435f;
+  font-size: 20px;
+  letter-spacing: -.01em;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] aside.app-shell-left-panel button:hover,
+html.codex-dream-skin[data-dream-theme="pink-custom"] aside.app-shell-left-panel [aria-current="page"],
+html.codex-dream-skin[data-dream-theme="pink-custom"] aside.app-shell-left-panel [class~="bg-token-list-hover-background"] {
+  color: #7c3548 !important;
+  background: linear-gradient(90deg, rgba(238, 173, 190, .42), rgba(255, 244, 246, .82)) !important;
+  border-color: rgba(180, 93, 122, .24) !important;
+}
+
+/* Brand block: larger rose mark and title, matching the mock's header lockup. */
+html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .dream-brand {
+  height: 52px;
+  gap: 10px;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .dream-brand .dream-note {
+  width: 44px;
+  height: 52px;
+  flex-basis: 44px;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .dream-brand b {
+  color: #a2445f;
+  font-size: 16.5px;
+  letter-spacing: .02em;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .dream-brand small {
+  margin-top: 5px;
+  color: #b07684;
+  font-size: 10px;
+  letter-spacing: .05em;
+}
+
+/* Hero: let the artwork breathe (softer veil), bolder serif title, deeper signature. */
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-hero::before,
+html.codex-dream-skin[data-dream-theme="pink-custom"][data-dream-gallery="true"] [role="main"].dream-home .dream-home-stage > .dream-hero::before {
+  background: linear-gradient(90deg, rgba(255, 243, 241, .58) 0%, rgba(255, 240, 240, .36) 52%, rgba(255, 241, 241, .10) 82%, transparent 100%) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-hero {
+  border-color: rgba(192, 108, 132, .46) !important;
+  box-shadow: 0 12px 28px rgba(126, 68, 84, .14), inset 0 0 0 3px rgba(255, 255, 255, .30) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-hero::after {
+  color: rgba(168, 80, 104, .88);
+  text-shadow: 0 1px rgba(255, 255, 255, .80), 0 0 14px rgba(255, 228, 234, .60);
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-hero-copy::before {
+  color: #33202a;
+  font-weight: 700;
+  text-shadow: 0 2px 14px rgba(255, 255, 255, .92);
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-hero-copy::after {
+  color: #6d4248;
+  font-weight: 500;
+}
+
+/* Composer stack: rose panels with clearer pink edges. */
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-project-panel {
+  border-color: rgba(180, 96, 120, .40) !important;
+  background: linear-gradient(180deg, #fdf1f4, #fbe3ea) !important;
+  box-shadow: 0 -4px 14px rgba(105, 56, 70, .05) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-project-panel::before {
+  color: #a2445f;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-home-composer {
+  border-color: rgba(180, 96, 120, .44) !important;
+  background:
+    radial-gradient(circle at 86% 16%, rgba(236, 172, 190, .20), transparent 27%),
+    linear-gradient(150deg, #fdf2f5, #fce7ec) !important;
+  box-shadow: 0 12px 26px rgba(105, 56, 70, .12), inset 0 0 0 2px rgba(255, 255, 255, .60) !important;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-home-composer .ProseMirror p.placeholder::before {
+  color: rgba(145, 88, 104, .60) !important;
+}
+
+/* Suggestion cards: a touch more rose so they sit in the darker page wash. */
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-suggestion-card {
+  border-color: rgba(193, 122, 138, .36) !important;
+  background: linear-gradient(155deg, rgba(255, 252, 250, .99), rgba(253, 241, 243, .975)) !important;
+}
+
+
+/* Girl overflow effect: the reference mock lets her head rise above the
+   hero's top edge. renderer-inject appends .dream-hero-art (rounded clip
+   frame carrying the panel border) with .dream-hero-art-img inside, plus a
+   sibling .dream-hero-peek. Both image layers share identical geometry and
+   cover rendering, so the overflow continues the panel artwork seamlessly;
+   the peek's radial mask keeps only her hat/head silhouette above the edge. */
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-hero-art {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border: 1px solid rgba(192, 108, 132, .46);
+  border-radius: var(--pink-hero-radius, 18px);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .30);
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-hero-art-img,
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-hero-peek {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(-56px * var(--pink-layout-scale, 1));
+  height: calc(var(--pink-hero-height, 511px) + 56px * var(--pink-layout-scale, 1));
+  background-image: var(--dream-art);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center center;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-hero-peek {
+  z-index: 4;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(
+    ellipse calc(148px * var(--pink-layout-scale, 1)) calc(96px * var(--pink-layout-scale, 1))
+    at 67.5% calc(42px * var(--pink-layout-scale, 1)),
+    #000 56%, transparent 72%);
+  mask-image: radial-gradient(
+    ellipse calc(148px * var(--pink-layout-scale, 1)) calc(96px * var(--pink-layout-scale, 1))
+    at 67.5% calc(42px * var(--pink-layout-scale, 1)),
+    #000 56%, transparent 72%);
+}
+
+/* Restack the hero's interior above the clipped artwork frame. */
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-hero::before,
+html.codex-dream-skin[data-dream-theme="pink-custom"][data-dream-gallery="true"] [role="main"].dream-home .dream-home-stage > .dream-hero::before {
+  z-index: 1;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-hero > div:nth-child(2),
+html.codex-dream-skin[data-dream-theme="pink-custom"][data-dream-gallery="true"] [role="main"].dream-home .dream-home-stage > .dream-hero > div:nth-child(2) {
+  z-index: 2;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-hero > div:first-child,
+html.codex-dream-skin[data-dream-theme="pink-custom"][data-dream-gallery="true"] [role="main"].dream-home .dream-home-stage > .dream-hero > div:first-child {
+  z-index: 3;
+}
+
+
+/* Polaroid details per the mock: a glossy heart charm pins the top-left
+   corner (replacing the bow), and there is no tape strip. The tape node
+   stays in the DOM for the injector's structural checks. */
+html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .dream-polaroid-tape {
+  display: none !important;
+}
+
+html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .dream-polaroid::before {
+  left: calc(-5px * var(--pink-layout-scale, 1)) !important;
+  top: calc(-9px * var(--pink-layout-scale, 1)) !important;
+  width: calc(36px * var(--pink-layout-scale, 1)) !important;
+  height: calc(40px * var(--pink-layout-scale, 1)) !important;
+  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 44'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23f8b4c5'/%3E%3Cstop offset='1' stop-color='%23ea89a5'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='9' cy='7' r='4.6' fill='%23fdf1f4' stroke='%23e88aa2' stroke-width='2'/%3E%3Cpath d='M20 40C11.5 32.5 5 26.6 5 18.8 5 13 9 9.4 13.2 9.4c2.9 0 5.5 1.6 6.8 4.1 1.3-2.5 3.9-4.1 6.8-4.1C31 9.4 35 13 35 18.8 35 26.6 28.5 32.5 20 40Z' fill='url(%23g)' stroke='%23df7c98' stroke-width='1'/%3E%3Cellipse cx='13.4' cy='17.4' rx='3.4' ry='2.1' fill='%23fff' opacity='.72' transform='rotate(-24 13.4 17.4)'/%3E%3C/svg%3E") center / contain no-repeat !important;
+  filter: drop-shadow(0 3px 4px rgba(156, 75, 99, .22)) !important;
+  transform: rotate(-12deg) !important;
 }

@@ -21,7 +21,7 @@
     heroHeight: 511,
     flowTop: 45,
     flowGap: 22,
-    copyTop: 167,
+    copyTop: 172,
     copyLeft: 74,
     cardHeight: 184,
     cardFrameBottom: 14,
@@ -29,12 +29,12 @@
     cardFrameRight: 59,
     cardGridGap: 12,
     heroRadius: 18,
-    signatureSize: 32.8,
-    signatureLineHeight: 34.44,
-    titleSize: 32.3,
-    titleLineHeight: 39.4,
-    subtitleSize: 12.3,
-    subtitleLineHeight: 19.1,
+    signatureSize: 38,
+    signatureLineHeight: 40,
+    titleSize: 40,
+    titleLineHeight: 49,
+    subtitleSize: 16,
+    subtitleLineHeight: 24.8,
     cardRadius: 16,
     cardHoverLift: -2,
     cardIconTop: 18,
@@ -430,11 +430,33 @@
         "flex-grow": "0",
         "flex-shrink": "0",
         "flex-basis": "auto",
-        overflow: "hidden",
-        "background-image": "var(--dream-art)",
-        "background-size": "cover",
-        "background-position": "center center",
+        overflow: "visible",
+        border: "0",
+        "background-image": "none",
       });
+      // The reference artwork lets the girl's head rise above the hero's top
+      // edge. One aligned artwork layer pair recreates it: .dream-hero-art
+      // clips the panel render to the rounded frame (and carries its border),
+      // .dream-hero-peek shows the same aligned render above the edge through
+      // a soft silhouette mask. Both must stay AFTER the copy container and
+      // card frame, which are addressed through :first-child / :nth-child(2).
+      let heroArt = hero.querySelector(":scope > .dream-hero-art");
+      if (!heroArt) {
+        heroArt = document.createElement("div");
+        heroArt.className = "dream-hero-art";
+        heroArt.setAttribute("aria-hidden", "true");
+        const heroArtImg = document.createElement("div");
+        heroArtImg.className = "dream-hero-art-img";
+        heroArt.append(heroArtImg);
+      }
+      hero.append(heroArt);
+      let heroPeek = hero.querySelector(":scope > .dream-hero-peek");
+      if (!heroPeek) {
+        heroPeek = document.createElement("div");
+        heroPeek.className = "dream-hero-peek";
+        heroPeek.setAttribute("aria-hidden", "true");
+      }
+      hero.append(heroPeek);
       setManagedInlineStyles(hero.firstElementChild, {
         "align-items": "flex-start",
         "justify-content": "flex-start",
@@ -445,6 +467,7 @@
       });
       setManagedInlineStyles(suggestionFrame, {
         position: "absolute",
+        "z-index": "2",
         left: px(PINK_LAYOUT.cardFrameLeft),
         right: px(PINK_LAYOUT.cardFrameRight),
         width: "auto",
@@ -593,6 +616,8 @@
     }
     document.querySelectorAll("[data-dream-card]").forEach((node) => delete node.dataset.dreamCard);
     document.querySelectorAll(".dream-fallback-frame").forEach((node) => node.remove());
+    document.querySelectorAll(".dream-hero-art").forEach((node) => node.remove());
+    document.querySelectorAll(".dream-hero-peek").forEach((node) => node.remove());
     clearManagedInlineStyles();
     restoreManagedText();
     document.getElementById(STYLE_ID)?.remove();
