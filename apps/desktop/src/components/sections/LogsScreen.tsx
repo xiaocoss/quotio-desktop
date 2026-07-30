@@ -215,9 +215,9 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
       <header className="lr-header" data-tauri-drag-region>
         <div data-tauri-drag-region="false">
           <h1 className="lr-title">{t("nav.logs")}</h1>
-          <p className="lr-subtitle">{t("logs.subtitle", "追踪请求、代理事件与性能异常")}</p>
+          <p className="lr-subtitle">{t("logs.subtitle")}</p>
         </div>
-        <div className="lr-tabs" role="tablist" aria-label={t("logs.viewSwitch", "日志类型")}>
+        <div className="lr-tabs" role="tablist" aria-label={t("logs.viewSwitch")}>
           <button
             type="button"
             role="tab"
@@ -255,31 +255,31 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
             type="button"
             onClick={handleRefresh}
             disabled={isManagementBusy}
-            title={t("logs.refresh", "刷新")}
+            title={t("logs.refresh")}
           >
             <Icon id="refresh" />
-            {t("logs.refresh", "刷新")}
+            {t("logs.refresh")}
           </button>
-          <button className="lr-btn" type="button" onClick={handleExport} title={t("logs.export", "导出")}>
+          <button className="lr-btn" type="button" onClick={handleExport} title={t("logs.export")}>
             <Icon id="export" />
-            {t("logs.export", "导出")}
+            {t("logs.export")}
           </button>
           <button
             className="lr-btn lr-btn--danger"
             type="button"
             onClick={handleClear}
             disabled={isManagementBusy}
-            title={tab === "requests" ? "清空请求日志" : "清空代理日志"}
+            title={tab === "requests" ? t("hardcoded.w142") : t("hardcoded.w143")}
           >
             <Icon id="trash" />
-            {t("logs.clear", "清空")}
+            {t("logs.clear")}
           </button>
         </div>
       </header>
 
       {tab === "requests" ? (
         <>
-          <section className="lr-metrics" aria-label={t("logs.overview", "日志概览")}>
+          <section className="lr-metrics" aria-label={t("logs.overview")}>
             <article className="lr-panel lr-metric">
               <div>
                 <div className="lr-metric-label">{t("logs.total")}</div>
@@ -307,7 +307,7 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
             </article>
             <article className="lr-panel lr-metric lr-metric--tokens">
               <div>
-                <div className="lr-metric-label">{t("logs.totalTokens", "总 Tokens")}</div>
+                <div className="lr-metric-label">{t("logs.totalTokens")}</div>
                 <div className="lr-metric-value">{formatCompact(stats.totalTokens)}</div>
               </div>
               <div className="lr-metric-icon">
@@ -316,8 +316,8 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
             </article>
           </section>
 
-          <section className="lr-panel lr-health" aria-label={t("logs.health", "请求健康")}>
-            <span className="lr-health-title">{t("logs.health", "请求健康")}</span>
+          <section className="lr-panel lr-health" aria-label={t("logs.health")}>
+            <span className="lr-health-title">{t("logs.health")}</span>
             <div className="lr-health-bar" aria-hidden="true">
               <span className="lr-health-seg lr-health-seg--ok" style={{ width: `${health.okPct}%` }} />
               <span className="lr-health-seg lr-health-seg--warn" style={{ width: `${health.warnPct}%` }} />
@@ -339,45 +339,45 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
             </div>
             <span className="lr-health-slow">
               <Icon id="clock" />
-              {t("logs.slowest", "最慢")} {formatSeconds(health.slowest)}
+              {t("logs.slowest")} {formatSeconds(health.slowest)}
             </span>
           </section>
 
-          <section className="lr-filters" aria-label={t("logs.filters", "日志筛选")}>
+          <section className="lr-filters" aria-label={t("logs.filters")}>
             <div className="lr-segmented">
               <button
                 type="button"
                 className={range === "today" ? "lr-segment lr-segment--active" : "lr-segment"}
                 onClick={() => setRange("today")}
               >
-                {t("logs.today", "今天")}
+                {t("logs.today")}
               </button>
               <button
                 type="button"
                 className={range === "7d" ? "lr-segment lr-segment--active" : "lr-segment"}
                 onClick={() => setRange("7d")}
               >
-                {t("logs.last7Days", "7 天")}
+                {t("logs.last7Days")}
               </button>
               <button
                 type="button"
                 className={range === "all" ? "lr-segment lr-segment--active" : "lr-segment"}
                 onClick={() => setRange("all")}
               >
-                {t("logs.all", "全部")}
+                {t("logs.all")}
               </button>
             </div>
             <div className="lr-filter-select">
               <Select
                 value={provider}
-                options={[{ value: "all", label: t("logs.allProviders", "全部服务商") }, ...providers.map((name) => ({ value: name, label: name }))]}
+                options={[{ value: "all", label: t("logs.allProviders") }, ...providers.map((name) => ({ value: name, label: name }))]}
                 onChange={setProvider}
               />
             </div>
             <div className="lr-filter-select">
               <Select
                 value={model}
-                options={[{ value: "all", label: t("logs.allModels", "全部模型") }, ...models.map((name) => ({ value: name, label: name }))]}
+                options={[{ value: "all", label: t("logs.allModels") }, ...models.map((name) => ({ value: name, label: name }))]}
                 onChange={setModel}
               />
             </div>
@@ -385,7 +385,7 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
               <Select
                 value={status}
                 options={[
-                  { value: "all", label: t("logs.allStatus", "全部状态") },
+                  { value: "all", label: t("logs.allStatus") },
                   { value: "2xx", label: "2xx" },
                   { value: "4xx", label: "4xx" },
                   { value: "5xx", label: "5xx" },
@@ -397,7 +397,7 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
               <Select
                 value={mode}
                 options={[
-                  { value: "all", label: t("logs.allModes", "全部模式") },
+                  { value: "all", label: t("logs.allModes") },
                   ...modes.map((value) => ({ value, label: reasoningLabel(value, t) })),
                 ]}
                 onChange={setMode}
@@ -405,7 +405,7 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
             </div>
             <button type="button" className="lr-reset" onClick={resetRequestFilters}>
               <Icon id="reset" />
-              {t("logs.resetFilters", "重置筛选")}
+              {t("logs.resetFilters")}
             </button>
           </section>
 
@@ -431,13 +431,13 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
                       <tr>
                         <th>{t("logs.colTime")}</th>
                         <th>{t("logs.colStatus")}</th>
-                        <th>{t("logs.colProviderAccount", "服务商 / 账号")}</th>
-                        <th>{t("logs.colModelMode", "模型 / 模式")}</th>
+                        <th>{t("logs.colProviderAccount")}</th>
+                        <th>{t("logs.colModelMode")}</th>
                         <th>{t("logs.colDuration")}</th>
-                        <th className="lr-th-num">{t("logs.colInput", "输入 Tokens")}</th>
-                        <th className="lr-th-num">{t("logs.colOutput", "输出 Tokens")}</th>
-                        <th className="lr-th-num">{t("logs.colTotal", "总计")}</th>
-                        <th>{t("logs.colActions", "操作")}</th>
+                        <th className="lr-th-num">{t("logs.colInput")}</th>
+                        <th className="lr-th-num">{t("logs.colOutput")}</th>
+                        <th className="lr-th-num">{t("logs.colTotal")}</th>
+                        <th>{t("logs.colActions")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -448,7 +448,7 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
                   </table>
                 </div>
                 <footer className="lr-table-footer">
-                  <span>{t("logs.totalCount", "共 {n} 条").replace("{n}", String(filteredRequests.length))}</span>
+                  <span>{t("logs.totalCount").replace("{n}", String(filteredRequests.length))}</span>
                   <div className="lr-pagination">
                     <button
                       type="button"
@@ -456,7 +456,7 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
                       disabled={safePage === 0}
                       onClick={() => setPage(safePage - 1)}
                     >
-                      {t("logs.prevPage", "上一页")}
+                      {t("logs.prevPage")}
                     </button>
                     <span className="lr-page-info">
                       {safePage + 1} / {pageCount}
@@ -467,11 +467,11 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
                       disabled={safePage >= pageCount - 1}
                       onClick={() => setPage(safePage + 1)}
                     >
-                      {t("logs.nextPage", "下一页")}
+                      {t("logs.nextPage")}
                     </button>
                   </div>
                   {/* 每页条数固定 20(PAGE_SIZE),渲染为只读视觉控件。 */}
-                  <span className="lr-page-size">{t("logs.pageSize", "{n} 条/页").replace("{n}", String(PAGE_SIZE))}</span>
+                  <span className="lr-page-size">{t("logs.pageSize").replace("{n}", String(PAGE_SIZE))}</span>
                 </footer>
               </>
             )}
@@ -479,10 +479,10 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
         </>
       ) : (
         <>
-          <section className="lr-metrics" aria-label={t("logs.proxyOverview", "代理日志概览")}>
+          <section className="lr-metrics" aria-label={t("logs.proxyOverview")}>
             <article className="lr-panel lr-metric">
               <div>
-                <div className="lr-metric-label">{t("logs.lineCount", "日志行数")}</div>
+                <div className="lr-metric-label">{t("logs.lineCount")}</div>
                 <div className="lr-metric-value">{lineCount.toLocaleString()}</div>
               </div>
               <div className="lr-metric-icon">
@@ -491,7 +491,7 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
             </article>
             <article className="lr-panel lr-metric lr-metric--status">
               <div>
-                <div className="lr-metric-label">{t("logs.proxyStatus", "代理状态")}</div>
+                <div className="lr-metric-label">{t("logs.proxyStatus")}</div>
                 <div className={proxyRunning ? "lr-metric-value lr-metric-value--healthy" : "lr-metric-value lr-metric-value--error"}>
                   {proxyStatusLabel(appState.proxy.status, t)}
                 </div>
@@ -502,7 +502,7 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
             </article>
             <article className="lr-panel lr-metric lr-metric--errors">
               <div>
-                <div className="lr-metric-label">{t("logs.errors", "错误")}</div>
+                <div className="lr-metric-label">{t("logs.errors")}</div>
                 <div className="lr-metric-value lr-metric-value--error">{errorCount}</div>
               </div>
               <div className="lr-metric-icon">
@@ -511,7 +511,7 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
             </article>
             <article className="lr-panel lr-metric">
               <div>
-                <div className="lr-metric-label">{t("logs.latest", "最新日志")}</div>
+                <div className="lr-metric-label">{t("logs.latest")}</div>
                 <div className="lr-metric-value">{latestTime || "—"}</div>
               </div>
               <div className="lr-metric-icon">
@@ -520,11 +520,11 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
             </article>
           </section>
 
-          <section className="lr-panel lr-runtime" aria-label={t("logs.proxyRuntime", "代理运行状态")}>
+          <section className="lr-panel lr-runtime" aria-label={t("logs.proxyRuntime")}>
             <div className="lr-runtime-item">
               <span className={proxyRunning ? "lr-runtime-dot" : "lr-runtime-dot lr-runtime-dot--bad"} />
               <div className="lr-runtime-text">
-                <strong>{t("logs.localProxy", "本地代理")}</strong>
+                <strong>{t("logs.localProxy")}</strong>
                 <small>{proxyHost}</small>
               </div>
               <span />
@@ -532,39 +532,39 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
             <div className="lr-runtime-item">
               <Icon id="file" />
               <div className="lr-runtime-text">
-                <strong>{t("logs.fileLog", "文件日志")}</strong>
-                <small>{proxyConfig?.logging_to_file ? t("logs.on", "已开启") : t("logs.off", "已关闭")}</small>
+                <strong>{t("logs.fileLog")}</strong>
+                <small>{proxyConfig?.logging_to_file ? t("logs.on") : t("logs.off")}</small>
               </div>
               <span />
             </div>
             <div className="lr-runtime-item">
               <Icon id="bug" />
               <div className="lr-runtime-text">
-                <strong>{t("logs.debugMode", "调试模式")}</strong>
-                <small>{proxyConfig?.debug ? t("logs.on", "已开启") : t("logs.off", "已关闭")}</small>
+                <strong>{t("logs.debugMode")}</strong>
+                <small>{proxyConfig?.debug ? t("logs.on") : t("logs.off")}</small>
               </div>
               <span />
             </div>
             <div className="lr-runtime-item">
               <Icon id="pulse" />
               <div className="lr-runtime-text">
-                <strong>{t("logs.autoScroll", "自动滚动")}</strong>
-                <small>{autoScroll ? t("logs.on", "已开启") : t("logs.off", "已关闭")}</small>
+                <strong>{t("logs.autoScroll")}</strong>
+                <small>{autoScroll ? t("logs.on") : t("logs.off")}</small>
               </div>
               <button
                 type="button"
                 className={autoScroll ? "lr-switch lr-switch--on" : "lr-switch"}
                 onClick={() => setAutoScroll((value) => !value)}
                 aria-pressed={autoScroll}
-                aria-label={t("logs.autoScroll", "自动滚动")}
+                aria-label={t("logs.autoScroll")}
               />
             </div>
           </section>
 
-          <section className="lr-filters" aria-label={t("logs.proxyFilters", "代理日志筛选")}>
+          <section className="lr-filters" aria-label={t("logs.proxyFilters")}>
             {(
               [
-                { id: "all", label: t("logs.levelAll", "全部"), cls: "" },
+                { id: "all", label: t("logs.levelAll"), cls: "" },
                 { id: "info", label: "INFO", cls: " lr-level--info" },
                 { id: "warn", label: "WARN", cls: " lr-level--warn" },
                 { id: "error", label: "ERROR", cls: " lr-level--error" },
@@ -582,19 +582,19 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
             <div className="lr-filter-select">
               <Select
                 value={source}
-                options={[{ value: "all", label: t("logs.allSources", "全部来源") }, ...proxySources.map((name) => ({ value: name, label: name }))]}
+                options={[{ value: "all", label: t("logs.allSources") }, ...proxySources.map((name) => ({ value: name, label: name }))]}
                 onChange={setSource}
               />
             </div>
             <button type="button" className="lr-reset" onClick={resetProxyFilters}>
               <Icon id="reset" />
-              {t("logs.resetFilters", "重置筛选")}
+              {t("logs.resetFilters")}
             </button>
           </section>
 
           <section className="lr-panel lr-stream">
             <header className="lr-stream-head">
-              {t("logs.liveTitle", "实时代理日志")} <span className="lr-live">LIVE</span>
+              {t("logs.liveTitle")} <span className="lr-live">LIVE</span>
             </header>
             {visibleProxy.length === 0 ? (
               <p className="lr-empty">{t("logs.emptyProxy")}</p>
@@ -622,17 +622,17 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
                 </div>
                 <footer className="lr-stream-footer">
                   <span>
-                    {t("logs.showingRecent", "显示最近 {shown} / {total} 行")
+                    {t("logs.showingRecent")
                       .replace("{shown}", String(visibleProxy.length))
                       .replace("{total}", lineCount.toLocaleString())}
                   </span>
                   <span className="lr-stream-footer-right">
                     <span>
-                      {t("logs.latestShort", "最新")} {latestTime || "—"}
+                      {t("logs.latestShort")} {latestTime || "—"}
                     </span>
                     <span className={autoScroll ? "lr-scrolling" : "lr-scrolling lr-scrolling--off"}>
                       <i className="lr-scrolling-dot" />
-                      {autoScroll ? t("logs.autoScrolling", "自动滚动中") : t("logs.autoScrollPaused", "已暂停")}
+                      {autoScroll ? t("logs.autoScrolling") : t("logs.autoScrollPaused")}
                     </span>
                   </span>
                 </footer>
@@ -645,14 +645,13 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
       {pendingClear !== null ? (
         <div className="modal-overlay" onClick={() => setPendingClear(null)}>
           <div className="close-dialog" onClick={(event) => event.stopPropagation()}>
-            <strong className="close-dialog-title">清空全部请求日志?</strong>
+            <strong className="close-dialog-title">{t("hardcoded.w144")}</strong>
             <p className="close-dialog-desc">
-              这将<strong>永久删除 {pendingClear.toLocaleString()} 条</strong>请求记录——它们也是
-              <strong>仪表盘的历史用量数据</strong>,删除后<strong>无法恢复</strong>。
+              <strong>{pendingClear.toLocaleString()} {t("fallback.entry")}</strong>. {t("logs.historyWarning")}
             </p>
             <div className="close-dialog-actions">
               <button type="button" className="ghost-action" onClick={() => setPendingClear(null)}>
-                取消
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
@@ -662,7 +661,7 @@ export function LogsScreen({ appState, isManagementBusy, onRefreshManagement, on
                   onClearRequests();
                 }}
               >
-                永久删除
+                {t("common.permanentDelete")}
               </button>
             </div>
           </div>
@@ -716,7 +715,7 @@ function RequestRow({ entry }: { entry: RequestLogEntry }) {
               aria-expanded={open}
             >
               <Icon id="eye" />
-              {t("logs.details", "查看详情")}
+              {t("logs.details")}
             </button>
           </div>
         </td>
@@ -726,40 +725,40 @@ function RequestRow({ entry }: { entry: RequestLogEntry }) {
           <td colSpan={9}>
             <dl className="lr-detail">
               <div>
-                <dt>{t("logs.detail.endpoint", "接口")}</dt>
+                <dt>{t("logs.detail.endpoint")}</dt>
                 <dd className="lr-detail-mono">
                   {entry.method} {entry.endpoint}
                 </dd>
               </div>
               <div>
-                <dt>{t("logs.detail.status", "状态码")}</dt>
+                <dt>{t("logs.detail.status")}</dt>
                 <dd>{entry.status_code ?? "—"}</dd>
               </div>
               <div>
-                <dt>{t("logs.detail.time", "时间")}</dt>
+                <dt>{t("logs.detail.time")}</dt>
                 <dd>{entry.timestamp}</dd>
               </div>
               <div>
-                <dt>{t("logs.detail.resolved", "解析服务商 / 模型")}</dt>
+                <dt>{t("logs.detail.resolved")}</dt>
                 <dd>
                   {(entry.resolved_provider ?? provider) || "—"} / {(entry.resolved_model ?? model) || "—"}
                 </dd>
               </div>
               {account ? (
                 <div>
-                  <dt>{t("logs.detail.account", "账号")}</dt>
+                  <dt>{t("logs.detail.account")}</dt>
                   <dd>{account}</dd>
                 </div>
               ) : null}
               <div>
-                <dt>{t("logs.detail.size", "请求 / 响应")}</dt>
+                <dt>{t("logs.detail.size")}</dt>
                 <dd>
                   {formatCompact(entry.request_size)} / {formatCompact(entry.response_size)} B
                 </dd>
               </div>
               {reason ? (
                 <div>
-                  <dt>{t("logs.detail.reasoning", "推理档位")}</dt>
+                  <dt>{t("logs.detail.reasoning")}</dt>
                   <dd>{reason.label}</dd>
                 </div>
               ) : null}
@@ -919,19 +918,19 @@ function parseProxyLine(line: string): {
 function proxyStatusLabel(status: string, t: (key: string, fallback?: string) => string): string {
   switch (status) {
     case "running":
-      return t("logs.proxyRunning", "运行正常");
+      return t("logs.proxyRunning");
     case "starting":
-      return t("logs.proxyStarting", "启动中");
+      return t("logs.proxyStarting");
     case "stopping":
-      return t("logs.proxyStopping", "停止中");
+      return t("logs.proxyStopping");
     case "stopped":
-      return t("logs.proxyStopped", "已停止");
+      return t("logs.proxyStopped");
     case "missing_binary":
-      return t("logs.proxyMissing", "未安装");
+      return t("logs.proxyMissing");
     case "crashed":
-      return t("logs.proxyCrashed", "已崩溃");
+      return t("logs.proxyCrashed");
     default:
-      return t("logs.proxyError", "异常");
+      return t("logs.proxyError");
   }
 }
 

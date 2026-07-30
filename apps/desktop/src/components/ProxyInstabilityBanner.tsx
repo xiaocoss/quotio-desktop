@@ -25,22 +25,22 @@ export function ProxyInstabilityBanner({ appState }: { appState: AppState | null
 
   if (!instability || instability.failureCount <= dismissedAt) return null;
 
-  const body = t("banner.proxyUnstable.body", "最近 {count} 次请求在上游代理（{proxy}）处被中断,通常是代理/节点不稳定,建议更换节点后重试。")
+  const body = t("banner.proxyUnstable.body")
     .replace("{count}", String(instability.failureCount))
     .replace("{proxy}", instability.proxyUrl);
 
   return (
     <div className="proxy-instability-banner" role="status">
       <div className="proxy-instability-text">
-        <strong>{t("banner.proxyUnstable.title", "上游代理连接不稳定")}</strong>
+        <strong>{t("banner.proxyUnstable.title")}</strong>
         <p>{body}</p>
       </div>
       <button
         type="button"
         className="proxy-instability-dismiss"
         onClick={() => setDismissedAt(instability.failureCount)}
-        aria-label={t("common.close", "关闭")}
-        title={t("common.close", "关闭")}
+        aria-label={t("common.close")}
+        title={t("common.close")}
       >
         ✕
       </button>

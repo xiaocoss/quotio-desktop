@@ -17,14 +17,14 @@ function accountOverallRemaining(account: AccountQuota): number | null {
   );
 }
 
-function formatResetCountdown(resetAtUnix: number): string | null {
+function formatResetCountdown(resetAtUnix: number, t: (key: string, fallback?: string) => string): string | null {
   const secs = resetAtUnix - Math.floor(Date.now() / 1000);
   if (secs <= 0) return null;
   const hours = Math.floor(secs / 3600);
   const mins = Math.floor((secs % 3600) / 60);
-  if (hours >= 24) return `${Math.floor(hours / 24)} 天后重置`;
-  if (hours > 0) return `${hours} 小时${mins > 0 ? " " + mins + " 分" : ""}后重置`;
-  return `${mins} 分钟后重置`;
+  if (hours >= 24) return t("menubar.daysReset").replace("{days}", String(Math.floor(hours / 24)));
+  if (hours > 0) return t("menubar.hoursReset").replace("{hours}", String(hours)).replace("{minutes}", String(mins));
+  return t("menubar.minutesReset").replace("{minutes}", String(mins));
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -185,7 +185,7 @@ function MenuBarBody({ app }: { app: ReturnType<typeof useAppState> }) {
         <div className="brand">Quotio</div>
         <div
           className={running ? "endpoint" : "endpoint is-stopped"}
-          title={running ? `${t("menubar.running", "本地服务运行中")}：${proxy.endpoint}` : proxy.endpoint}
+          title={running ? `${t("menubar.running")}：${proxy.endpoint}` : proxy.endpoint}
         >
           <svg className="status-icon" aria-hidden="true">
             <use href="/floating/floating-window-icons.svg#icon-status" />
@@ -204,7 +204,7 @@ function MenuBarBody({ app }: { app: ReturnType<typeof useAppState> }) {
       </header>
 
       {providerIds.length > 0 ? (
-        <nav className="provider-tabs" aria-label={t("menubar.tabsLabel", "智能体筛选")}>
+        <nav className="provider-tabs" aria-label={t("menubar.tabsLabel")}>
           {providerIds.map((id) => (
             <button
               key={id}
@@ -219,7 +219,7 @@ function MenuBarBody({ app }: { app: ReturnType<typeof useAppState> }) {
         </nav>
       ) : null}
 
-      <section className="account-scroll" aria-label={t("menubar.listLabel", "账号额度列表")}>
+      <section className="account-scroll" aria-label={t("menubar.listLabel")}>
         {accounts.length === 0 ? (
           <p className="account-empty">{t("menubar.empty")}</p>
         ) : (
@@ -255,6 +255,7 @@ function MenuBarBody({ app }: { app: ReturnType<typeof useAppState> }) {
 }
 
 function MenuBarAccount({ account, authFiles }: { account: AccountQuota; authFiles: AuthFile[] }) {
+  const t = useT();
   const statusMessage = account.status_message ?? "";
   const plan = parsePlan(statusMessage);
   const expiry = statusMessage.match(/until:\s*([^|]+)/i)?.[1]?.trim();
@@ -267,7 +268,7 @@ function MenuBarAccount({ account, authFiles }: { account: AccountQuota; authFil
   const nearestReset = account.models
     .filter((m) => m.reset_at_unix)
     .sort((a, b) => (a.reset_at_unix ?? 0) - (b.reset_at_unix ?? 0))[0];
-  const countdown = nearestReset?.reset_at_unix ? formatResetCountdown(nearestReset.reset_at_unix) : null;
+  const countdown = nearestReset?.reset_at_unix ? formatResetCountdown(nearestReset.reset_at_unix, t) : null;
   const rows = splitSessionWeekly(account.models);
 
   return (
@@ -277,7 +278,7 @@ function MenuBarAccount({ account, authFiles }: { account: AccountQuota; authFil
           {account.account_label}
         </span>
         {overall != null ? (
-          <span className="health-percent" title={`健康 ${overall}%`}>
+          <span className="health-percent" title={t("menubar.health").replace("{percent}", String(overall))}>
             {overall}%
           </span>
         ) : null}
@@ -288,13 +289,13 @@ function MenuBarAccount({ account, authFiles }: { account: AccountQuota; authFil
         {resetCredits != null ? (
           <span className="meta-item">
             <Icon id="icon-calendar" />
-            重置 ×{resetCredits}
+            {t("menubar.resetCredits").replace("{count}", String(resetCredits))}
           </span>
         ) : null}
         {expiry ? (
           <span className="meta-item">
             <Icon id="icon-calendar" />
-            到期 {expiry}
+            {t("quota.expires")} {expiry}
           </span>
         ) : null}
         {countdown ? (

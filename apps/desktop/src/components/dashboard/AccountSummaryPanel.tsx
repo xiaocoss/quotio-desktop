@@ -91,7 +91,7 @@ export function AccountSummaryPanel({
   const pagedRows = visibleRows.slice(start, start + PAGE_SIZE);
   const rangeStart = total === 0 ? 0 : start + 1;
   const rangeEnd = Math.min(start + PAGE_SIZE, total);
-  const countText = t("dash.pageTotal", "共 {n} 条").replace("{n}", String(total));
+  const countText = t("dash.pageTotal").replace("{n}", String(total));
 
   const statusBadge = (row: AccountSummaryRow) => {
     const tone = statusTone(row);
@@ -246,7 +246,7 @@ export function AccountSummaryPanel({
               className="dash-page-btn"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={currentPage <= 1}
-              aria-label={t("dash.page.prev", "上一页")}
+              aria-label={t("dash.page.prev")}
             >
               ‹
             </button>
@@ -265,7 +265,7 @@ export function AccountSummaryPanel({
               className="dash-page-btn"
               onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
               disabled={currentPage >= pageCount}
-              aria-label={t("dash.page.next", "下一页")}
+              aria-label={t("dash.page.next")}
             >
               ›
             </button>

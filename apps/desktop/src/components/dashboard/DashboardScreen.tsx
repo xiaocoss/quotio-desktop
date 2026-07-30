@@ -108,7 +108,7 @@ export function DashboardScreen({ initialAccount, onFocusConsumed }: DashboardSc
 
         {dash.error ? (
           <div className="dash-error" role="alert">
-            ⚠ {t("dash.loadFailed", "加载用量数据失败")}:{dash.error}
+            ⚠ {t("dash.loadFailed")}:{dash.error}
           </div>
         ) : null}
 
@@ -135,7 +135,7 @@ export function DashboardScreen({ initialAccount, onFocusConsumed }: DashboardSc
             <div className="boot-bar" aria-hidden="true">
               <span />
             </div>
-            <p>{t("common.refreshing", "正在刷新…")}</p>
+            <p>{t("common.refreshing")}</p>
           </div>
         </div>
       ) : null}

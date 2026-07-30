@@ -86,9 +86,9 @@ export function ApiKeysScreen({ appState, isManagementBusy, onRunManagementState
         <div className="apikey-title-block" data-tauri-drag-region="false">
           <div className="rose-apikey-title-line">
             <h1>{t("nav.api_keys")}</h1>
-            <span className="rose-apikey-title-badge"><KeyIcon /> 本地代理访问</span>
+            <span className="rose-apikey-title-badge"><KeyIcon /> {t("hardcoded.w076")}</span>
           </div>
-          <p>管理客户端访问凭据与服务商路由分配</p>
+          <p>{t("hardcoded.w077")}</p>
         </div>
         <div className="topbar-actions">
           <button
@@ -99,32 +99,32 @@ export function ApiKeysScreen({ appState, isManagementBusy, onRunManagementState
               setNewApiKey(generateApiKey());
             }}
             disabled={isManagementBusy}
-            title="生成密钥"
-            aria-label="生成密钥"
+            title={t("hardcoded.w078")}
+            aria-label={t("hardcoded.w078")}
           >
             <KeyIcon />
-            <span>生成密钥</span>
+            <span>{t("hardcoded.w078")}</span>
           </button>
           <button
             className={showAdd ? "icon-button icon-button--active apikey-create-button" : "icon-button apikey-create-button"}
             type="button"
             onClick={() => setShowAdd((value) => !value)}
             disabled={isManagementBusy}
-            title="新增密钥"
-            aria-label="新增密钥"
+            title={t("hardcoded.w079")}
+            aria-label={t("hardcoded.w079")}
           >
             <PlusIcon />
-            <span>新增密钥</span>
+            <span>{t("hardcoded.w079")}</span>
           </button>
           <span className="rose-apikey-header-avatar" aria-hidden="true"><img src="/rose/character-avatar.png" alt="" /></span>
         </div>
       </header>
 
-      <section className="rose-apikey-metrics" aria-label="API 密钥概览">
-        <article><span className="rose-apikey-metric-icon rose-apikey-metric-icon--key"><KeyIcon /></span><div><small>密钥总数</small><strong>{apiKeys.length}<em> 个</em></strong><p>当前可用于客户端认证</p></div></article>
-        <article><span className="rose-apikey-metric-icon rose-apikey-metric-icon--bound"><RouteNodesIcon /></span><div><small>已绑定路由</small><strong>{boundCount}<em> 个</em></strong><p>请求仅进入指定服务商</p></div></article>
-        <article><span className="rose-apikey-metric-icon rose-apikey-metric-icon--global"><GlobeIcon /></span><div><small>全局路由</small><strong>{globalCount}<em> 个</em></strong><p>跟随代理的全局策略</p></div></article>
-        <article><span className="rose-apikey-metric-icon rose-apikey-metric-icon--router"><WarningTriangleIcon /></span><div><small>路由服务</small><strong className={keyRouterAvailable === false ? "is-warning" : "is-healthy"}>{keyRouterAvailable === false ? "需处理" : keyRouterAvailable === null ? "检测中" : "已就绪"}</strong><p>{keyRouterAvailable === false ? "插件缺失，绑定暂不生效" : "按密钥分配服务商"}</p></div></article>
+      <section className="rose-apikey-metrics" aria-label={t("hardcoded.w080")}>
+        <article><span className="rose-apikey-metric-icon rose-apikey-metric-icon--key"><KeyIcon /></span><div><small>{t("hardcoded.w081")}</small><strong>{apiKeys.length}<em> {t("hardcoded.w082")}</em></strong><p>{t("hardcoded.w083")}</p></div></article>
+        <article><span className="rose-apikey-metric-icon rose-apikey-metric-icon--bound"><RouteNodesIcon /></span><div><small>{t("hardcoded.w084")}</small><strong>{boundCount}<em> {t("hardcoded.w082")}</em></strong><p>{t("hardcoded.w085")}</p></div></article>
+        <article><span className="rose-apikey-metric-icon rose-apikey-metric-icon--global"><GlobeIcon /></span><div><small>{t("hardcoded.w086")}</small><strong>{globalCount}<em> {t("hardcoded.w082")}</em></strong><p>{t("hardcoded.w087")}</p></div></article>
+        <article><span className="rose-apikey-metric-icon rose-apikey-metric-icon--router"><WarningTriangleIcon /></span><div><small>{t("apikeys.routingService")}</small><strong className={keyRouterAvailable === false ? "is-warning" : "is-healthy"}>{keyRouterAvailable === false ? t("hardcoded.w089") : keyRouterAvailable === null ? t("hardcoded.w090") : t("hardcoded.w091")}</strong><p>{keyRouterAvailable === false ? t("hardcoded.w092") : t("hardcoded.w093")}</p></div></article>
       </section>
 
       <div className="apikey-content-grid">
@@ -133,22 +133,20 @@ export function ApiKeysScreen({ appState, isManagementBusy, onRunManagementState
           <div>
             <span className="eyebrow apikey-panel-label-default">{t("nav.api_keys")}</span>
             <span className="eyebrow apikey-panel-label-rose">CLIENT CREDENTIALS</span>
-            <h2>客户端密钥</h2>
-            <p>用于连接 Quotio 本地代理服务</p>
+            <h2>{t("hardcoded.w094")}</h2>
+            <p>{t("hardcoded.w095")}</p>
           </div>
-          <span className="count-pill">{apiKeys.length} 个</span>
+          <span className="count-pill">{apiKeys.length} {t("hardcoded.w082")}</span>
         </div>
 
         <div className="rose-apikey-toolbar">
-          <label><span>⌕</span><input value={keyQuery} onChange={(event) => setKeyQuery(event.target.value)} placeholder="搜索密钥或已绑定服务商" /></label>
-          <div><span className="rose-apikey-legend-dot rose-apikey-legend-dot--bound" /> 已绑定 <strong>{boundCount}</strong><span className="rose-apikey-legend-dot" /> 全局 <strong>{globalCount}</strong></div>
+          <label><span>⌕</span><input value={keyQuery} onChange={(event) => setKeyQuery(event.target.value)} placeholder={t("hardcoded.w096")} /></label>
+          <div><span className="rose-apikey-legend-dot rose-apikey-legend-dot--bound" /> {t("apikeys.bound")} <strong>{boundCount}</strong><span className="rose-apikey-legend-dot" /> {t("hardcoded.w098")} <strong>{globalCount}</strong></div>
         </div>
 
         {hasBoundKeys && keyRouterAvailable === false ? (
           <div className="apikey-router-warning">
-            ⚠ 你给密钥绑定了服务商,但当前运行环境<strong>缺少「按 key 路由」插件</strong>(quotio-key-router)——
-            绑定<strong>不会生效</strong>,代理仍按全局轮询命中所有可用池,请求可能落到你没想绑的服务商。
-            请用随包内置该插件的版本(0.4.x 安装包),或确认代理目录 <code>plugins/</code> 里有该插件。
+            ⚠ {t("apikeys.routerWarning.before")} <strong>{t("hardcoded.w099")}</strong> (quotio-key-router). {t("apikeys.routerWarning.after")} <strong>{t("hardcoded.w100")}</strong>. {t("apikeys.routerWarning.install")} <code>plugins/</code>.
           </div>
         ) : null}
 
@@ -162,25 +160,25 @@ export function ApiKeysScreen({ appState, isManagementBusy, onRunManagementState
               autoFocus
             />
             <button className="ghost-action" type="button" onClick={() => setNewApiKey(generateApiKey())} disabled={isManagementBusy}>
-              生成
+              {t("hardcoded.w078")}
             </button>
             <button className="secondary-action" type="button" onClick={addKey} disabled={isManagementBusy || newApiKey.trim().length === 0}>
-              保存
+              {t("common.save")}
             </button>
           </div>
         ) : null}
 
         {apiKeys.length === 0 ? (
           <>
-            <p className="empty-copy apikey-empty-default">暂无密钥。点击右上角生成或新增一个客户端密钥。</p>
+            <p className="empty-copy apikey-empty-default">{t("hardcoded.w101")}</p>
             <div className="apikey-empty-state">
               <span><KeyIcon /></span>
-              <strong>还没有客户端密钥</strong>
-              <p>点击右上角生成一把安全密钥，开始连接代理服务。</p>
+              <strong>{t("hardcoded.w102")}</strong>
+              <p>{t("hardcoded.w103")}</p>
             </div>
           </>
         ) : visibleApiKeys.length === 0 ? (
-          <div className="rose-apikey-no-results">没有找到匹配的密钥</div>
+          <div className="rose-apikey-no-results">{t("hardcoded.w104")}</div>
         ) : (
           <div className="apikey-list">
             {visibleApiKeys.map((entry) => {
@@ -223,33 +221,33 @@ export function ApiKeysScreen({ appState, isManagementBusy, onRunManagementState
         <p className="empty-copy apikey-foot">{t("apikeys.foot")}</p>
       </article>
 
-      <aside className="rose-apikey-side-stack" aria-label="连接与路由信息">
+      <aside className="rose-apikey-side-stack" aria-label={t("hardcoded.w105")}>
         <section className="rose-apikey-side-panel rose-apikey-connect-panel">
-          <header><span><KeyIcon /></span><div><h2>连接配置</h2><p>在客户端中填写以下信息</p></div></header>
-          <div className="rose-apikey-config-field"><label>代理端点</label><div><code>{proxyEndpoint}</code><button type="button" onClick={() => void copyConnection("endpoint", proxyEndpoint)} aria-label="复制代理端点">{copiedConnection === "endpoint" ? <CheckIcon /> : <CopyIcon />}</button></div></div>
-          <div className="rose-apikey-config-field"><label>认证请求头</label><div><code>Authorization: Bearer sk-...</code><button type="button" onClick={() => void copyConnection("header", "Authorization: Bearer YOUR_API_KEY")} aria-label="复制认证请求头">{copiedConnection === "header" ? <CheckIcon /> : <CopyIcon />}</button></div></div>
+          <header><span><KeyIcon /></span><div><h2>{t("hardcoded.w106")}</h2><p>{t("hardcoded.w107")}</p></div></header>
+          <div className="rose-apikey-config-field"><label>{t("apikeys.proxyEndpoint")}</label><div><code>{proxyEndpoint}</code><button type="button" onClick={() => void copyConnection("endpoint", proxyEndpoint)} aria-label={t("hardcoded.w109")}>{copiedConnection === "endpoint" ? <CheckIcon /> : <CopyIcon />}</button></div></div>
+          <div className="rose-apikey-config-field"><label>{t("apikeys.authorizationHeader")}</label><div><code>Authorization: Bearer sk-...</code><button type="button" onClick={() => void copyConnection("header", "Authorization: Bearer YOUR_API_KEY")} aria-label={t("hardcoded.w111")}>{copiedConnection === "header" ? <CheckIcon /> : <CopyIcon />}</button></div></div>
           <div className="rose-apikey-env">
-            <span><strong>环境变量（可选）</strong><small>将以下变量配置到你的客户端环境中</small></span>
-            <div><code>OPENAI_BASE_URL</code><button type="button" onClick={() => void copyConnection("base-env", `OPENAI_BASE_URL=${proxyEndpoint}`)} aria-label="复制 OPENAI_BASE_URL">{copiedConnection === "base-env" ? <CheckIcon /> : <CopyIcon />}</button></div>
-            <div><code>OPENAI_API_KEY</code><button type="button" onClick={() => void copyConnection("key-env", "OPENAI_API_KEY=YOUR_API_KEY")} aria-label="复制 OPENAI_API_KEY">{copiedConnection === "key-env" ? <CheckIcon /> : <CopyIcon />}</button></div>
+            <span><strong>{t("hardcoded.w112")}</strong><small>{t("hardcoded.w113")}</small></span>
+            <div><code>OPENAI_BASE_URL</code><button type="button" onClick={() => void copyConnection("base-env", `OPENAI_BASE_URL=${proxyEndpoint}`)} aria-label={t("hardcoded.w114")}>{copiedConnection === "base-env" ? <CheckIcon /> : <CopyIcon />}</button></div>
+            <div><code>OPENAI_API_KEY</code><button type="button" onClick={() => void copyConnection("key-env", "OPENAI_API_KEY=YOUR_API_KEY")} aria-label={t("hardcoded.w115")}>{copiedConnection === "key-env" ? <CheckIcon /> : <CopyIcon />}</button></div>
           </div>
         </section>
 
         <section className="rose-apikey-side-panel rose-apikey-route-panel">
-          <header><span>↗</span><div><h2>路由健康</h2><p>密钥与服务商的分配状态</p></div></header>
-          <div className="rose-apikey-health-row"><span className={keyRouterAvailable === false ? "warning" : "healthy"}>{keyRouterAvailable === false ? "!" : "✓"}</span><div><strong>按 Key 路由</strong><small>{keyRouterAvailable === false ? "插件缺失，需安装 quotio-key-router" : keyRouterAvailable === null ? "正在检测运行环境" : "路由插件工作正常"}</small></div><em>{keyRouterAvailable === false ? "需处理" : "正常"}</em><b>›</b></div>
-          <div className="rose-apikey-health-row"><span className="healthy">✓</span><div><strong>密钥分配</strong><small>{boundCount} 个指定路由，{globalCount} 个使用全局路由</small></div><em>已同步</em><b>›</b></div>
-          <div className="rose-apikey-health-row"><span className="healthy">✓</span><div><strong>代理端点</strong><small>{appState.proxy.status === "running" ? "本地代理正在运行" : "代理当前未运行"}</small></div><em>{appState.proxy.status === "running" ? "在线" : "离线"}</em><b>›</b></div>
+          <header><span>↗</span><div><h2>{t("hardcoded.w116")}</h2><p>{t("hardcoded.w117")}</p></div></header>
+          <div className="rose-apikey-health-row"><span className={keyRouterAvailable === false ? "warning" : "healthy"}>{keyRouterAvailable === false ? "!" : "✓"}</span><div><strong>{t("apikeys.routeByKey")}</strong><small>{keyRouterAvailable === false ? t("apikeys.pluginMissing") : keyRouterAvailable === null ? t("hardcoded.w118") : t("hardcoded.w119")}</small></div><em>{keyRouterAvailable === false ? t("hardcoded.w089") : t("dash.health.good")}</em><b>›</b></div>
+          <div className="rose-apikey-health-row"><span className="healthy">✓</span><div><strong>{t("hardcoded.w120")}</strong><small>{t("apikeys.routeCounts").replace("{bound}", String(boundCount)).replace("{global}", String(globalCount))}</small></div><em>{t("hardcoded.w121")}</em><b>›</b></div>
+          <div className="rose-apikey-health-row"><span className="healthy">✓</span><div><strong>{t("apikeys.proxyEndpoint")}</strong><small>{appState.proxy.status === "running" ? t("hardcoded.w123") : t("hardcoded.w124")}</small></div><em>{appState.proxy.status === "running" ? t("hardcoded.w125") : t("hardcoded.w126")}</em><b>›</b></div>
         </section>
       </aside>
       </div>
 
-      <section className="rose-apikey-guide" aria-label="客户端接入步骤">
-        <header><div><h2>客户端接入</h2><p>三步完成 Quotio 代理认证</p></div><span>凭据仅应填写在受信任的客户端中</span></header>
+      <section className="rose-apikey-guide" aria-label={t("hardcoded.w127")}>
+        <header><div><h2>{t("hardcoded.w128")}</h2><p>{t("hardcoded.w129")}</p></div><span>{t("hardcoded.w130")}</span></header>
         <div>
-          <article><b>01</b><span><KeyIcon /></span><div><strong>创建访问密钥</strong><p>生成新密钥，或录入已有的客户端凭据。</p></div></article>
-          <article><b>02</b><span><RouteNodesIcon /></span><div><strong>选择服务商路由</strong><p>按需指定服务商；留空则跟随全局路由策略。</p></div></article>
-          <article><b>03</b><span><PaperPlaneIcon /></span><div><strong>配置并开始调用</strong><p>填入代理端点和 API Key，即可通过 Quotio 发起请求。</p></div></article>
+          <article><b>01</b><span><KeyIcon /></span><div><strong>{t("hardcoded.w131")}</strong><p>{t("hardcoded.w132")}</p></div></article>
+          <article><b>02</b><span><RouteNodesIcon /></span><div><strong>{t("hardcoded.w133")}</strong><p>{t("hardcoded.w134")}</p></div></article>
+          <article><b>03</b><span><PaperPlaneIcon /></span><div><strong>{t("hardcoded.w135")}</strong><p>{t("hardcoded.w136")}</p></div></article>
         </div>
       </section>
     </section>
@@ -287,6 +285,7 @@ function ApiKeyRow({
   onSave: () => void;
   onDelete: () => void;
 }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -305,7 +304,7 @@ function ApiKeyRow({
     <div className="apikey-row">
       <div className="rose-apikey-row-identity">
         <span>{index + 1}</span>
-        <div><strong>客户端密钥 {String(index + 1).padStart(2, "0")}</strong><small className={boundName ? "is-bound" : "is-global"}>{boundName ? `已绑定 ${boundName}` : "全局路由"}</small></div>
+        <div><strong>{t("hardcoded.w094")} {String(index + 1).padStart(2, "0")}</strong><small className={boundName ? "is-bound" : "is-global"}>{boundName ? `${t("apikeys.bound")} ${boundName}` : t("hardcoded.w086")}</small></div>
       </div>
       <div className="apikey-row-main">
         <code className="apikey-value">{entry.masked_value}</code>
@@ -315,7 +314,7 @@ function ApiKeyRow({
             value={boundProviderId}
             onChange={(e) => onBindingChange(e.target.value)}
           >
-            <option value="">全部服务商</option>
+            <option value="">{t("logs.allProviders")}</option>
             {providers.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
@@ -330,25 +329,25 @@ function ApiKeyRow({
             type="text"
             value={replacementValue}
             onChange={(event) => onReplacementChange(event.target.value)}
-            placeholder="新的 API key"
+            placeholder={t("hardcoded.w138")}
             autoFocus
           />
           <button className="secondary-action" type="button" onClick={onSave} disabled={isBusy || replacementValue.trim().length === 0}>
-            保存
+            {t("common.save")}
           </button>
           <button className="ghost-action" type="button" onClick={onCancel} disabled={isBusy}>
-            取消
+            {t("common.cancel")}
           </button>
         </div>
       ) : (
         <div className="apikey-actions">
-          <button className="row-icon-btn" type="button" onClick={copy} title="复制密钥" aria-label="复制密钥">
+          <button className="row-icon-btn" type="button" onClick={copy} title={t("hardcoded.w139")} aria-label={t("hardcoded.w139")}>
             {copied ? <CheckIcon /> : <CopyIcon />}
           </button>
-          <button className="row-icon-btn" type="button" onClick={onEdit} disabled={isBusy} title="替换密钥" aria-label="替换密钥">
+          <button className="row-icon-btn" type="button" onClick={onEdit} disabled={isBusy} title={t("hardcoded.w140")} aria-label={t("hardcoded.w140")}>
             <PencilIcon />
           </button>
-          <button className="row-icon-btn row-icon-btn--danger" type="button" onClick={onDelete} disabled={isBusy} title="删除密钥" aria-label="删除密钥">
+          <button className="row-icon-btn row-icon-btn--danger" type="button" onClick={onDelete} disabled={isBusy} title={t("hardcoded.w141")} aria-label={t("hardcoded.w141")}>
             <TrashIcon />
           </button>
         </div>

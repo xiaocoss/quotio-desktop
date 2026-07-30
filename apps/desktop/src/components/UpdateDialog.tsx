@@ -28,19 +28,19 @@ export function UpdateDialog({ status, version, notes, percent, error, onInstall
         {status === "available" ? (
           <>
             <strong className="close-dialog-title">
-              {t("update.available", "发现新版本")} v{version}
+              {t("update.available")} v{version}
             </strong>
             {notes ? (
               <p className="close-dialog-desc update-notes">{notes}</p>
             ) : (
-              <p className="close-dialog-desc">{t("update.availableDesc", "建议更新到最新版本。")}</p>
+              <p className="close-dialog-desc">{t("update.availableDesc")}</p>
             )}
             <div className="close-dialog-actions">
               <button type="button" className="ghost-action" onClick={onDismiss}>
-                {t("update.later", "稍后")}
+                {t("update.later")}
               </button>
               <button type="button" className="secondary-action" onClick={onInstall}>
-                {t("update.installNow", "立即更新")}
+                {t("update.installNow")}
               </button>
             </div>
           </>
@@ -48,7 +48,7 @@ export function UpdateDialog({ status, version, notes, percent, error, onInstall
 
         {status === "downloading" ? (
           <>
-            <strong className="close-dialog-title">{t("update.downloading", "正在下载更新…")}</strong>
+            <strong className="close-dialog-title">{t("update.downloading")}</strong>
             <div className="update-progress" aria-hidden="true">
               <span style={{ width: `${percent}%` }} />
             </div>
@@ -58,10 +58,10 @@ export function UpdateDialog({ status, version, notes, percent, error, onInstall
 
         {status === "uptodate" ? (
           <>
-            <strong className="close-dialog-title">{t("update.upToDate", "已是最新版本")}</strong>
+            <strong className="close-dialog-title">{t("update.upToDate")}</strong>
             <div className="close-dialog-actions">
               <button type="button" className="secondary-action" onClick={onDismiss}>
-                {t("common.close", "关闭")}
+                {t("common.close")}
               </button>
             </div>
           </>
@@ -70,15 +70,15 @@ export function UpdateDialog({ status, version, notes, percent, error, onInstall
         {status === "error" ? (
           <>
             <strong className="close-dialog-title">
-              {version ? t("update.installFailed", "更新安装失败") : t("update.failed", "检查更新失败")}
+              {version ? t("update.installFailed") : t("update.failed")}
             </strong>
             <p className="close-dialog-desc">{error}</p>
             <div className="close-dialog-actions">
               <button type="button" className="ghost-action" onClick={onDismiss}>
-                {t("common.close", "关闭")}
+                {t("common.close")}
               </button>
               <button type="button" className="secondary-action" onClick={onRetry}>
-                {t("common.retry", "重试")}
+                {t("common.retry")}
               </button>
             </div>
           </>

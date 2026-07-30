@@ -41,10 +41,9 @@ const APP_MODES: { id: AppMode; title: string; desc: string; badge?: string; acc
 const MODE_ICONS: Record<AppMode, string> = { monitor: "chart", local: "server", remote: "globe" };
 
 const LANGUAGES: { value: string; label: string }[] = [
+  { value: "uk", label: "Українська" },
   { value: "en", label: "English" },
   { value: "zh-CN", label: "简体中文" },
-  { value: "zh-TW", label: "繁體中文" },
-  { value: "ja", label: "日本語" },
 ];
 
 // 内联的 SVG 符号图标(素材见 public/settings/settings-icons.svg)。
@@ -209,7 +208,7 @@ export function SettingsScreen({
       <header className="page-topbar" data-tauri-drag-region>
         <div className="sr-header-lead" data-tauri-drag-region="false">
           <h1 className="sr-title">{t("nav.settings")}</h1>
-          <p className="sr-subtitle">{t("settings.subtitle", "配置运行模式、代理连接与请求行为")}</p>
+          <p className="sr-subtitle">{t("settings.subtitle")}</p>
         </div>
         <div className="sr-header-actions">
           <button className="sr-btn" type="button" onClick={onOpenConfigRoot} disabled={platformAction === "open_config_root"}>
@@ -222,7 +221,7 @@ export function SettingsScreen({
           </button>
           <span className={proxyHealthy ? "sr-health" : "sr-health sr-health--down"}>
             <Icon id="check" />
-            {proxyHealthy ? `${t("settings.proxyHealthy", "本地代理运行正常")} · ${proxyAddr}` : `${proxyAddr} · ${proxyRuntime}`}
+            {proxyHealthy ? `${t("settings.proxyHealthy")} · ${proxyAddr}` : `${proxyAddr} · ${proxyRuntime}`}
           </span>
         </div>
       </header>
@@ -263,14 +262,14 @@ export function SettingsScreen({
           <div className="sr-card-head">
             <h2 className="sr-card-title">
               <Icon id="settings" />
-              {t("settings.baseSettings", "基础设置")}
+              {t("settings.baseSettings")}
             </h2>
           </div>
           <div className="sr-rows">
             <div className="sr-row">
               <div className="sr-row-text">
                 <strong>{t("settings.launchAtLogin")}</strong>
-                <small>{t("settings.launchAtLoginDesc", "登录系统时自动启动服务")}</small>
+                <small>{t("settings.launchAtLoginDesc")}</small>
               </div>
               <Switch
                 on={launchEnabled}
@@ -281,8 +280,8 @@ export function SettingsScreen({
             </div>
             <div className="sr-row">
               <div className="sr-row-text">
-                <strong>{t("settings.keepProxyOnExit", "退出时保留代理运行")}</strong>
-                <small>{t("settings.keepProxyOnExitDesc", "关闭 Quotio 后代理继续在后台运行,依赖它的 Codex 等客户端不会因断连崩溃;下次启动 Quotio 会自动接管")}</small>
+                <strong>{t("settings.keepProxyOnExit")}</strong>
+                <small>{t("settings.keepProxyOnExitDesc")}</small>
               </div>
               <Switch
                 on={settings.keep_proxy_on_exit}
@@ -293,30 +292,30 @@ export function SettingsScreen({
             </div>
             <div className="sr-row">
               <div className="sr-row-text">
-                <strong>{t("settings.closeAction", "点关闭按钮时")}</strong>
-                <small>{t("settings.closeActionDesc", "选「每次询问」会重新弹出选择框(即清除已记住的选择)")}</small>
+                <strong>{t("settings.closeAction")}</strong>
+                <small>{t("settings.closeActionDesc")}</small>
               </div>
               <Select
                 value={closeAction}
                 options={[
-                  { value: "ask", label: t("settings.winActionAsk", "每次询问") },
-                  { value: "tray", label: t("settings.closeToTray", "最小化到托盘") },
-                  { value: "quit", label: t("settings.closeToQuit", "直接退出") },
+                  { value: "ask", label: t("settings.winActionAsk") },
+                  { value: "tray", label: t("settings.closeToTray") },
+                  { value: "quit", label: t("settings.closeToQuit") },
                 ]}
                 onChange={(value) => setWinAction("quotio.closeAction", value, setCloseAction)}
               />
             </div>
             <div className="sr-row">
               <div className="sr-row-text">
-                <strong>{t("settings.minimizeAction", "点最小化按钮时")}</strong>
-                <small>{t("settings.minimizeActionDesc", "选「每次询问」会重新弹出选择框(即清除已记住的选择)")}</small>
+                <strong>{t("settings.minimizeAction")}</strong>
+                <small>{t("settings.minimizeActionDesc")}</small>
               </div>
               <Select
                 value={minimizeAction}
                 options={[
-                  { value: "ask", label: t("settings.winActionAsk", "每次询问") },
-                  { value: "tray", label: t("settings.minimizeToTray", "隐藏到托盘") },
-                  { value: "taskbar", label: t("settings.minimizeToTaskbar", "最小化到任务栏") },
+                  { value: "ask", label: t("settings.winActionAsk") },
+                  { value: "tray", label: t("settings.minimizeToTray") },
+                  { value: "taskbar", label: t("settings.minimizeToTaskbar") },
                 ]}
                 onChange={(value) => setWinAction("quotio.minimizeAction", value, setMinimizeAction)}
               />
@@ -375,7 +374,7 @@ export function SettingsScreen({
             {connDirty ? (
               <span className="sr-unsaved">● {t("settings.unsavedChanges")}</span>
             ) : (
-              <span className="sr-saved">{t("settings.connectionSaved", "连接已保存")}</span>
+              <span className="sr-saved">{t("settings.connectionSaved")}</span>
             )}
           </div>
           <div className="sr-rows">
@@ -410,18 +409,18 @@ export function SettingsScreen({
                   type={showRemoteKey ? "text" : "password"}
                   value={connDraft.remote_management_key}
                   onChange={(event) => setConnDraft({ ...connDraft, remote_management_key: event.target.value })}
-                  placeholder={credentialStatus.remote_management_key_masked ?? "保存后迁入安全存储"}
+                  placeholder={credentialStatus.remote_management_key_masked ?? t("hardcoded.w191")}
                 />
                 <button
                   className="sr-secret-toggle"
                   type="button"
                   onClick={() => setShowRemoteKey((visible) => !visible)}
-                  aria-label={showRemoteKey ? t("common.hide", "隐藏") : t("common.show", "显示")}
+                  aria-label={showRemoteKey ? t("common.hide") : t("common.show")}
                 >
                   <Icon id="eye" />
                 </button>
               </span>
-              <span className="sr-secret-hint">{t("settings.secureStorageHint", "保存后注入安全存储")}</span>
+              <span className="sr-secret-hint">{t("settings.secureStorageHint")}</span>
             </div>
             <div className="sr-row">
               <div className="sr-row-text">
@@ -434,7 +433,7 @@ export function SettingsScreen({
           <div className="sr-connection-actions">
             <span className="sr-runtime">
               <i className="sr-dot" />
-              {t("settings.runtimeStatus", "运行状态")}
+              {t("settings.runtimeStatus")}
               <strong>{proxyRuntime}</strong>
             </span>
             <div className="sr-row-controls">
@@ -535,7 +534,7 @@ export function SettingsScreen({
             <div className="sr-row">
               <div className="sr-row-text">
                 <strong>{t("settings.requestRetry")}</strong>
-                <small>{t("settings.requestRetryDesc", "失败时重试次数")}</small>
+                <small>{t("settings.requestRetryDesc")}</small>
               </div>
               <input
                 className="sr-input sr-input--sm"
@@ -579,7 +578,7 @@ export function SettingsScreen({
                   }}
                   disabled={isManagementBusy || proxyUrlDraft.trim().length === 0}
                 >
-                  {t("common.write", "写入")}
+                  {t("common.write")}
                 </button>
                 <button
                   className="sr-mini-btn sr-mini-btn--danger"
@@ -590,19 +589,19 @@ export function SettingsScreen({
                   }}
                   disabled={isManagementBusy}
                 >
-                  {t("common.clear", "清空")}
+                  {t("common.clear")}
                 </button>
               </div>
             </div>
           </div>
-          {managementAction ? <p className="sr-note sr-note--busy">{t("settings.writing", "写入中…")} {managementAction}</p> : null}
+          {managementAction ? <p className="sr-note sr-note--busy">{t("settings.writing")} {managementAction}</p> : null}
         </article>
 
         <article className="sr-panel sr-card sr-advanced-card">
           <div className="sr-card-head">
             <h2 className="sr-card-title">
               <Icon id="brain" />
-              {t("settings.advancedTitle", "高级设置")}
+              {t("settings.advancedTitle")}
             </h2>
           </div>
           <div className="sr-advanced-columns">
@@ -654,8 +653,8 @@ export function SettingsScreen({
               </div>
               <div className="sr-compact-row">
                 <div className="sr-compact-text">
-                  <strong>{t("settings.absorbBoundAccount", "启动账号加入代理轮换")}</strong>
-                  <small title={t("settings.absorbBoundAccountDesc", "开启后,一键启动绑定的账号不再被隔离,而是也留在代理池被 Codex(经代理)轮换使用,把它闲置的额度也用上。代价:该账号 token 同时用于登录和轮换,provider 敏感时极端情况可能需重新授权。默认关。")}>{t("settings.absorbBoundAccountDesc", "开启后,一键启动绑定的账号不再被隔离,而是也留在代理池被 Codex(经代理)轮换使用,把它闲置的额度也用上。代价:该账号 token 同时用于登录和轮换,provider 敏感时极端情况可能需重新授权。默认关。")}</small>
+                  <strong>{t("settings.absorbBoundAccount")}</strong>
+                  <small title={t("settings.absorbBoundAccountDesc")}>{t("settings.absorbBoundAccountDesc")}</small>
                 </div>
                 <Switch
                   on={settings.absorb_bound_account}
@@ -768,7 +767,7 @@ export function SettingsScreen({
 
       {/* 工具与自动化 */}
       <section className="sr-panel sr-tools-panel">
-        <h2 className="sr-section-label">{t("settings.tools", "工具与自动化")}</h2>
+        <h2 className="sr-section-label">{t("settings.tools")}</h2>
         <div className="sr-tools-grid">
           <TunnelCard />
           <WarmupCard />

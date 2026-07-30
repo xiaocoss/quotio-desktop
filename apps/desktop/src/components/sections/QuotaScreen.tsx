@@ -135,11 +135,11 @@ export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSett
           type="button"
           onClick={onRefreshQuotas}
           disabled={isQuotaBusy}
-          title={t("quota.refresh", "刷新额度")}
-          aria-label={t("quota.refresh", "刷新额度")}
+          title={t("quota.refresh")}
+          aria-label={t("quota.refresh")}
         >
           <Icon id="icon-refresh" />
-          {t("quota.refreshShort", "刷新")}
+          {t("quota.refreshShort")}
         </button>
       </header>
 
@@ -154,8 +154,8 @@ export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSett
 
       {proxyUnreachable ? (
         <div className="state-banner state-banner--warn">
-          <strong>{t("quota.proxyUnreachable.title", "未获取到额度")}</strong>
-          <p>{t("quota.proxyUnreachable.desc", "代理可能不通——请检查「设置」里的代理地址,以及代理是否已启动。")}</p>
+          <strong>{t("quota.proxyUnreachable.title")}</strong>
+          <p>{t("quota.proxyUnreachable.desc")}</p>
         </div>
       ) : null}
 
@@ -239,7 +239,7 @@ export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSett
                   {/* 「添加账号」在「服务商」页操作,本页点它直接跳到服务商页。 */}
                   <button className="button" type="button" onClick={onAddAccount}>
                     <Icon id="icon-plus" />
-                    {t("quota.addAccount", "添加账号")}
+                    {t("quota.addAccount")}
                   </button>
                 </div>
 
@@ -289,10 +289,10 @@ function QuotaSummary({ accounts, authFiles }: { accounts: AccountQuota[]; authF
   const healthy = Math.max(0, total - idle - risk);
 
   const items: { key: string; icon: string; cls: string; label: string; value: number; note: string }[] = [
-    { key: "healthy", icon: "icon-shield", cls: "healthy", label: t("quota.summary.healthy", "健康账号"), value: healthy, note: t("quota.summary.healthyNote", "可正常使用") },
-    { key: "risk", icon: "icon-alert", cls: "warning", label: t("quota.summary.risk", "风险账号"), value: risk, note: t("quota.summary.riskNote", "额度即将耗尽") },
-    { key: "idle", icon: "icon-clock", cls: "idle", label: t("quota.summary.idle", "待命账号"), value: idle, note: t("quota.summary.idleNote", "不参与调度") },
-    { key: "total", icon: "icon-stack", cls: "", label: t("quota.summary.total", "全部账号"), value: total, note: t("quota.summary.totalNote", "已配置") },
+    { key: "healthy", icon: "icon-shield", cls: "healthy", label: t("quota.summary.healthy"), value: healthy, note: t("quota.summary.healthyNote") },
+    { key: "risk", icon: "icon-alert", cls: "warning", label: t("quota.summary.risk"), value: risk, note: t("quota.summary.riskNote") },
+    { key: "idle", icon: "icon-clock", cls: "idle", label: t("quota.summary.idle"), value: idle, note: t("quota.summary.idleNote") },
+    { key: "total", icon: "icon-stack", cls: "", label: t("quota.summary.total"), value: total, note: t("quota.summary.totalNote") },
   ];
 
   return (
@@ -424,59 +424,59 @@ function SchedulerCard({
   if (!schedulerOn) {
     statusText = t(
       "quota.scheduler.descOff",
-      "智能调度:只让「额度最快刷新」的号进池,余者待命、到点自动换号。顺序故障转移:按你排的顺序用号,坏一个无感切下一个(不报错)。",
+      t("hardcoded.w187"),
     );
   } else if (rule === "priority_failover") {
     if (activeLabel) {
       const chain = t(
         "quota.scheduler.failoverChain",
-        "共 {count} 个按序待命,坏一个自动顺延(不返回错误)",
+        t("hardcoded.w188"),
       ).replace("{count}", String(failoverChainCount));
-      statusText = `${t("quota.scheduler.failoverPrimary", "主用")}:${activeLabel} · ${chain}`;
+      statusText = `${t("quota.scheduler.failoverPrimary")}:${activeLabel} · ${chain}`;
     } else if (totalScheduled > 0) {
-      statusText = t("quota.scheduler.noProviderMatch", "此服务商账号不足 2 个,无需调度。");
+      statusText = t("quota.scheduler.noProviderMatch");
     } else {
       statusText = t(
         "quota.scheduler.failoverPending",
-        "已开启,按你设定的账号顺序请求,坏号自动顺延到下一个(在「服务商」页拖动排序)。",
+        t("hardcoded.w189"),
       );
     }
   } else if (activeLabel) {
     const windowText = resetText
-      ? t("quota.scheduler.resetIn", "{time} 后刷新").replace("{time}", resetText)
-      : t("quota.scheduler.idleWindow", "闲置窗口(使用后开新窗口)");
-    const standby = t("quota.scheduler.standby", "待命 {count} 个").replace(
+      ? t("quota.scheduler.resetIn").replace("{time}", resetText)
+      : t("quota.scheduler.idleWindow");
+    const standby = t("quota.scheduler.standby").replace(
       "{count}",
       String(activeStandby),
     );
-    statusText = `${t("quota.scheduler.current", "当前选中")}:${activeLabel} · ${windowText} · ${standby}`;
+    statusText = `${t("quota.scheduler.current")}:${activeLabel} · ${windowText} · ${standby}`;
   } else if (totalScheduled > 0) {
-    statusText = t("quota.scheduler.noProviderMatch", "此服务商账号不足 2 个,无需调度。");
+    statusText = t("quota.scheduler.noProviderMatch");
   } else {
-    statusText = t("quota.scheduler.pending", "已开启,等待下一次额度刷新后选号(可点右上角立即刷新)。");
+    statusText = t("quota.scheduler.pending");
   }
 
   let tagText: string | null = null;
   if (rule === "priority_failover") {
     tagText =
-      t("quota.scheduler.ruleFailover", "按序故障转移") +
-      (providerEntry ? ` · ${providerLabel}` : totalScheduled > 0 ? ` · ${totalScheduled} 个服务商` : "");
+      t("quota.scheduler.ruleFailover") +
+      (providerEntry ? ` · ${providerLabel}` : totalScheduled > 0 ? ` · ${t("quota.providerCount").replace("{count}", String(totalScheduled))}` : "");
   } else if (rule === "reset_soonest") {
     tagText =
-      t("quota.scheduler.rule", "临近刷新优先") +
-      (providerEntry ? ` · ${providerLabel}` : totalScheduled > 0 ? ` · ${totalScheduled} 个服务商` : "");
+      t("quota.scheduler.rule") +
+      (providerEntry ? ` · ${providerLabel}` : totalScheduled > 0 ? ` · ${t("quota.providerCount").replace("{count}", String(totalScheduled))}` : "");
   }
 
   const modes: { id: "off" | "reset_soonest" | "priority_failover"; label: string }[] = [
-    { id: "off", label: t("quota.scheduler.modeOff", "关闭") },
-    { id: "reset_soonest", label: t("quota.scheduler.modeResetSoonest", "智能调度") },
-    { id: "priority_failover", label: t("quota.scheduler.modeFailover", "顺序故障转移") },
+    { id: "off", label: t("quota.scheduler.modeOff") },
+    { id: "reset_soonest", label: t("quota.scheduler.modeResetSoonest") },
+    { id: "priority_failover", label: t("quota.scheduler.modeFailover") },
   ];
   const activeModeLabel = modes.find((m) => m.id === rule)?.label ?? "";
   const roseThemeLine = themeAccountLabel
     ? t(
         "quota.scheduler.themeLine",
-        "主题：{account} · 共 {count} 个账号（待命账号不参与调度）",
+        t("quota.scheduler.themeLine"),
       )
         .replace("{account}", maskEmail(themeAccountLabel))
         .replace("{count}", String(themeAccountCount))
@@ -489,14 +489,14 @@ function SchedulerCard({
       </div>
       <div className="strategy-body">
         <h2>
-          {t("quota.scheduler.cardTitle", "账号调度")}
+          {t("quota.scheduler.cardTitle")}
           {activeModeLabel ? <span className="pill">{activeModeLabel}</span> : null}
         </h2>
         <p>{statusText}</p>
         {tagText ? <small className="scheduler-rule-line">{tagText}</small> : null}
         {roseThemeLine ? <small className="rose-scheduler-theme">{roseThemeLine}</small> : null}
       </div>
-      <div className="strategy-actions" role="group" aria-label={t("quota.scheduler.cardTitle", "账号调度")}>
+      <div className="strategy-actions" role="group" aria-label={t("quota.scheduler.cardTitle")}>
         {modes.map((m) => (
           <button
             key={m.id}
@@ -562,7 +562,7 @@ function AccountQuotaCard({
       await invoke("consume_codex_reset_credit", { accountKey: account.account_key });
       onRefreshQuotas();
     } catch (error) {
-      setResetError(typeof error === "string" ? error : t("quota.resetFailed", "重置失败"));
+      setResetError(typeof error === "string" ? error : t("quota.resetFailed"));
     } finally {
       setResetting(false);
     }
@@ -596,11 +596,7 @@ function AccountQuotaCard({
   const warningCard = !isStandby && !account.is_forbidden && account.models.some((m) => quotaTone(m.remaining_percent) !== "good");
 
   const orderTitle = order
-    ? order.active
-      ? `当前主用 · 请求顺序 #${order.position}`
-      : order.eligible
-        ? `请求顺序 #${order.position}`
-        : `请求顺序 #${order.position} · 暂不可用,本轮跳过`
+    ? (order.active ? t("quota.primaryOrder") : order.eligible ? t("quota.order") : t("quota.orderUnavailable")).replace("{position}", String(order.position))
     : undefined;
 
   return (
@@ -610,7 +606,7 @@ function AccountQuotaCard({
           <span
             className={isStandby ? "rank idle" : "rank"}
             title={orderTitle}
-            aria-label={`请求顺序 ${position}`}
+            aria-label={t("quota.order").replace("{position}", String(position))}
           >
             {position}
           </span>
@@ -626,30 +622,30 @@ function AccountQuotaCard({
               {t("quota.expires")} {expiry}
             </span>
           ) : null}
-          {authFailed ? <span className="flag flag--bad">{t("providers.stateNeedsReauth", "需重新授权")}</span> : null}
+          {authFailed ? <span className="flag flag--bad">{t("providers.stateNeedsReauth")}</span> : null}
           {account.is_forbidden ? <span className="flag flag--bad">{t("quota.forbidden")}</span> : null}
           {/* Weekly window maxed but the account still serves via the session
               window — a soft heads-up, not the alarming "exhausted" pill. */}
           {!account.is_forbidden &&
           account.models.some((model) => /weekly/i.test(model.model) && model.remaining_percent <= 0) ? (
-            <span className="flag flag--warn">{t("quota.weeklyUsedUp", "本周已用尽")}</span>
+            <span className="flag flag--warn">{t("quota.weeklyUsedUp")}</span>
           ) : null}
           {account.warming_up ? <span className="flag flag--warn">{t("quota.warmup")}</span> : null}
           {account.in_use ? <span className="flag flag--blue">{t("quota.useInIde")}</span> : null}
           {isCodexLoginOnly ? (
             <span
               className="flag flag--blue"
-              title={t("quota.codexLoginOnly.desc", "该账号仅用于启动 Codex，不参与 Quotio 代理池调用。")}
+              title={t("quota.codexLoginOnly.desc")}
             >
-              {t("quota.codexLoginOnly", "Codex 登录专用")}
+              {t("quota.codexLoginOnly")}
             </span>
           ) : null}
           {isSchedulerStandby ? (
             <span
               className="flag flag--idle"
-              title={t("quota.schedulerStandby.desc", "被智能调度临时移出代理池;轮到它或关闭调度时自动恢复。")}
+              title={t("quota.schedulerStandby.desc")}
             >
-              {t("quota.schedulerStandby", "调度待命")}
+              {t("quota.schedulerStandby")}
             </span>
           ) : null}
         </div>
@@ -658,7 +654,7 @@ function AccountQuotaCard({
       <div className="email">{maskEmail(account.account_label)}</div>
 
       <div className="health-row">
-        <span className="health-label">{t("quota.health", "健康状态")}</span>
+        <span className="health-label">{t("quota.health")}</span>
         <span className="counts">
           <span className="ok">✓ {success}</span>
           <span className="bad">× {failed}</span>
@@ -669,7 +665,7 @@ function AccountQuotaCard({
       {hasResetCredits ? (
         <div className="reset-row">
           <span>
-            {t("quota.resetCredits", "主动重置次数")} {resetCredits}
+            {t("quota.resetCredits")} {resetCredits}
           </span>
           <button
             type="button"
@@ -678,15 +674,15 @@ function AccountQuotaCard({
             onClick={handleReset}
             title={
               (resetCredits ?? 0) <= 0
-                ? t("quota.resetNoCredits", "没有可用的主动重置次数")
-                : t("quota.resetButton", "重置")
+                ? t("quota.resetNoCredits")
+                : t("quota.resetButton")
             }
           >
             {resetting
-              ? t("quota.resetting", "重置中…")
+              ? t("quota.resetting")
               : confirmReset
-                ? t("quota.resetConfirm", "确认重置?")
-                : t("quota.resetButton", "重置")}
+                ? t("quota.resetConfirm")
+                : t("quota.resetButton")}
           </button>
         </div>
       ) : null}
@@ -697,12 +693,12 @@ function AccountQuotaCard({
       ) : (
         <p className="quota-empty-note">
           {authFailed || account.is_forbidden
-            ? t("quota.needsReauthNote", "需重新授权,请到服务商页重新登录")
+            ? t("quota.needsReauthNote")
             : account.status_message === "pay_as_you_go"
-              ? t("quota.payAsYouGo", "按量付费,无固定额度 · 消耗见仪表盘")
+              ? t("quota.payAsYouGo")
               : account.provider_id === "codex"
-                ? t("quota.fetchFailed", "额度获取失败,仅显示健康状态")
-                : t("quota.noUsageData", "暂无额度数据,账号健康")}
+                ? t("quota.fetchFailed")
+                : t("quota.noUsageData")}
         </p>
       )}
 
@@ -712,8 +708,8 @@ function AccountQuotaCard({
           <button
             type="button"
             className="icon-button"
-            title={t("quota.viewChart", "查看该账号用量")}
-            aria-label={t("quota.viewChart", "查看该账号用量")}
+            title={t("quota.viewChart")}
+            aria-label={t("quota.viewChart")}
             onClick={() => onViewChart?.(account.account_label)}
           >
             <Icon id="icon-chart" />
@@ -721,8 +717,8 @@ function AccountQuotaCard({
           <button
             type="button"
             className="icon-button"
-            title={t("quota.viewLogs", "查看该账号日志")}
-            aria-label={t("quota.viewLogs", "查看该账号日志")}
+            title={t("quota.viewLogs")}
+            aria-label={t("quota.viewLogs")}
             onClick={() => onViewLogs?.(account.account_label)}
           >
             <Icon id="icon-list" />
@@ -731,12 +727,12 @@ function AccountQuotaCard({
         {isStandby ? (
           <span className="status-pill idle">
             <i className="dot" />
-            {t("quota.statusIdle", "待命中")}
+            {t("quota.statusIdle")}
           </span>
         ) : (
           <span className="status-pill">
             <i className="dot" />
-            {t("quota.statusRunning", "运行中")}
+            {t("quota.statusRunning")}
           </span>
         )}
       </div>
@@ -756,7 +752,7 @@ function ModelQuotaRow({ model, label }: { model: QuotaModelUsage; label: string
         <span className="line-label">{label}</span>
         <span className="line-right">
           <span className={`remaining remaining--${tone}`}>
-            {pct}% {t("quota.left", "剩余")}
+            {pct}% {t("quota.left")}
           </span>
           {model.reset_at ? <span className="reset-at">{model.reset_at}</span> : null}
         </span>
@@ -769,6 +765,7 @@ function ModelQuotaRow({ model, label }: { model: QuotaModelUsage; label: string
 }
 
 function CustomProviderKeyPool({ provider }: { provider: CustomProviderBrief }) {
+  const t = useT();
   const enabledKeys = provider.keys.filter((k) => k.enabled);
   const disabledKeys = provider.keys.filter((k) => !k.enabled);
   function maskKey(key: string): string {
@@ -780,26 +777,26 @@ function CustomProviderKeyPool({ provider }: { provider: CustomProviderBrief }) 
       <div className="panel cp-quota-panel">
         <div className="panel-label">
           <span className="eyebrow">{provider.name}</span>
-          <span className="count-pill">{enabledKeys.length}/{provider.keys.length} 启用</span>
+          <span className="count-pill">{enabledKeys.length}/{provider.keys.length} {t("hardcoded.w158")}</span>
         </div>
         {provider.keys.length === 0 ? (
-          <p className="empty-copy">该服务商暂无密钥。前往「服务商」页面添加。</p>
+          <p className="empty-copy">{t("hardcoded.w190")}</p>
         ) : (
           <div className="cp-quota-key-list">
             {enabledKeys.map((k) => (
               <div className="cp-quota-key-row" key={k.id}>
                 <span className="cp-key-dot cp-key-dot--on" />
-                <span className="cp-quota-key-label">{k.label || "未命名"}</span>
+                <span className="cp-quota-key-label">{k.label || t("hardcoded.w159")}</span>
                 <code className="cp-quota-key-value">{maskKey(k.api_key)}</code>
-                {k.weight !== 1 ? <span className="cp-quota-key-weight">权重 {k.weight}</span> : null}
+                {k.weight !== 1 ? <span className="cp-quota-key-weight">{t("quota.weight").replace("{weight}", String(k.weight))}</span> : null}
               </div>
             ))}
             {disabledKeys.map((k) => (
               <div className="cp-quota-key-row cp-quota-key-row--disabled" key={k.id}>
                 <span className="cp-key-dot" />
-                <span className="cp-quota-key-label">{k.label || "未命名"}</span>
+                <span className="cp-quota-key-label">{k.label || t("hardcoded.w159")}</span>
                 <code className="cp-quota-key-value">{maskKey(k.api_key)}</code>
-                <span className="cp-quota-key-badge">已禁用</span>
+                <span className="cp-quota-key-badge">{t("providers.statusDisabled")}</span>
               </div>
             ))}
           </div>
