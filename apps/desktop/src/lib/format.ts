@@ -83,17 +83,18 @@ export function formatCost(value: number | null | undefined): string {
   return `$${value.toFixed(value !== 0 && Math.abs(value) < 1 ? 4 : 2)}`;
 }
 
-// Short relative time ("3分钟前" / "刚刚") from a unix-ms timestamp; falls back
-// to "--" for missing/zero values.
-export function formatRelativeTime(ms: number): string {
+// Short relative time from a unix-ms timestamp; falls back to "--" for
+// missing/zero values. The caller's locale is used when provided.
+export function formatRelativeTime(ms: number, locale?: string): string {
   if (!ms || ms <= 0) return "--";
   const diff = Date.now() - ms;
-  if (diff < 60_000) return "刚刚";
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}分钟前`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}小时前`;
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  if (diff < 60_000) return formatter.format(0, "second");
+  if (diff < 3_600_000) return formatter.format(-Math.floor(diff / 60_000), "minute");
+  if (diff < 86_400_000) return formatter.format(-Math.floor(diff / 3_600_000), "hour");
   const days = Math.floor(diff / 86_400_000);
-  if (days < 30) return `${days}天前`;
-  return new Date(ms).toLocaleDateString();
+  if (days < 30) return formatter.format(-days, "day");
+  return new Date(ms).toLocaleDateString(locale);
 }
 
 // Tone for a "remaining quota" percentage, matching the mock's color coding.

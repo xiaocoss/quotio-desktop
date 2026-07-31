@@ -55,6 +55,7 @@ function GlobalActionsMenu({
   oauthProviders: ProviderSummary[];
   onSelectProvider: (provider: ProviderSummary) => void;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -69,7 +70,7 @@ function GlobalActionsMenu({
 
   return (
     <div className="pv-card-menu-anchor" ref={ref}>
-      <button className="pv-card-more pv-global-more" type="button" onClick={() => setOpen((v) => !v)} aria-label="选择并添加服务商" title="选择并添加服务商">
+      <button className="pv-card-more pv-global-more" type="button" onClick={() => setOpen((v) => !v)} aria-label={t("hardcoded.w145")} title={t("hardcoded.w145")}>
         <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor"><circle cx="3" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="13" cy="8" r="1.3"/></svg>
       </button>
       {open ? (
@@ -77,11 +78,11 @@ function GlobalActionsMenu({
           {oauthProviders.length > 0 ? (
             oauthProviders.map((p) => (
               <button key={p.id} type="button" onClick={() => { onSelectProvider(p); setOpen(false); }}>
-                添加 {p.display_name} 账号
+                {t("common.add")} {p.display_name} {t("dash.kpi.accounts")}
               </button>
             ))
           ) : (
-            <span className="pv-dropdown-label">所有服务商均已连接</span>
+            <span className="pv-dropdown-label">{t("hardcoded.w146")}</span>
           )}
         </div>
       ) : null}
@@ -106,6 +107,7 @@ function CustomProviderCard({
   onRemoveKey: (keyId: string) => void;
   onToggleKey: (keyId: string) => void;
 }) {
+  const t = useT();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [addingKey, setAddingKey] = useState(false);
@@ -137,18 +139,18 @@ function CustomProviderCard({
         <span className="pv-card-title">{provider.name}</span>
         <span className="cp-kind-badge">{provider.kind}</span>
         {provider.proxy_mode === "direct" ? (
-          <span className="cp-kind-badge" title="此接口绕过全局代理直连" style={{ color: "var(--accent, #10a37f)", borderColor: "var(--accent, #10a37f)" }}>直连</span>
+          <span className="cp-kind-badge" title={t("hardcoded.w147")} style={{ color: "var(--accent, #10a37f)", borderColor: "var(--accent, #10a37f)" }}>{t("hardcoded.w148")}</span>
         ) : null}
-        <button className="pv-card-more" type="button" onClick={() => setAddingKey(true)} aria-label="添加密钥" title="添加密钥">
+        <button className="pv-card-more" type="button" onClick={() => setAddingKey(true)} aria-label={t("hardcoded.w149")} title={t("hardcoded.w149")}>
           <PlusIcon />
         </button>
         <div className="pv-card-menu-anchor" ref={menuRef}>
-          <button className="pv-card-more" type="button" onClick={() => setMenuOpen((v) => !v)} aria-label="更多">
+          <button className="pv-card-more" type="button" onClick={() => setMenuOpen((v) => !v)} aria-label={t("hardcoded.w150")}>
             <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><circle cx="8" cy="3" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="8" cy="13" r="1.3"/></svg>
           </button>
           {menuOpen ? (
             <div className="pv-card-dropdown">
-              <button type="button" onClick={() => { onEdit(); setMenuOpen(false); }}>编辑接口</button>
+              <button type="button" onClick={() => { onEdit(); setMenuOpen(false); }}>{t("hardcoded.w151")}</button>
               <button
                 type="button"
                 className={confirmDelete ? "pv-dropdown-danger" : ""}
@@ -157,7 +159,7 @@ function CustomProviderCard({
                   else { setConfirmDelete(true); window.setTimeout(() => setConfirmDelete(false), 3000); }
                 }}
               >
-                {confirmDelete ? "确认删除？" : "删除接口"}
+                {confirmDelete ? t("hardcoded.w152") : t("hardcoded.w153")}
               </button>
             </div>
           ) : null}
@@ -172,29 +174,29 @@ function CustomProviderCard({
             {provider.models.length > 4 ? <code className="cp-model-pill">+{provider.models.length - 4}</code> : null}
           </>
         ) : (
-          <code className="cp-model-pill" style={{ color: "var(--danger, #d9534f)", borderColor: "var(--danger, #d9534f)" }} title="未配置模型，代理无法路由到此接口（请点编辑补充模型名）">
-            ⚠ 未配置模型
+          <code className="cp-model-pill" style={{ color: "var(--danger, #d9534f)", borderColor: "var(--danger, #d9534f)" }} title={t("hardcoded.w154")}>
+            ⚠ {t("providers.modelsMissing")}
           </code>
         )}
       </div>
 
       <div className="cp-key-pool">
         <div className="cp-key-pool-header">
-          <span>密钥池</span>
-          <span className="pv-count-badge">{enabledCount}/{provider.keys.length} 启用</span>
+          <span>{t("hardcoded.w155")}</span>
+          <span className="pv-count-badge">{enabledCount}/{provider.keys.length} {t("hardcoded.w158")}</span>
         </div>
         {provider.keys.length === 0 ? (
-          <p className="cp-key-empty">暂无密钥。点击 + 添加。</p>
+          <p className="cp-key-empty">{t("hardcoded.w156")}</p>
         ) : (
           <div className="cp-key-list">
             {provider.keys.map((k) => (
               <div className={`cp-key-row${k.enabled ? "" : " cp-key-disabled"}`} key={k.id}>
-                <button className="cp-key-toggle" type="button" onClick={() => onToggleKey(k.id)} title={k.enabled ? "禁用" : "启用"}>
+                <button className="cp-key-toggle" type="button" onClick={() => onToggleKey(k.id)} title={k.enabled ? t("hardcoded.w157") : t("hardcoded.w158")}>
                   <span className={`cp-key-dot${k.enabled ? " cp-key-dot--on" : ""}`} />
                 </button>
-                <span className="cp-key-label">{k.label || "未命名"}</span>
+                <span className="cp-key-label">{k.label || t("hardcoded.w159")}</span>
                 <span className="cp-key-masked">{maskKey(k.api_key)}</span>
-                <button className="row-icon-btn row-icon-btn--danger cp-key-del" type="button" onClick={() => onRemoveKey(k.id)} title="删除密钥" aria-label="删除密钥">
+                <button className="row-icon-btn row-icon-btn--danger cp-key-del" type="button" onClick={() => onRemoveKey(k.id)} title={t("hardcoded.w141")} aria-label={t("hardcoded.w141")}>
                   <TrashIcon />
                 </button>
               </div>
@@ -205,7 +207,7 @@ function CustomProviderCard({
 
       {boundKeys.length > 0 ? (
         <div className="cp-bound-keys">
-          <span className="cp-bound-keys-label">绑定的客户端密钥</span>
+          <span className="cp-bound-keys-label">{t("hardcoded.w160")}</span>
           {boundKeys.map((bk, i) => (
             <code className="cp-bound-key-tag" key={i}>{bk.masked}</code>
           ))}
@@ -214,13 +216,13 @@ function CustomProviderCard({
 
       {addingKey ? (
         <div className="cp-add-key-form">
-          <input placeholder="标签（可选）" value={newKeyLabel} onChange={(e) => setNewKeyLabel(e.target.value)} />
+          <input placeholder={t("hardcoded.w161")} value={newKeyLabel} onChange={(e) => setNewKeyLabel(e.target.value)} />
           <input placeholder="API Key" type="password" value={newKeyValue} onChange={(e) => setNewKeyValue(e.target.value)} />
           <div className="cp-add-key-actions">
             <button type="button" className="primary-action" disabled={!newKeyValue.trim()} onClick={() => { onAddKey(newKeyLabel, newKeyValue); setNewKeyLabel(""); setNewKeyValue(""); setAddingKey(false); }}>
-              添加
+              {t("common.add")}
             </button>
-            <button type="button" onClick={() => { setAddingKey(false); setNewKeyLabel(""); setNewKeyValue(""); }}>取消</button>
+            <button type="button" onClick={() => { setAddingKey(false); setNewKeyLabel(""); setNewKeyValue(""); }}>{t("common.cancel")}</button>
           </div>
         </div>
       ) : null}
@@ -391,7 +393,7 @@ export function ProvidersScreen({
       groups.flatMap((group) =>
         group.accounts.map((account) => ({
           account,
-          state: accountState(account, authFailedNames.has(account.name), healthFor(account, authHealth)),
+          state: accountState(account, authFailedNames.has(account.name), healthFor(account, authHealth), t),
         })),
       ),
     [groups, authFailedNames, authHealth],
@@ -481,7 +483,7 @@ export function ProvidersScreen({
       }
       resetCustomForm();
     } catch (error) {
-      setCustomFormError(typeof error === "string" ? error : "添加失败,请检查名称/Base URL/密钥后重试。");
+      setCustomFormError(typeof error === "string" ? error : t("hardcoded.w162"));
     }
   }
 
@@ -582,14 +584,14 @@ export function ProvidersScreen({
             type="button"
             onClick={onRefreshQuotas}
             disabled={isManagementBusy}
-            title="刷新账号(重新检测)"
-            aria-label="刷新账号"
+            title={t("hardcoded.w163")}
+            aria-label={t("hardcoded.w164")}
           >
             <RefreshIcon />
           </button>
         </div>
         <div className="pv-title-row">
-          <span className="pv-topbar-count">共 {groups.length} 个服务商</span>
+          <span className="pv-topbar-count">{t("providers.topbarCount").replace("{count}", String(groups.length))}</span>
           <GlobalActionsMenu
             oauthProviders={addableProviders}
             onSelectProvider={(provider) => { setReauthTarget(null); setAddAccountProvider(provider); }}
@@ -619,40 +621,40 @@ export function ProvidersScreen({
         <article className="overview-item">
           <div className="overview-icon"><Icon id="icon-plug" /></div>
           <div>
-            <div className="overview-label">{t("providers.ovConnected", "已连接服务商")}</div>
-            <div className="overview-value">{groups.length} <span className="overview-note">{t("providers.ovUnit", "个")}</span></div>
+            <div className="overview-label">{t("providers.ovConnected")}</div>
+            <div className="overview-value">{groups.length} <span className="overview-note">{t("providers.ovUnit")}</span></div>
           </div>
         </article>
         <article className="overview-item">
           <div className="overview-icon blue"><Icon id="icon-users" /></div>
           <div>
-            <div className="overview-label">{t("providers.ovActive", "活跃账户")}</div>
-            <div className="overview-value">{activeAccountCount} <span className="overview-note">{t("providers.ovActiveNote", "个正常")}</span></div>
+            <div className="overview-label">{t("providers.ovActive")}</div>
+            <div className="overview-value">{activeAccountCount} <span className="overview-note">{t("providers.ovActiveNote")}</span></div>
           </div>
         </article>
         <article className="overview-item">
           <div className="overview-icon warn"><Icon id="icon-clock" /></div>
           <div>
-            <div className="overview-label">{t("providers.ovExpired", "登录过期")}</div>
-            <div className="overview-value">{expiredAccountCount} <span className="overview-note">{t("providers.ovExpiredNote", "个账户")}</span></div>
+            <div className="overview-label">{t("providers.ovExpired")}</div>
+            <div className="overview-value">{expiredAccountCount} <span className="overview-note">{t("providers.ovExpiredNote")}</span></div>
           </div>
         </article>
         <article className="overview-item">
           <div className="overview-icon purple"><Icon id="icon-code" /></div>
           <div>
-            <div className="overview-label">{t("providers.ovCustom", "自定义接口")}</div>
-            <div className="overview-value">{customProviders.length} <span className="overview-note">{t("providers.ovUnit", "个")}</span></div>
+            <div className="overview-label">{t("providers.ovCustom")}</div>
+            <div className="overview-value">{customProviders.length} <span className="overview-note">{t("providers.ovUnit")}</span></div>
           </div>
         </article>
       </section>
 
       {/* ── 已连接服务商:服务商卡 | 服务商洞察 ── */}
       <div className="section-head">
-        <h2>{t("providers.connectedTitle", "已连接服务商")}</h2>
+        <h2>{t("providers.connectedTitle")}</h2>
       </div>
 
       {groups.length === 0 ? (
-        <p className="empty-copy" style={{ padding: "24px 0" }}>暂无账号。点击右上角 ⋯ 授权或导入。</p>
+        <p className="empty-copy" style={{ padding: "24px 0" }}>{t("hardcoded.w165")}</p>
       ) : (
         <section className="connected-grid">
           <div className="provider-column">
@@ -693,22 +695,22 @@ export function ProvidersScreen({
           </div>
 
           <aside className="panel insights">
-            <h2>{t("providers.insightsTitle", "服务商洞察")}</h2>
+            <h2>{t("providers.insightsTitle")}</h2>
             <div className="insight-list">
               <div className="insight">
                 <div className={`insight-icon${routingReady ? "" : " blue"}`}>
                   <Icon id={routingReady ? "icon-check-circle" : "icon-spark"} />
                 </div>
                 <div className="insight-text">
-                  <strong>{t("providers.insightRouting", "路由就绪")}</strong>
+                  <strong>{t("providers.insightRouting")}</strong>
                   <span>
                     {routingReady
-                      ? t("providers.insightRoutingReady", "路由与账户排序已就绪，系统将按顺序智能选路。")
-                      : t("providers.insightRoutingOff", "开启智能调度后将按顺序智能选路。")}
+                      ? t("providers.insightRoutingReady")
+                      : t("providers.insightRoutingOff")}
                   </span>
                 </div>
                 <span className={`pill ${routingReady ? "ok" : "muted"}`}>
-                  {routingReady ? t("providers.insightReady", "已就绪") : t("providers.insightOff", "未启用")}
+                  {routingReady ? t("providers.insightReady") : t("providers.insightOff")}
                 </span>
               </div>
               <div className="insight">
@@ -716,33 +718,33 @@ export function ProvidersScreen({
                   <Icon id="icon-heart-pulse" />
                 </div>
                 <div className="insight-text">
-                  <strong>{t("providers.insightHealth", "账户健康")}</strong>
+                  <strong>{t("providers.insightHealth")}</strong>
                   <span>
-                    {activeAccountCount} {t("providers.insightHealthActive", "个账户正常")}，
-                    {expiredAccountCount} {t("providers.insightHealthExpired", "个账户登录已过期")}。
+                    {activeAccountCount} {t("providers.insightHealthActive")}，
+                    {expiredAccountCount} {t("providers.insightHealthExpired")}。
                   </span>
                 </div>
                 <span className={`pill ${expiredAccountCount > 0 ? "warn" : "ok"}`}>
-                  {expiredAccountCount > 0 ? t("providers.insightNeedFix", "需处理") : t("providers.insightHealthy", "健康")}
+                  {expiredAccountCount > 0 ? t("providers.insightNeedFix") : t("providers.insightHealthy")}
                 </span>
               </div>
               <div className="insight">
                 <div className="insight-icon blue"><Icon id="icon-spark" /></div>
                 <div className="insight-text">
-                  <strong>{t("providers.insightNext", "下一步建议")}</strong>
+                  <strong>{t("providers.insightNext")}</strong>
                   <span>
                     {expiredAccountCount > 0
-                      ? t("providers.insightNextReauth", "重新登录过期账户以提升稳定性与可用性。")
-                      : t("providers.insightNextOk", "账户状态良好，无需额外操作。")}
+                      ? t("providers.insightNextReauth")
+                      : t("providers.insightNextOk")}
                   </span>
                 </div>
                 {expiredAccountCount > 0 && firstExpiredAccount ? (
                   <button className="button" type="button" onClick={() => { if (firstExpiredAccount) reauthAccount(firstExpiredAccount); }}>
-                    {t("providers.insightGoFix", "去处理")}
+                    {t("providers.insightGoFix")}
                   </button>
                 ) : (
                   <button className="button" type="button" onClick={onRefreshQuotas} disabled={isManagementBusy}>
-                    {t("providers.insightRefresh", "刷新")}
+                    {t("providers.insightRefresh")}
                   </button>
                 )}
               </div>
@@ -755,8 +757,8 @@ export function ProvidersScreen({
       <section className="panel custom">
         <div className="section-head">
           <div>
-            <h2>{t("providers.customTitle", "自定义接口管理")}</h2>
-            <div className="pv-muted">{t("providers.customSubtitle", "添加与管理自定义接口，支持 OpenAI / Gemini / Claude 兼容端点。")}</div>
+            <h2>{t("providers.customTitle")}</h2>
+            <div className="pv-muted">{t("providers.customSubtitle")}</div>
           </div>
           <button
             className={showAddCustom ? "button" : "button primary"}
@@ -764,10 +766,10 @@ export function ProvidersScreen({
             onClick={() => (showAddCustom ? resetCustomForm() : setShowAddCustom(true))}
           >
             {showAddCustom ? (
-              t("providers.customCancel", "取消")
+              t("providers.customCancel", t("common.cancel"))
             ) : (
               <>
-                <Icon id="icon-plus" /> {t("providers.customAdd", "添加接口")}
+                <Icon id="icon-plus" /> {t("providers.customAdd")}
               </>
             )}
           </button>
@@ -785,19 +787,19 @@ export function ProvidersScreen({
               <input value={customForm.base_url} onChange={(e) => setCustomForm({ ...customForm, base_url: e.target.value })} placeholder="https://api.example.com/v1" />
             </label>
             {editingCustomId ? (
-              <p className="cp-form-hint">密钥在卡片上管理，编辑模式不显示密钥字段。</p>
+              <p className="cp-form-hint">{t("hardcoded.w166")}</p>
             ) : (
               <div className="cp-form-keys">
                 <div className="cp-form-keys-header">
-                  <span>API 密钥</span>
+                  <span>{t("nav.api_keys")}</span>
                   <button type="button" className="cp-form-keys-add" onClick={() => setFormKeys([...formKeys, { label: "", api_key: "" }])}>
-                    <PlusIcon /> 添加密钥
+                    <PlusIcon /> {t("hardcoded.w149")}
                   </button>
                 </div>
                 {formKeys.map((fk, i) => (
                   <div className="cp-form-key-row" key={i}>
                     <input
-                      placeholder="标签（可选）"
+                      placeholder={t("hardcoded.w161")}
                       value={fk.label}
                       onChange={(e) => { const next = [...formKeys]; next[i] = { ...fk, label: e.target.value }; setFormKeys(next); }}
                     />
@@ -808,7 +810,7 @@ export function ProvidersScreen({
                       onChange={(e) => { const next = [...formKeys]; next[i] = { ...fk, api_key: e.target.value }; setFormKeys(next); }}
                     />
                     {formKeys.length > 1 ? (
-                      <button type="button" className="row-icon-btn row-icon-btn--danger" onClick={() => setFormKeys(formKeys.filter((_, j) => j !== i))} title="移除" aria-label="移除">
+                      <button type="button" className="row-icon-btn row-icon-btn--danger" onClick={() => setFormKeys(formKeys.filter((_, j) => j !== i))} title={t("hardcoded.w167")} aria-label={t("hardcoded.w167")}>
                         <TrashIcon />
                       </button>
                     ) : null}
@@ -835,7 +837,7 @@ export function ProvidersScreen({
               </label>
             </div>
             <label>
-              模型列表（每行一个，路由必填）
+              {t("providers.modelList")}
               <textarea
                 value={customForm.models}
                 onChange={(e) => setCustomForm({ ...customForm, models: e.target.value })}
@@ -846,21 +848,21 @@ export function ProvidersScreen({
               />
             </label>
             <p className="cp-form-hint">
-              必须填写此接口实际提供的模型名，否则代理无法路由到它（会返回额度/线路错误）。逗号、空格或换行分隔均可。
+              {t("providers.modelListHint")}
             </p>
             <label>
-              连接方式
+              {t("providers.connectionMode")}
               <Select
                 value={customForm.proxy_mode}
                 options={[
-                  { value: "inherit", label: "走代理（跟随全局设置）" },
-                  { value: "direct", label: "直连（绕过代理）" },
+                  { value: "inherit", label: t("hardcoded.w168") },
+                  { value: "direct", label: t("hardcoded.w169") },
                 ]}
                 onChange={(value) => setCustomForm({ ...customForm, proxy_mode: value })}
               />
             </label>
             <p className="cp-form-hint">
-              「直连」让此接口绕过全局代理直接访问（国内中转站常需直连）；「走代理」沿用设置里的全局代理（OpenAI/Anthropic 等被墙服务需要）。
+              {t("providers.connectionModeHint")}
             </p>
             {customFormError ? (
               <p className="cp-form-hint" style={{ color: "var(--danger, #d9534f)" }}>{customFormError}</p>
@@ -875,33 +877,33 @@ export function ProvidersScreen({
         <div className="templates">
           <article className="template">
             <div className="template-icon"><ProviderLogo providerId="openai" className="pv-template-brand-logo" /></div>
-            <h3>{t("providers.tplOpenAITitle", "OpenAI 兼容")}</h3>
-            <p>{t("providers.tplOpenAIDesc", "导入 OpenAI 兼容的接口地址，如 vLLM、OneAPI 等。")}</p>
+            <h3>{t("providers.tplOpenAITitle")}</h3>
+            <p>{t("providers.tplOpenAIDesc")}</p>
             <button className="button" type="button" onClick={() => startAddCustomWithKind("openai")}>
-              {t("providers.tplOpenAIBtn", "添加 OpenAI 兼容接口")}
+              {t("providers.tplOpenAIBtn")}
             </button>
           </article>
           <article className="template">
             <div className="template-icon blue"><ProviderLogo providerId="gemini" className="pv-template-brand-logo" /></div>
-            <h3>{t("providers.tplGeminiTitle", "Gemini 兼容")}</h3>
-            <p>{t("providers.tplGeminiDesc", "导入 Gemini 兼容的接口地址，如 Vertex AI Gemini 等。")}</p>
+            <h3>{t("providers.tplGeminiTitle")}</h3>
+            <p>{t("providers.tplGeminiDesc")}</p>
             <button className="button" type="button" onClick={() => startAddCustomWithKind("gemini")}>
-              {t("providers.tplGeminiBtn", "添加 Gemini 兼容接口")}
+              {t("providers.tplGeminiBtn")}
             </button>
           </article>
           <article className="template">
             <div className="template-icon orange"><ProviderLogo providerId="claude" className="pv-template-brand-logo" /></div>
-            <h3>{t("providers.tplClaudeTitle", "Claude 兼容")}</h3>
-            <p>{t("providers.tplClaudeDesc", "导入 Claude 兼容的接口地址，如 Anthropic 兼容服务等。")}</p>
+            <h3>{t("providers.tplClaudeTitle")}</h3>
+            <p>{t("providers.tplClaudeDesc")}</p>
             <button className="button" type="button" onClick={() => startAddCustomWithKind("claude")}>
-              {t("providers.tplClaudeBtn", "添加 Claude 兼容接口")}
+              {t("providers.tplClaudeBtn")}
             </button>
           </article>
           {customProviders.length === 0 ? (
             <article className="empty-state">
               <div>
-                <strong>{t("providers.customEmptyTitle", "暂无自定义接口")}</strong>
-                <span>{t("providers.customEmptyDesc", "添加接口以扩展更多模型接入能力。")}</span>
+                <strong>{t("providers.customEmptyTitle")}</strong>
+                <span>{t("providers.customEmptyDesc")}</span>
               </div>
             </article>
           ) : null}
@@ -962,7 +964,7 @@ function healthFor(
 // failure (keep in sync with the backend `AccountQuota::is_auth_failure`). Quota
 // exhaustion has NO sentinel (just is_forbidden + None/"plan:…"), so membership
 // here cleanly separates "needs re-login" from "wait for the window to reset".
-const AUTH_FAILURE_MESSAGES = new Set(["auth_failed", "需要重新授权", "需要重新登录", "密钥无效"]);
+const AUTH_FAILURE_MESSAGES = new Set(["auth_failed", "needs_reauth", "login_expired", "invalid_key"]);
 function isAuthFailureMessage(message: string | null | undefined): boolean {
   return message != null && AUTH_FAILURE_MESSAGES.has(message);
 }
@@ -971,6 +973,7 @@ function accountState(
   account: AuthFile,
   authFailed: boolean,
   health: AccountAuthHealth | undefined,
+  t: (key: string, fallback?: string) => string,
 ): AccountStateInfo {
   // Re-auth is suggested ONLY on genuine auth failures:
   //   1. the quota probe's unrecoverable 401 (durable, survives restarts), or
@@ -978,38 +981,38 @@ function accountState(
   //      persisted status codes — how cpa-manager judges a "real 401").
   // A blanket recent-failure count or the proxy's vague "error" status no longer
   // triggers re-auth, since 500/429 failures are rate-limit/transient, not auth.
-  if (authFailed) return { tone: "bad", key: "providers.stateNeedsReauth", fallback: "需重新授权", needsReauth: true };
-  if (health?.recommend_reauth) return { tone: "bad", key: "providers.stateNeedsReauth", fallback: "需重新授权", needsReauth: true };
+  if (authFailed) return { tone: "bad", key: "providers.stateNeedsReauth", fallback: t("providers.stateNeedsReauth"), needsReauth: true };
+  if (health?.recommend_reauth) return { tone: "bad", key: "providers.stateNeedsReauth", fallback: t("providers.stateNeedsReauth"), needsReauth: true };
   if (account.disabled && account.quotio_health_isolated) {
     // 额度耗尽的隔离不必重新登录,等窗口刷新即可——只有鉴权失效才提示重新授权。
     // reason 缺失(升级前隔离的旧文件,下一轮对账会补写)时按 auth 兜底:宁可多提示一次。
     if (account.quotio_health_isolated_reason === "quota")
-      return { tone: "warn", key: "providers.stateQuotaExhausted", fallback: "额度耗尽 · 待刷新", needsReauth: false };
-    return { tone: "bad", key: "providers.stateNeedsReauth", fallback: "需重新授权", needsReauth: true };
+      return { tone: "warn", key: "providers.stateQuotaExhausted", fallback: t("providers.stateQuotaExhausted"), needsReauth: false };
+    return { tone: "bad", key: "providers.stateNeedsReauth", fallback: t("providers.stateNeedsReauth"), needsReauth: true };
   }
   if (account.disabled && account.quotio_scheduler_standby)
-    return { tone: "muted", key: "providers.stateStandby", fallback: "待命(调度)", needsReauth: false };
+    return { tone: "muted", key: "providers.stateStandby", fallback: t("providers.stateStandby"), needsReauth: false };
   if (account.disabled && account.quotio_bound_login_only)
-    return { tone: "muted", key: "providers.stateBoundLogin", fallback: "绑定登录", needsReauth: false };
-  if (account.disabled) return { tone: "muted", key: "providers.statusDisabled", fallback: "已禁用", needsReauth: false };
-  if (account.unavailable) return { tone: "bad", key: "providers.stateUnavailable", fallback: "不可用", needsReauth: true };
+    return { tone: "muted", key: "providers.stateBoundLogin", fallback: t("providers.stateBoundLogin"), needsReauth: false };
+  if (account.disabled) return { tone: "muted", key: "providers.statusDisabled", fallback: t("providers.statusDisabled"), needsReauth: false };
+  if (account.unavailable) return { tone: "bad", key: "providers.stateUnavailable", fallback: t("providers.stateUnavailable"), needsReauth: true };
   const status = (account.status ?? "").trim().toLowerCase();
-  if (status === "cooling") return { tone: "warn", key: "providers.stateCooling", fallback: "冷却中", needsReauth: false };
+  if (status === "cooling") return { tone: "warn", key: "providers.stateCooling", fallback: t("providers.stateCooling"), needsReauth: false };
 
   // Classify by REAL status codes when usage history exists (preferred).
   if (health && health.recent_total > 0) {
     const failures = health.auth_failures + health.rate_limited + health.server_errors;
-    if (failures === 0) return { tone: "good", key: "providers.stateActive", fallback: "正常", needsReauth: false };
+    if (failures === 0) return { tone: "good", key: "providers.stateActive", fallback: t("dash.health.good"), needsReauth: false };
     if (health.rate_limited > 0 && health.rate_limited >= health.server_errors && health.rate_limited >= health.auth_failures)
-      return { tone: "warn", key: "providers.stateRateLimited", fallback: "限流", needsReauth: false };
+      return { tone: "warn", key: "providers.stateRateLimited", fallback: t("providers.stateRateLimited"), needsReauth: false };
     // 5xx dominate the failures → upstream proxy / server congestion (the
     // "wsarecv: forcibly closed" resets), NOT a problem with this account. Flag it
     // as upstream-unstable (warn) rather than the alarming "失败偏多 / 异常".
     if (health.server_errors > 0 && health.server_errors >= health.auth_failures && health.server_errors >= health.rate_limited)
-      return { tone: "warn", key: "providers.stateUpstream", fallback: "上游不稳(5xx)", needsReauth: false };
+      return { tone: "warn", key: "providers.stateUpstream", fallback: t("providers.stateUpstream"), needsReauth: false };
     if (failures >= health.successes)
-      return { tone: "bad", key: "providers.stateFailing", fallback: "异常 · 失败偏多", needsReauth: false };
-    return { tone: "warn", key: "providers.stateDegraded", fallback: "部分失败", needsReauth: false };
+      return { tone: "bad", key: "providers.stateFailing", fallback: t("providers.stateFailing"), needsReauth: false };
+    return { tone: "warn", key: "providers.stateDegraded", fallback: t("providers.stateDegraded"), needsReauth: false };
   }
 
   // Fallback to the proxy's recent-request buckets when there's no usage history
@@ -1017,10 +1020,10 @@ function accountState(
   const recent = account.recent_requests ?? [];
   const ok = recent.reduce((sum, bucket) => sum + bucket.success, 0);
   const fail = recent.reduce((sum, bucket) => sum + bucket.failed, 0);
-  if (fail >= 3 && fail >= ok) return { tone: "bad", key: "providers.stateFailing", fallback: "异常 · 失败偏多", needsReauth: false };
-  if (fail > 0) return { tone: "warn", key: "providers.stateDegraded", fallback: "部分失败", needsReauth: false };
-  if (status === "error") return { tone: "bad", key: "providers.stateAnomaly", fallback: "异常", needsReauth: false };
-  return { tone: "good", key: "providers.stateActive", fallback: "正常", needsReauth: false };
+  if (fail >= 3 && fail >= ok) return { tone: "bad", key: "providers.stateFailing", fallback: t("providers.stateFailing"), needsReauth: false };
+  if (fail > 0) return { tone: "warn", key: "providers.stateDegraded", fallback: t("providers.stateDegraded"), needsReauth: false };
+  if (status === "error") return { tone: "bad", key: "providers.stateAnomaly", fallback: t("dash.health.bad"), needsReauth: false };
+  return { tone: "good", key: "providers.stateActive", fallback: t("dash.health.good"), needsReauth: false };
 }
 
 function ProviderCard({
@@ -1052,6 +1055,7 @@ function ProviderCard({
   onReorder: (fileName: string, op: "up" | "down" | "top" | "reset") => void;
   onReorderMove: (draggedFileName: string, targetFileName: string) => void;
 }) {
+  const t = useT();
   const [expanded, setExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1145,7 +1149,7 @@ function ProviderCard({
       : group.accounts
           .map((account) => ({
             account,
-            needsReauth: accountState(account, authFailedNames.has(account.name), healthFor(account, authHealth)).needsReauth,
+            needsReauth: accountState(account, authFailedNames.has(account.name), healthFor(account, authHealth), t).needsReauth,
           }))
           .sort((a, b) => Number(b.needsReauth) - Number(a.needsReauth))
           .map((entry) => entry.account);
@@ -1154,18 +1158,18 @@ function ProviderCard({
   const hasManualOrder = accounts.some((a) => order.get(a.name)?.priority != null);
 
   const goodCount = accounts.filter((a) => {
-    const s = accountState(a, authFailedNames.has(a.name), healthFor(a, authHealth));
+    const s = accountState(a, authFailedNames.has(a.name), healthFor(a, authHealth), t);
     return s.tone === "good";
   }).length;
   const badCount = accounts.filter((a) => {
-    const s = accountState(a, authFailedNames.has(a.name), healthFor(a, authHealth));
+    const s = accountState(a, authFailedNames.has(a.name), healthFor(a, authHealth), t);
     return s.tone === "bad" || s.needsReauth;
   }).length;
   const allDisabled = accounts.length > 0 && accounts.every((a) => a.disabled);
   const isCodexProvider = group.id.toLowerCase().includes("codex");
 
   const cardStatus = badCount > 0 ? "warn" : accounts.length === 0 ? "muted" : "good";
-  const statusLabel = badCount > 0 ? `${badCount} 个异常` : allDisabled ? "已禁用" : accounts.length > 1 ? "多例" : goodCount === accounts.length ? "正常" : "多闲";
+  const statusLabel = badCount > 0 ? `${badCount} 个异常` : allDisabled ? t("providers.statusDisabled") : accounts.length > 1 ? t("hardcoded.w173") : goodCount === accounts.length ? t("dash.health.good") : t("hardcoded.w174");
 
   const PREVIEW_COUNT = 6;
   const previewAccounts = expanded ? accounts : accounts.slice(0, PREVIEW_COUNT);
@@ -1203,27 +1207,27 @@ function ProviderCard({
               <span className="provider-title-label">{group.label}</span>
               <span className={`pill ${statusPillTone}`}>{statusLabel}</span>
             </div>
-            <span className="provider-title-sub">{group.accounts.length} 个账户</span>
+            <span className="provider-title-sub">{t("providers.accountCount").replace("{count}", String(group.accounts.length))}</span>
           </div>
         </div>
         <div className="provider-head-actions">
           <div className="pv-card-menu-anchor" ref={menuRef}>
-            <button className="pv-card-more" type="button" onClick={() => setMenuOpen((v) => !v)} aria-label="更多操作">
+            <button className="pv-card-more" type="button" onClick={() => setMenuOpen((v) => !v)} aria-label={t("hardcoded.w175")}>
               <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><circle cx="8" cy="3" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="8" cy="13" r="1.3"/></svg>
             </button>
             {menuOpen ? (
               <div className="pv-card-dropdown">
                 <button type="button" onClick={() => { onAddAccount(); setMenuOpen(false); }}>
-                  <PlusIcon /> 添加账号
+                  <PlusIcon /> {t("import.button")}
                 </button>
                 {accounts.length > 0 ? (
                   <button type="button" onClick={() => { onToggleDisableAll(); setMenuOpen(false); }}>
-                    {allDisabled ? "✦ 全部启用" : "⏸ 全部禁用"}
+                    {allDisabled ? t("hardcoded.w176") : t("hardcoded.w177")}
                   </button>
                 ) : null}
                 {accounts.length > 0 ? (
                   <button type="button" onClick={() => { onExport(); setMenuOpen(false); }}>
-                    ⬇ 导出账号
+                    ⬇ {t("providers.exportAccounts")}
                   </button>
                 ) : null}
                 {accounts.length > 0 ? (
@@ -1235,14 +1239,14 @@ function ProviderCard({
                       else { setConfirmDelete(true); window.setTimeout(() => setConfirmDelete(false), 3000); }
                     }}
                   >
-                    <TrashIcon /> {confirmDelete ? `确认删除 ${accounts.length} 个？` : "删除所有账号"}
+                    <TrashIcon /> {confirmDelete ? `确认删除 ${accounts.length} 个？` : t("hardcoded.w178")}
                   </button>
                 ) : null}
               </div>
             ) : null}
           </div>
-          <button className="button primary" type="button" onClick={onAddAccount} disabled={isBusy} title="添加账号">
-            <PlusIcon /> 添加账户
+          <button className="button primary" type="button" onClick={onAddAccount} disabled={isBusy} title={t("import.button")}>
+            <PlusIcon /> {t("providers.addAccount")}
           </button>
         </div>
       </div>
@@ -1262,8 +1266,8 @@ function ProviderCard({
                 <button
                   type="button"
                   className="account-drag-handle"
-                  aria-label="拖动排序"
-                  title="拖动排序"
+                  aria-label={t("hardcoded.w179")}
+                  title={t("hardcoded.w179")}
                   onPointerDown={(e) => beginRowDrag(e, account.name)}
                   onPointerMove={moveRowDrag}
                   onPointerUp={endRowDrag}
@@ -1299,18 +1303,18 @@ function ProviderCard({
             <button
               className="pv-order-reset"
               type="button"
-              title="清除手动顺序,恢复按额度自动排"
+              title={t("hardcoded.w180")}
               onClick={() => {
                 const first = accounts.find((a) => order.get(a.name)) ?? accounts[0];
                 if (first) onReorder(first.name, "reset");
               }}
             >
-              <Icon id="icon-refresh" /> 重置为自动顺序
+              <Icon id="icon-refresh" /> {t("providers.resetOrder")}
             </button>
           ) : null}
           {showAccountToggle ? (
             <button className="pv-card-toggle" type="button" onClick={() => setExpanded((v) => !v)}>
-              {expanded ? "收起" : `查看全部 ${accounts.length} 个`}{" "}
+              {expanded ? t("common.collapse") : `查看全部 ${accounts.length} 个`}{" "}
               <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle", transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "rotate(0)" }}>
                 <path d="M2.5 4.5 6 8l3.5-3.5" />
               </svg>
@@ -1406,7 +1410,7 @@ const AccountRow = memo(function AccountRow({
   const t = useT();
   const label = account.email || account.account || account.label || account.name;
   const initial = label.trim().charAt(0).toUpperCase() || "?";
-  const state = accountState(account, authFailed, health);
+  const state = accountState(account, authFailed, health, t);
   const [revealed, setRevealed] = useState(false);
 
   return (
@@ -1415,8 +1419,8 @@ const AccountRow = memo(function AccountRow({
         <span
           className={`account-order-badge${order.active ? " account-order-badge--active" : order.eligible ? " account-order-badge--eligible" : " account-order-badge--skipped"}`}
           style={order.active ? { background: `#${colorHex}`, borderColor: `#${colorHex}` } : { borderColor: `#${colorHex}`, color: `#${colorHex}` }}
-          title={order.active ? `当前激活 · 请求顺序 #${order.position}` : order.eligible ? `请求顺序 #${order.position}` : `请求顺序 #${order.position} · 暂不可用,本轮跳过`}
-          aria-label={`请求顺序 ${order.position}`}
+          title={(order.active ? t("providers.requestOrderActive") : order.eligible ? t("providers.requestOrder") : t("providers.requestOrderUnavailable")).replace("{position}", String(order.position))}
+          aria-label={t("providers.requestOrder").replace("{position}", String(order.position))}
         >
           {order.position}
         </span>
@@ -1431,32 +1435,32 @@ const AccountRow = memo(function AccountRow({
       <div className="account-row-actions">
         {order ? (
           <div className="account-reorder">
-            <button className="reorder-btn" type="button" title="置顶" aria-label="置顶" disabled={isBusy || order.position <= 1} onClick={() => onReorder(account.name, "top")}>
+            <button className="reorder-btn" type="button" title={t("hardcoded.w181")} aria-label={t("hardcoded.w181")} disabled={isBusy || order.position <= 1} onClick={() => onReorder(account.name, "top")}>
               <svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 5.5l3-2.5 3 2.5M3 9l3-2.5 3 2.5" /></svg>
             </button>
-            <button className="reorder-btn" type="button" title="上移" aria-label="上移" disabled={isBusy || order.position <= 1} onClick={() => onReorder(account.name, "up")}>
+            <button className="reorder-btn" type="button" title={t("hardcoded.w182")} aria-label={t("hardcoded.w182")} disabled={isBusy || order.position <= 1} onClick={() => onReorder(account.name, "up")}>
               <svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7.5l3-3 3 3" /></svg>
             </button>
-            <button className="reorder-btn" type="button" title="下移" aria-label="下移" disabled={isBusy || order.position >= orderCount} onClick={() => onReorder(account.name, "down")}>
+            <button className="reorder-btn" type="button" title={t("hardcoded.w183")} aria-label={t("hardcoded.w183")} disabled={isBusy || order.position >= orderCount} onClick={() => onReorder(account.name, "down")}>
               <svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4.5l3 3 3-3" /></svg>
             </button>
           </div>
         ) : null}
         {state.needsReauth ? (
           <button className="account-reauth-btn" type="button" onClick={onReauth} disabled={isBusy}>
-            {t("providers.reauth", "重新授权")}
+            {t("providers.reauth")}
           </button>
         ) : null}
         <button
           className="row-icon-btn"
           type="button"
           onClick={() => setRevealed((v) => !v)}
-          title={revealed ? "隐藏邮箱" : "显示完整邮箱"}
-          aria-label={revealed ? "隐藏邮箱" : "显示完整邮箱"}
+          title={revealed ? t("hardcoded.w184") : t("hardcoded.w185")}
+          aria-label={revealed ? t("hardcoded.w184") : t("hardcoded.w185")}
         >
           {revealed ? <EyeOffIcon /> : <EyeIcon />}
         </button>
-        <button className="row-icon-btn row-icon-btn--danger" type="button" onClick={onDelete} disabled={isBusy} title="删除账号" aria-label="删除账号">
+        <button className="row-icon-btn row-icon-btn--danger" type="button" onClick={onDelete} disabled={isBusy} title={t("hardcoded.w186")} aria-label={t("hardcoded.w186")}>
           <TrashIcon />
         </button>
       </div>

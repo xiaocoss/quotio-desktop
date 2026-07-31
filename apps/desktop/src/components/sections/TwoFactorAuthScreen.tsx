@@ -467,17 +467,17 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
 
   if (roseMode) {
     const selectedDescription = selectedRecord ? describeMfaRecord(selectedRecord) : null;
-    const listTitle = activeTab === "saved" ? t("twoFactor.saved", "已保存") : t("twoFactor.history", "历史");
+    const listTitle = activeTab === "saved" ? t("twoFactor.saved") : t("twoFactor.history");
     const progressStyle = { "--rose-tf-progress": `${Math.max(0, Math.min(30, timeRemaining)) * 12}deg` } as CSSProperties;
 
     return (
       <section className="section-page twofa-redesign rose-twofa">
         <header className="page-topbar rose-tf-topbar" data-tauri-drag-region>
           <div className="tf-topline" data-tauri-drag-region="false">
-            <h1>{t("twoFactor.roseTitle", "2FA 验证器保险库")}</h1>
+            <h1>{t("twoFactor.roseTitle")}</h1>
             <span className="tf-status-pill">
               <Icon id="icon-shield" />
-              {t("twoFactor.statusPill", "本地 TOTP")}
+              {t("twoFactor.statusPill")}
             </span>
           </div>
           <div className="rose-tf-account-anchor" aria-hidden="true" data-tauri-drag-region="false">
@@ -489,7 +489,7 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
             </span>
             <span className="rose-tf-user-card">
               <img src="/rose/character-avatar.png" alt="" />
-              <strong>{t("twoFactor.roseUserLabel", "优雅的玫瑰")}</strong>
+              <strong>{t("twoFactor.roseUserLabel")}</strong>
               <span>
                 <svg viewBox="0 0 16 16" aria-hidden="true">
                   <path d="m4 6 4 4 4-4" />
@@ -501,7 +501,7 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
 
         <article className="rose-tf-notice">
           <Icon id="icon-2fa" />
-          <span>{t("twoFactor.roseNotice", "生成并管理本地 TOTP 动态验证码。密钥仅保存在本机；请确保已备份并妥善保管。")}</span>
+          <span>{t("twoFactor.roseNotice")}</span>
         </article>
 
         <section className="rose-tf-workspace">
@@ -509,15 +509,15 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
             <div className="rose-tf-list-head">
               <div>
                 <div className="rose-tf-list-title-row">
-                  <h2>{t("twoFactor.roseAccountList", "账号列表")}</h2>
+                  <h2>{t("twoFactor.roseAccountList")}</h2>
                 </div>
                 {historyRecords.length > 0 ? (
-                  <div className="rose-tf-list-tabs" role="tablist" aria-label={t("twoFactor.roseListSource", "账号来源")}>
+                  <div className="rose-tf-list-tabs" role="tablist" aria-label={t("twoFactor.roseListSource")}>
                     <button className={activeTab === "saved" ? "is-active" : ""} type="button" role="tab" aria-selected={activeTab === "saved"} onClick={() => setActiveTab("saved")}>
-                      {t("twoFactor.saved", "已保存")} {records.length}
+                      {t("twoFactor.saved")} {records.length}
                     </button>
                     <button className={activeTab === "history" ? "is-active" : ""} type="button" role="tab" aria-selected={activeTab === "history"} onClick={() => setActiveTab("history")}>
-                      {t("twoFactor.history", "历史")} {historyRecords.length}
+                      {t("twoFactor.history")} {historyRecords.length}
                     </button>
                   </div>
                 ) : null}
@@ -533,15 +533,15 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
                   disabled={recognizingImage}
                 >
                   <Icon id="icon-qr" />
-                  {recognizingImage ? "…" : t("twoFactor.roseImportQr", "导入二维码")}
+                  {recognizingImage ? "…" : t("twoFactor.roseImportQr")}
                 </button>
                 <button className="rose-tf-soft-button" type="button" onClick={() => void importRecords()}>
                   <Icon id="icon-upload" />
-                  {t("twoFactor.roseImportBackup", "导入备份文件")}
+                  {t("twoFactor.roseImportBackup")}
                 </button>
                 <button className="rose-tf-add-button" type="button" onClick={openRoseComposer}>
                   <PlusIcon />
-                  {t("twoFactor.roseAddAccount", "添加账号")}
+                  {t("twoFactor.roseAddAccount")}
                 </button>
               </div>
             </div>
@@ -560,9 +560,9 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
 
             <div className="rose-tf-search">
               <Icon id="icon-search" />
-              <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("twoFactor.searchPlaceholder", "搜索账号、标签、邮箱或备注")} />
+              <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("twoFactor.searchPlaceholder")} />
               {activeTab === "history" && historyRecords.length > 0 ? (
-                <button type="button" onClick={() => setHistoryRecords([])}>{t("twoFactor.clearHistory", "清空历史")}</button>
+                <button type="button" onClick={() => setHistoryRecords([])}>{t("twoFactor.clearHistory")}</button>
               ) : null}
             </div>
 
@@ -570,17 +570,17 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
               {visibleRecords.length === 0 ? (
                 <div className="rose-tf-list-empty">
                   <img src="/twofa/vault-empty.svg" alt="" />
-                  <strong>{activeTab === "saved" ? t("twoFactor.emptyTitle", "尚未保存任何密钥") : t("twoFactor.historyEmpty", "暂无历史记录")}</strong>
-                  <p>{activeTab === "saved" ? t("twoFactor.emptyDesc", "添加第一个 TOTP 账号，或导入已有备份。") : t("twoFactor.roseHistoryHint", "查询过的有效密钥会显示在这里。")}</p>
+                  <strong>{activeTab === "saved" ? t("twoFactor.emptyTitle") : t("twoFactor.historyEmpty")}</strong>
+                  <p>{activeTab === "saved" ? t("twoFactor.emptyDesc") : t("twoFactor.roseHistoryHint")}</p>
                   {activeTab === "saved" ? (
                     <button className="rose-tf-add-button" type="button" onClick={openRoseComposer}>
                       <PlusIcon />
-                      {t("twoFactor.roseAddAccount", "添加账号")}
+                      {t("twoFactor.roseAddAccount")}
                     </button>
                   ) : null}
                 </div>
               ) : filteredRecords.length === 0 ? (
-                <div className="rose-tf-list-empty rose-tf-list-empty--compact">{t("twoFactor.noMatch", "未找到匹配的密钥")}</div>
+                <div className="rose-tf-list-empty rose-tf-list-empty--compact">{t("twoFactor.noMatch")}</div>
               ) : (
                 filteredRecords.map((record) => {
                   const description = describeMfaRecord(record);
@@ -617,7 +617,7 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
                         ) : (
                           <strong>{description.provider}</strong>
                         )}
-                        <small>{description.account || t("twoFactor.unnamed", "未命名密钥")}</small>
+                        <small>{description.account || t("twoFactor.unnamed")}</small>
                       </span>
                       <span className="rose-tf-record-code">{token ? formatCode(token) : "--- ---"}</span>
                       <span className="rose-tf-mini-timer" style={progressStyle}>{timeRemaining}s</span>
@@ -641,7 +641,7 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
               )}
             </div>
             <section className="rose-tf-vault-summary">
-              <h3>{t("twoFactor.roseVaultOverview", "保险库概览")}</h3>
+              <h3>{t("twoFactor.roseVaultOverview")}</h3>
               <div className="rose-tf-summary-grid">
                 <div>
                   <span className="rose-tf-summary-icon">
@@ -653,30 +653,30 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
                   </span>
                   <strong>{records.length}</strong>
                   <small>
-                    {t("twoFactor.roseAccounts", "个账号")}
-                    <span>{t("twoFactor.roseAccountsHint", "已保存的 2FA 账号总数")}</span>
+                    {t("twoFactor.roseAccounts")}
+                    <span>{t("twoFactor.roseAccountsHint")}</span>
                   </small>
                 </div>
                 <div>
                   <span className="rose-tf-summary-icon"><Icon id="icon-2fa" /></span>
-                  <strong>{t("twoFactor.roseLocalStorage", "本地加密")}</strong>
+                  <strong>{t("twoFactor.roseLocalStorage")}</strong>
                   <small>
-                    {t("twoFactor.roseLocalStorageHint", "密钥仅保存在本机")}
-                    <span>{t("twoFactor.roseLocalStorageSafe", "安全可靠")}</span>
+                    {t("twoFactor.roseLocalStorageHint")}
+                    <span>{t("twoFactor.roseLocalStorageSafe")}</span>
                   </small>
                 </div>
                 <div>
                   <span className="rose-tf-summary-icon">{lastBackupAt ? <CheckIcon /> : <Icon id="icon-download" />}</span>
-                  <strong>{lastBackupAt ? t("twoFactor.roseBackupCreated", "已创建备份") : t("twoFactor.roseBackupReady", "可导出备份")}</strong>
+                  <strong>{lastBackupAt ? t("twoFactor.roseBackupCreated") : t("twoFactor.roseBackupReady")}</strong>
                   <small>
-                    {t("twoFactor.roseBackupReadyHint", "最后备份时间")}
-                    <span>{lastBackupAt ? formatRecordTime(lastBackupAt) : t("twoFactor.roseBackupMissing", "尚未创建")}</span>
+                    {t("twoFactor.roseBackupReadyHint")}
+                    <span>{lastBackupAt ? formatRecordTime(lastBackupAt) : t("twoFactor.roseBackupMissing")}</span>
                   </small>
                 </div>
               </div>
               <button className="rose-tf-export-button" type="button" onClick={() => void exportRecords()} disabled={records.length === 0}>
                 <Icon id="icon-upload" />
-                {t("twoFactor.roseExportSummary", "导出备份")}
+                {t("twoFactor.roseExportSummary")}
               </button>
             </section>
           </article>
@@ -685,19 +685,19 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
               <div className="rose-tf-composer">
                 <div className="rose-tf-detail-head">
                   <div>
-                    <span>{t("twoFactor.roseNewTotp", "新建 TOTP")}</span>
-                    <h2>{t("twoFactor.roseAddAccount", "添加账号")}</h2>
+                    <span>{t("twoFactor.roseNewTotp")}</span>
+                    <h2>{t("twoFactor.roseAddAccount")}</h2>
                   </div>
                   {selectedRecord ? (
                     <button className="rose-tf-soft-button" type="button" onClick={() => setComposerOpen(false)}>
-                      {t("common.cancel", "取消")}
+                      {t("common.cancel")}
                     </button>
                   ) : null}
                 </div>
 
                 <div className="rose-tf-composer-card">
                   <label>
-                    <span>{t("twoFactor.roseAccountName", "账号名称")}</span>
+                    <span>{t("twoFactor.roseAccountName")}</span>
                     <div className="rose-tf-field">
                       <Icon id="icon-provider" />
                       <input value={nameValue} onChange={(event) => setNameValue(event.target.value)} placeholder={t("twoFactor.namePlaceholder")} />
@@ -724,43 +724,43 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
                 <div className={activeToken ? "rose-tf-query-preview has-code" : "rose-tf-query-preview"}>
                   <span>{t("twoFactor.currentCode")}</span>
                   <strong>{activeToken ? formatCode(activeToken) : "--- ---"}</strong>
-                  <small>{activeToken ? t("twoFactor.codeHint", "验证码每 30 秒更新一次，请及时使用。") : t("twoFactor.noCode")}</small>
+                  <small>{activeToken ? t("twoFactor.codeHint") : t("twoFactor.noCode")}</small>
                 </div>
 
                 <div className="rose-tf-local-note">
                   <Icon id="icon-shield" />
-                  <span>{t("twoFactor.roseLocalOnly", "密钥数据保存在此设备的应用数据中，请定期手动导出备份。")}</span>
+                  <span>{t("twoFactor.roseLocalOnly")}</span>
                 </div>
               </div>
             ) : (
               <div className="rose-tf-account-detail">
                 <div className="rose-tf-detail-head">
-                  <h2>{activeTab === "saved" ? t("twoFactor.roseAccountDetail", "账号详情") : t("twoFactor.history", "历史")}</h2>
+                  <h2>{activeTab === "saved" ? t("twoFactor.roseAccountDetail") : t("twoFactor.history")}</h2>
                   <button className="rose-tf-delete-button" type="button" onClick={() => void deleteRecord(selectedRecord, activeTab)}>
                     <TrashIcon />
-                    {t("twoFactor.roseDeleteAccount", "删除账号")}
+                    {t("twoFactor.roseDeleteAccount")}
                   </button>
                 </div>
 
                 <section className="rose-tf-code-card">
                   <div>
-                    <span className="rose-tf-card-label">{t("twoFactor.roseCodeLabel", "验证码")}</span>
+                    <span className="rose-tf-card-label">{t("twoFactor.roseCodeLabel")}</span>
                     <button className="rose-tf-inline-copy" type="button" onClick={() => void copyText(`rose-code-${selectedRecord.id}`, selectedToken)} disabled={!selectedToken} aria-label={t("twoFactor.copy")}>
                       {copiedId === `rose-code-${selectedRecord.id}` ? <CheckIcon /> : <CopyIcon />}
                     </button>
                     <strong>{selectedToken ? formatCode(selectedToken) : "--- ---"}</strong>
-                    <small>{t("twoFactor.roseRemaining", "剩余时间：每 30 秒自动更新")}</small>
+                    <small>{t("twoFactor.roseRemaining")}</small>
                   </div>
                   <span className="rose-tf-large-timer" style={progressStyle}>{timeRemaining}s</span>
                 </section>
 
                 <section className="rose-tf-info-card">
                   <div className="rose-tf-section-head">
-                    <h3>{t("twoFactor.roseAccountInfo", "账号信息")}</h3>
+                    <h3>{t("twoFactor.roseAccountInfo")}</h3>
                     {activeTab === "saved" ? (
                       <button type="button" onClick={() => startEdit(selectedRecord)}>
                         <PencilIcon />
-                        {t("twoFactor.roseEditInfo", "编辑信息")}
+                        {t("twoFactor.roseEditInfo")}
                       </button>
                     ) : null}
                   </div>
@@ -778,47 +778,47 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
                     </div>
                   ) : null}
                   <dl>
-                    <div><dt>{t("twoFactor.roseProvider", "服务商")}</dt><dd>{selectedDescription.provider}</dd></div>
-                    <div><dt>{t("twoFactor.roseAccount", "账号")}</dt><dd>{selectedDescription.account || t("twoFactor.unnamed")}</dd></div>
-                    <div><dt>{t("twoFactor.roseSecretType", "密钥类型")}</dt><dd>TOTP</dd></div>
-                    <div><dt>{t("twoFactor.roseAlgorithm", "算法")}</dt><dd>SHA-1</dd></div>
-                    <div><dt>{t("twoFactor.roseDigits", "位数")}</dt><dd>{selectedToken.length || 6} {t("twoFactor.roseDigitsUnit", "位")}</dd></div>
-                    <div><dt>{t("twoFactor.roseInterval", "间隔")}</dt><dd>30 {t("twoFactor.roseSeconds", "秒")}</dd></div>
-                    <div><dt>{t("twoFactor.roseCreatedAt", "创建时间")}</dt><dd>{formatRecordTime(selectedRecord.time)}</dd></div>
-                    <div><dt>{t("twoFactor.roseUpdatedAt", "最后更新")}</dt><dd>{formatRecordTime(selectedRecord.time)}</dd></div>
+                    <div><dt>{t("twoFactor.roseProvider")}</dt><dd>{selectedDescription.provider}</dd></div>
+                    <div><dt>{t("twoFactor.roseAccount")}</dt><dd>{selectedDescription.account || t("twoFactor.unnamed")}</dd></div>
+                    <div><dt>{t("twoFactor.roseSecretType")}</dt><dd>TOTP</dd></div>
+                    <div><dt>{t("twoFactor.roseAlgorithm")}</dt><dd>SHA-1</dd></div>
+                    <div><dt>{t("twoFactor.roseDigits")}</dt><dd>{selectedToken.length || 6} {t("twoFactor.roseDigitsUnit")}</dd></div>
+                    <div><dt>{t("twoFactor.roseInterval")}</dt><dd>30 {t("twoFactor.roseSeconds")}</dd></div>
+                    <div><dt>{t("twoFactor.roseCreatedAt")}</dt><dd>{formatRecordTime(selectedRecord.time)}</dd></div>
+                    <div><dt>{t("twoFactor.roseUpdatedAt")}</dt><dd>{formatRecordTime(selectedRecord.time)}</dd></div>
                   </dl>
                 </section>
                 <section className="rose-tf-secret-card">
-                  <div className="rose-tf-section-head"><h3>{t("twoFactor.roseSecret", "密钥")}</h3></div>
+                  <div className="rose-tf-section-head"><h3>{t("twoFactor.roseSecret")}</h3></div>
                   <div className="rose-tf-secret-row">
                     <code>{secretRevealed ? selectedRecord.secret : "••••••••••••••••••••••••••••••••"}</code>
-                    <button type="button" onClick={() => setSecretRevealed((value) => !value)} aria-label={secretRevealed ? t("twoFactor.roseHideSecret", "隐藏密钥") : t("twoFactor.roseRevealSecret", "显示密钥")}>
+                    <button type="button" onClick={() => setSecretRevealed((value) => !value)} aria-label={secretRevealed ? t("twoFactor.roseHideSecret") : t("twoFactor.roseRevealSecret")}>
                       {secretRevealed ? <EyeOffIcon /> : <EyeIcon />}
                     </button>
-                    <button type="button" onClick={() => void copyText(`rose-secret-${selectedRecord.id}`, selectedRecord.secret)} aria-label={t("twoFactor.roseCopySecret", "复制密钥")}>
+                    <button type="button" onClick={() => void copyText(`rose-secret-${selectedRecord.id}`, selectedRecord.secret)} aria-label={t("twoFactor.roseCopySecret")}>
                       {copiedId === `rose-secret-${selectedRecord.id}` ? <CheckIcon /> : <CopyIcon />}
                     </button>
                   </div>
                   <p>
                     <Icon id="icon-shield" />
-                    {t("twoFactor.roseLocalOnlyShort", "密钥仅存储在本地，不会上传到任何服务器。")}
+                    {t("twoFactor.roseLocalOnlyShort")}
                   </p>
                 </section>
                 <section className="rose-tf-backup-card">
-                  <h3>{t("twoFactor.roseBackupRecovery", "备份与恢复")}</h3>
+                  <h3>{t("twoFactor.roseBackupRecovery")}</h3>
                   <button type="button" onClick={() => void exportRecords()} disabled={records.length === 0}>
                     <span><Icon id="icon-download" /></span>
                     <span>
-                      <strong>{t("twoFactor.roseExportBackup", "导出备份文件")}</strong>
-                      <small>{t("twoFactor.roseExportBackupHint", "导出所有已保存账号，用于备份或迁移")}</small>
+                      <strong>{t("twoFactor.roseExportBackup")}</strong>
+                      <small>{t("twoFactor.roseExportBackupHint")}</small>
                     </span>
                     <span><Icon id="icon-download" /></span>
                   </button>
                   <button type="button" onClick={() => void importRecords()}>
                     <span><Icon id="icon-upload" /></span>
                     <span>
-                      <strong>{t("twoFactor.roseImportBackup", "导入备份文件")}</strong>
-                      <small>{t("twoFactor.roseImportBackupHint", "从 JSON 文件恢复账号与密钥")}</small>
+                      <strong>{t("twoFactor.roseImportBackup")}</strong>
+                      <small>{t("twoFactor.roseImportBackupHint")}</small>
                     </span>
                     <span><Icon id="icon-upload" /></span>
                   </button>
@@ -838,7 +838,7 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
           <h1>{t("title.two_factor")}</h1>
           <span className="tf-status-pill">
             <Icon id="icon-shield" />
-            {t("twoFactor.statusPill", "本地 TOTP")}
+            {t("twoFactor.statusPill")}
           </span>
         </div>
       </header>
@@ -850,7 +850,7 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
 
       <section className="tf-grid">
         <article className="panel tf-generator">
-          <h2>{t("twoFactor.generateTitle", "生成 TOTP 验证码")}</h2>
+          <h2>{t("twoFactor.generateTitle")}</h2>
 
           <div className="tf-input">
             <Icon id="icon-search" />
@@ -938,14 +938,14 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
 
           <div className="tf-hint">
             <Icon id="icon-shield" />
-            {t("twoFactor.codeHint", "验证码每 30 秒更新一次，请及时使用。")}
+            {t("twoFactor.codeHint")}
           </div>
         </article>
 
         <aside className="panel tf-vault">
           <div className="tf-vault-head">
-            <h2>{t("twoFactor.vaultTitle", "本地保险箱")}</h2>
-            <span className="tf-vault-sub">{t("twoFactor.vaultSubtitle", "完全本地 · 安全隐私")}</span>
+            <h2>{t("twoFactor.vaultTitle")}</h2>
+            <span className="tf-vault-sub">{t("twoFactor.vaultSubtitle")}</span>
           </div>
           <div className="tf-secure-list">
             <div className="tf-secure-row">
@@ -953,8 +953,8 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
                 <Icon id="icon-2fa" />
               </div>
               <div className="tf-secure-text">
-                <strong>{t("twoFactor.vaultLocalTitle", "本地保存")}</strong>
-                <span>{t("twoFactor.vaultLocalDesc", "所有密钥与数据仅存储在本机，不会上传到云端。")}</span>
+                <strong>{t("twoFactor.vaultLocalTitle")}</strong>
+                <span>{t("twoFactor.vaultLocalDesc")}</span>
               </div>
               <svg className="tf-icon tf-secure-flag" aria-hidden="true">
                 <use href="/twofa/twofa-icons.svg#icon-shield" />
@@ -965,8 +965,8 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
                 <Icon id="icon-shield" />
               </div>
               <div className="tf-secure-text">
-                <strong>{t("twoFactor.vaultEncryptTitle", "加密保险箱")}</strong>
-                <span>{t("twoFactor.vaultEncryptDesc", "密钥使用本地加密存储，应用重启后仍安全可用。")}</span>
+                <strong>{t("twoFactor.vaultEncryptTitle")}</strong>
+                <span>{t("twoFactor.vaultEncryptDesc")}</span>
               </div>
               <svg className="tf-icon tf-secure-flag" aria-hidden="true">
                 <use href="/twofa/twofa-icons.svg#icon-shield" />
@@ -977,8 +977,8 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
                 <Icon id="icon-download" />
               </div>
               <div className="tf-secure-text">
-                <strong>{t("twoFactor.vaultBackupTitle", "定期备份")}</strong>
-                <span>{t("twoFactor.vaultBackupDesc", "导出备份文件，防止误删或重装导致数据丢失。")}</span>
+                <strong>{t("twoFactor.vaultBackupTitle")}</strong>
+                <span>{t("twoFactor.vaultBackupDesc")}</span>
               </div>
               <span className="tf-secure-chev">›</span>
             </div>
@@ -986,11 +986,11 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
           <div className="tf-vault-actions">
             <button className="button" type="button" onClick={() => void importRecords()}>
               <Icon id="icon-upload" />
-              {t("twoFactor.importKeys", "导入密钥")}
+              {t("twoFactor.importKeys")}
             </button>
             <button className="button" type="button" onClick={() => void exportRecords()} disabled={records.length === 0}>
               <Icon id="icon-download" />
-              {t("twoFactor.exportBackup", "导出备份")}
+              {t("twoFactor.exportBackup")}
             </button>
           </div>
         </aside>
@@ -1025,31 +1025,31 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
         <div className="tf-saved-body">
           <div className="tf-input tf-search">
             <Icon id="icon-search" />
-            <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("twoFactor.searchPlaceholder", "搜索名称或邮箱")} />
+            <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("twoFactor.searchPlaceholder")} />
           </div>
 
           {visibleRecords.length === 0 ? (
             activeTab === "history" ? (
-              <div className="tf-nomatch">{t("twoFactor.historyEmpty", "暂无历史记录")}</div>
+              <div className="tf-nomatch">{t("twoFactor.historyEmpty")}</div>
             ) : (
               <div className="tf-empty">
                 <div>
                   <img src="/twofa/vault-empty.svg" alt="" />
-                  <strong>{t("twoFactor.emptyTitle", "尚未保存任何密钥")}</strong>
-                  <p>{t("twoFactor.emptyDesc", "通过上方输入区保存第一个 TOTP 密钥，或导入已有备份。")}</p>
+                  <strong>{t("twoFactor.emptyTitle")}</strong>
+                  <p>{t("twoFactor.emptyDesc")}</p>
                   <div className="tf-empty-buttons">
                     <button className="button primary" type="button" onClick={focusSecretInput}>
-                      {t("twoFactor.emptyCreate", "新建并保存密钥")}
+                      {t("twoFactor.emptyCreate")}
                     </button>
                     <button className="button" type="button" onClick={() => void importRecords()}>
-                      {t("twoFactor.emptyImport", "导入备份文件")}
+                      {t("twoFactor.emptyImport")}
                     </button>
                   </div>
                 </div>
               </div>
             )
           ) : filteredRecords.length === 0 ? (
-            <div className="tf-nomatch">{t("twoFactor.noMatch", "未找到匹配的密钥")}</div>
+            <div className="tf-nomatch">{t("twoFactor.noMatch")}</div>
           ) : (
             <div className="tf-records">
               {filteredRecords.map((record) => {

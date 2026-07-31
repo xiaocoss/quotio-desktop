@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useT } from "./i18n";
 import "./App.css";
 import "./components/shell.css";
 import "./components/about.css";
@@ -10,6 +11,7 @@ import { applyTheme, resolveEffectiveTheme } from "./lib/theme";
 import { useAppState } from "./state/useAppState";
 
 function App() {
+  const t = useT();
   const app = useAppState();
 
   // Manual-refresh loading overlay: set only while a user-clicked refresh runs,
@@ -95,7 +97,7 @@ function App() {
             <span />
           </div>
           <p className={app.error ? "boot-hint boot-hint--error" : "boot-hint"}>
-            {app.error ?? "正在加载…"}
+            {app.error ?? t("hardcoded.w001")}
           </p>
         </div>
       </main>

@@ -71,7 +71,7 @@ impl ProxyHealthState {
 
 impl Default for ProxyHealthState {
     fn default() -> Self {
-        Self::unknown("尚未执行健康检查。")
+        Self::unknown("Health check has not run yet.")
     }
 }
 
@@ -311,7 +311,7 @@ impl ProxyState {
             exit_code: None,
             crash_count: 0,
             health: ProxyHealthState::default(),
-            message: "代理核心尚未启动。".to_string(),
+            message: "The proxy core has not started yet.".to_string(),
         }
     }
 
@@ -327,8 +327,8 @@ impl ProxyState {
             resource_dir: None,
             exit_code: None,
             crash_count: 0,
-            health: ProxyHealthState::unknown("缺少可执行文件，无法检查健康状态。"),
-            message: "未找到当前平台可用的 CLIProxyAPI 二进制。".to_string(),
+            health: ProxyHealthState::unknown("The executable is missing, so health cannot be checked."),
+            message: "No CLIProxyAPI binary was found for this platform.".to_string(),
         }
     }
 }
@@ -364,7 +364,7 @@ impl Default for ProxyResourceStatus {
             detected_binary_path: None,
             has_current_platform_binary: false,
             platforms: Vec::new(),
-            message: "尚未检查代理资源。".to_string(),
+            message: "Proxy resources have not been checked yet.".to_string(),
         }
     }
 }
@@ -1370,7 +1370,7 @@ impl Default for CredentialStatus {
             local_management_key_configured: false,
             remote_management_key_configured: false,
             remote_management_key_masked: None,
-            message: "尚未检查凭据存储。".to_string(),
+            message: "Credential storage has not been checked yet.".to_string(),
         }
     }
 }
@@ -1393,7 +1393,7 @@ impl Default for PlatformFeatureState {
             notifications_available: false,
             notifications_enabled: false,
             file_manager_available: true,
-            message: "平台适配状态尚未刷新。".to_string(),
+            message: "Platform integration status has not been refreshed yet.".to_string(),
         }
     }
 }

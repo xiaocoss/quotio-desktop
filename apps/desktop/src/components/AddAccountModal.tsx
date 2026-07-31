@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, type ChangeEvent } from "react";
+import { useT } from "../i18n";
 import { Mfa2faQuickPanel } from "./Mfa2faQuickPanel";
 import type { NativeOAuthCompleteResponse, NativeOAuthStartResponse, OAuthStatusResponse, OAuthUrlResponse, ProviderSummary } from "../types";
 import { CheckIcon, CopyIcon, KeyIcon, PlusIcon, RefreshIcon } from "./icons";
@@ -74,6 +75,7 @@ export function AddAccountModal({
   onRefreshQuotas,
   onImportFile,
 }: AddAccountModalProps) {
+  const t = useT();
   const hasNativeOAuth = Boolean(provider.native_oauth);
   const hasProxyOAuth = Boolean(provider.oauth_endpoint);
   const hasOAuth = hasNativeOAuth || hasProxyOAuth;
@@ -179,7 +181,7 @@ export function AddAccountModal({
     const response = await onStartOAuth(provider.oauth_endpoint ?? "", projectId, true);
     if (!response) {
       setOauthStatus("error");
-      setOauthError("无法获取授权链接，请检查代理状态后重试。");
+      setOauthError(t("hardcoded.w002"));
       return;
     }
     if (response.error) {
@@ -205,7 +207,7 @@ export function AddAccountModal({
         consecutiveFailures++;
         if (consecutiveFailures >= 3) {
           setOauthStatus("error");
-          setOauthError("无法获取授权状态（代理无响应），请重试。");
+          setOauthError(t("hardcoded.w003"));
           pollRef.current = null;
           return;
         }
@@ -220,13 +222,13 @@ export function AddAccountModal({
       }
       if (res.status === "error") {
         setOauthStatus("error");
-        setOauthError(res.error ?? "授权失败。");
+        setOauthError(res.error ?? t("hardcoded.w004"));
         pollRef.current = null;
         return;
       }
     }
     setOauthStatus("error");
-    setOauthError("OAuth 授权超时，请重试。");
+    setOauthError(t("hardcoded.w005"));
     pollRef.current = null;
   }
 
@@ -247,19 +249,19 @@ export function AddAccountModal({
         }
         if (res.status === "error") {
           setOauthStatus("error");
-          setOauthError(res.error ?? "授权失败。");
+          setOauthError(res.error ?? t("hardcoded.w004"));
           nativeLoginRef.current = null;
           return;
         }
       } catch (err) {
         setOauthStatus("error");
-        setOauthError(`授权完成失败：${String(err)}`);
+        setOauthError(`${t("hardcoded.w004")} ${String(err)}`);
         nativeLoginRef.current = null;
         return;
       }
     }
     setOauthStatus("error");
-    setOauthError("OAuth 授权超时，请重试。");
+    setOauthError(t("hardcoded.w005"));
     nativeLoginRef.current = null;
   }
 
@@ -309,7 +311,7 @@ export function AddAccountModal({
       setManualCallback("");
     } catch {
       setOauthStatus("error");
-      setOauthError("令牌交换失败，请重试。");
+      setOauthError(t("hardcoded.w006"));
     }
     setCallbackBusy(false);
   }
@@ -325,12 +327,12 @@ export function AddAccountModal({
       }
       await invoke("import_auth_token", { providerId: provider.id, content: value });
       setImportStatus("success");
-      setImportMessage("导入成功");
+      setImportMessage(t("hardcoded.w007"));
       setTokenInput("");
       onRefreshQuotas();
     } catch (err) {
       setImportStatus("error");
-      setImportMessage(String(err) || "导入失败");
+      setImportMessage(String(err) || t("hardcoded.w008"));
     }
     setImporting(false);
   }
@@ -372,7 +374,7 @@ export function AddAccountModal({
         // 命令层异常(极少):容忍几次再放弃。
         if (++transientFailures >= 3) {
           setIdcStatus("error");
-          setIdcError(`轮询失败：${String(err)}`);
+          setIdcError(`${t("hardcoded.w004")} ${String(err)}`);
           idcActiveRef.current = false;
           return;
         }
@@ -388,7 +390,7 @@ export function AddAccountModal({
       }
       if (res.status === "error") {
         setIdcStatus("error");
-        setIdcError(res.error ?? "授权失败。");
+        setIdcError(res.error ?? t("hardcoded.w004"));
         idcActiveRef.current = false;
         return;
       }
@@ -397,7 +399,7 @@ export function AddAccountModal({
     if (idcActiveRef.current) {
       idcActiveRef.current = false;
       setIdcStatus("error");
-      setIdcError("授权超时，请重新开始。");
+      setIdcError(t("hardcoded.w009"));
     }
   }
 
@@ -426,7 +428,7 @@ export function AddAccountModal({
     <div className="modal-overlay aam-overlay" onClick={onClose}>
       <div className="aam-modal" onClick={(e) => e.stopPropagation()}>
         <div className="aam-header">
-          <h2>{reauthAccountLabel ? "重新授权" : "添加账号"}</h2>
+          <h2>{reauthAccountLabel ? t("providers.reauth") : t("import.button")}</h2>
           <button className="aam-close" type="button" onClick={onClose}><XIcon /></button>
         </div>
 
@@ -434,11 +436,11 @@ export function AddAccountModal({
           <div className="aam-reauth-banner">
             <KeyIcon />
             <div className="aam-reauth-text">
-              <span className="aam-reauth-caption">正在重新授权账号</span>
+              <span className="aam-reauth-caption">{t("hardcoded.w010")}</span>
               <button
                 type="button"
                 className="aam-reauth-email"
-                title={revealLabel ? reauthAccountLabel : "点击显示完整账号"}
+                title={revealLabel ? reauthAccountLabel : t("hardcoded.w011")}
                 onClick={() => setRevealLabel((v) => !v)}
               >
                 {revealLabel ? reauthAccountLabel : maskEmail(reauthAccountLabel)}
@@ -448,7 +450,7 @@ export function AddAccountModal({
               type="button"
               className="aam-reauth-copy"
               onClick={() => void handleCopyLabel()}
-              title="复制完整账号"
+              title={t("hardcoded.w012")}
             >
               {labelCopied ? <CheckIcon /> : <CopyIcon />}
             </button>
@@ -458,19 +460,19 @@ export function AddAccountModal({
         <div className="aam-tabs">
           {hasOAuth ? (
             <button className={`aam-tab${tab === "oauth" ? " aam-tab--active" : ""}`} type="button" onClick={() => switchTab("oauth")}>
-              <GlobeIcon /> OAuth 授权
+              <GlobeIcon /> {t("addAccount.oauth")}
             </button>
           ) : null}
           {isKiro ? (
             <button className={`aam-tab${tab === "org" ? " aam-tab--active" : ""}`} type="button" onClick={() => switchTab("org")}>
-              <KeyIcon /> 组织 / Builder ID
+              <KeyIcon /> {t("addAccount.organization")}
             </button>
           ) : null}
           <button className={`aam-tab${tab === "token" ? " aam-tab--active" : ""}`} type="button" onClick={() => switchTab("token")}>
             <KeyIcon /> Token / JSON
           </button>
           <button className={`aam-tab${tab === "import" ? " aam-tab--active" : ""}`} type="button" onClick={() => switchTab("import")}>
-            <FileIcon /> 导入
+            <FileIcon /> {t("twoFactor.import")}
           </button>
         </div>
 
@@ -479,78 +481,78 @@ export function AddAccountModal({
             <div className="aam-section">
               <div className="aam-hint-row">
                 <GlobeIcon />
-                <span>推荐使用浏览器完成 {provider.display_name} 授权</span>
+                <span>{t("addAccount.browserRecommended").replace("{provider}", provider.display_name)}</span>
               </div>
 
               {oauthStatus === "error" && !oauthUrl ? (
                 <div className="aam-status aam-status--error">
                   <span>{oauthError}</span>
                   <button className="aam-retry-btn" type="button" onClick={handleRetryOAuth}>
-                    <RefreshIcon /> 重新生成授权信息
+                    <RefreshIcon /> {t("addAccount.regenerate")}
                   </button>
                 </div>
               ) : oauthUrl ? (
                 <>
                   {isDeviceFlow && deviceUserCode ? (
                     <div className="aam-device-code">
-                      <p className="aam-desc">请在浏览器中打开下方链接，输入以下验证码完成授权：</p>
+                      <p className="aam-desc">{t("hardcoded.w013")}</p>
                       <code className="aam-user-code">{deviceUserCode}</code>
                     </div>
                   ) : null}
                   <div className="aam-url-box">
                     <input type="text" readOnly value={oauthUrl} onFocus={(e) => e.currentTarget.select()} />
-                    <button type="button" onClick={handleCopyUrl} title="复制链接">
+                    <button type="button" onClick={handleCopyUrl} title={t("hardcoded.w014")}>
                       {urlCopied ? <CheckIcon /> : <CopyIcon />}
                     </button>
                   </div>
                   <button className="aam-primary-btn aam-primary-btn--full" type="button" onClick={() => void openAuthUrl(oauthUrl)}>
-                    <GlobeIcon /> 在浏览器中打开
+                    <GlobeIcon /> {t("addAccount.openBrowser")}
                   </button>
                   {oauthStatus === "polling" && (
                     <div className="aam-status aam-status--loading">
                       <SpinnerIcon />
-                      <span>等待授权完成，完成后此窗口将自动更新…</span>
+                      <span>{t("hardcoded.w015")}</span>
                     </div>
                   )}
                   {oauthStatus === "exchanging" && (
                     <div className="aam-status aam-status--loading">
                       <SpinnerIcon />
-                      <span>正在交换令牌…</span>
+                      <span>{t("hardcoded.w016")}</span>
                     </div>
                   )}
                   {oauthStatus === "success" && (
                     <div className="aam-status aam-status--success">
                       <CheckIcon />
-                      <span>授权成功！账号已添加。</span>
+                      <span>{t("hardcoded.w017")}</span>
                     </div>
                   )}
                   {oauthStatus === "error" && (
                     <div className="aam-status aam-status--error">
                       <span>{oauthError}</span>
                       <button className="aam-retry-btn" type="button" onClick={handleRetryOAuth}>
-                        <RefreshIcon /> 刷新授权链接
+                        <RefreshIcon /> {t("addAccount.regenerate")}
                       </button>
                     </div>
                   )}
-                  <label className="aam-label">手动输入回调地址</label>
+                  <label className="aam-label">{t("hardcoded.w018")}</label>
                   <div className="aam-url-box">
                     <input
                       type="text"
-                      placeholder="粘贴完整回调地址，例如: http://localhost:1455/auth/callback?code=...&state=..."
+                      placeholder={t("hardcoded.w019")}
                       value={manualCallback}
                       onChange={(e) => setManualCallback(e.target.value)}
                     />
                     <button className="aam-callback-btn" type="button" onClick={() => void handleManualCallback()} disabled={callbackBusy || !manualCallback.trim()}>
                       {callbackBusy ? <SpinnerIcon /> : <CheckIcon />}
-                      <span>提交</span>
+                      <span>{t("hardcoded.w020")}</span>
                     </button>
                   </div>
-                  <p className="aam-hint">完成授权后此窗口将自动更新</p>
+                  <p className="aam-hint">{t("hardcoded.w021")}</p>
                 </>
               ) : (
                 <div className="aam-oauth-loading">
                   <SpinnerIcon />
-                  <span>正在准备授权信息…</span>
+                  <span>{t("hardcoded.w022")}</span>
                 </div>
               )}
             </div>
@@ -560,7 +562,7 @@ export function AddAccountModal({
             <div className="aam-section">
               <div className="aam-hint-row">
                 <GlobeIcon />
-                <span>组织(AWS IAM Identity Center)或个人 Builder ID 登录 · 浏览器批准后自动完成</span>
+                <span>{t("hardcoded.w023")}</span>
               </div>
 
               {(idcStatus === "idle" || idcStatus === "starting") && (
@@ -571,20 +573,20 @@ export function AddAccountModal({
                       className={`aam-idc-opt${idcMode === "builderid" ? " aam-idc-opt--active" : ""}`}
                       onClick={() => setIdcMode("builderid")}
                     >
-                      个人 Builder ID
+                      {t("addAccount.personalBuilder")}
                     </button>
                     <button
                       type="button"
                       className={`aam-idc-opt${idcMode === "awsidc" ? " aam-idc-opt--active" : ""}`}
                       onClick={() => setIdcMode("awsidc")}
                     >
-                      组织 IAM Identity Center
+                      {t("addAccount.organizationIam")}
                     </button>
                   </div>
 
                   {idcMode === "awsidc" && (
                     <div>
-                      <label className="aam-label">Start URL(组织的 IAM Identity Center 登录门户)</label>
+                      <label className="aam-label">{t("hardcoded.w024")}</label>
                       <input
                         className="aam-text-input"
                         type="text"
@@ -596,7 +598,7 @@ export function AddAccountModal({
                   )}
 
                   <div>
-                    <label className="aam-label">区域 Region</label>
+                    <label className="aam-label">{t("hardcoded.w025")}</label>
                     <input
                       className="aam-text-input"
                       type="text"
@@ -613,10 +615,10 @@ export function AddAccountModal({
                     disabled={idcStatus === "starting" || (idcMode === "awsidc" && !idcStartUrl.trim())}
                   >
                     {idcStatus === "starting" ? <SpinnerIcon /> : <GlobeIcon />}
-                    开始登录
+                    {t("addAccount.startLogin")}
                   </button>
                   <p className="aam-hint">
-                    将打开浏览器登录；核对验证码一致后批准，本窗口会自动完成并添加账号。
+                    {t("addAccount.startLoginHint")}
                   </p>
                 </>
               )}
@@ -624,21 +626,21 @@ export function AddAccountModal({
               {idcStatus === "waiting" && (
                 <>
                   <div className="aam-device-code">
-                    <p className="aam-desc">在浏览器中登录，核对下方验证码一致后批准授权：</p>
+                    <p className="aam-desc">{t("hardcoded.w026")}</p>
                     <code className="aam-user-code">{idcUserCode}</code>
                   </div>
                   <div className="aam-url-box">
                     <input type="text" readOnly value={idcVerifyUri} onFocus={(e) => e.currentTarget.select()} />
-                    <button type="button" onClick={() => void openAuthUrl(idcVerifyUri)} title="重新在浏览器中打开">
+                    <button type="button" onClick={() => void openAuthUrl(idcVerifyUri)} title={t("hardcoded.w027")}>
                       <GlobeIcon />
                     </button>
                   </div>
                   <div className="aam-status aam-status--loading">
                     <SpinnerIcon />
-                    <span>等待在浏览器中批准授权，完成后此窗口将自动更新…</span>
+                    <span>{t("hardcoded.w028")}</span>
                   </div>
                   <button className="aam-retry-btn" type="button" onClick={retryIdc}>
-                    <RefreshIcon /> 取消并重新开始
+                    <RefreshIcon /> {t("addAccount.cancelRestart")}
                   </button>
                 </>
               )}
@@ -646,7 +648,7 @@ export function AddAccountModal({
               {idcStatus === "success" && (
                 <div className="aam-status aam-status--success">
                   <CheckIcon />
-                  <span>登录成功！账号已添加。</span>
+                  <span>{t("hardcoded.w029")}</span>
                 </div>
               )}
 
@@ -654,7 +656,7 @@ export function AddAccountModal({
                 <div className="aam-status aam-status--error">
                   <span>{idcError}</span>
                   <button className="aam-retry-btn" type="button" onClick={retryIdc}>
-                    <RefreshIcon /> 重新开始
+                    <RefreshIcon /> {t("addAccount.restart")}
                   </button>
                 </div>
               )}
@@ -665,29 +667,29 @@ export function AddAccountModal({
             <div className="aam-section">
               <p className="aam-desc">
                 {isVertex
-                  ? "粘贴 Vertex AI Service Account JSON 凭据。"
-                  : `粘贴 ${provider.display_name} 的 Token 或 JSON 凭据内容。`}
+                  ? t("hardcoded.w030")
+                  : `${t("hardcoded.w031")} (${provider.display_name})`}
               </p>
               <textarea
                 className="aam-token-input"
                 value={tokenInput}
                 onChange={(e) => setTokenInput(e.target.value)}
-                placeholder={isVertex ? '{"type":"service_account",...}' : "粘贴 Token 或 JSON…"}
+                placeholder={isVertex ? '{"type":"service_account",...}' : t("hardcoded.w031")}
                 rows={6}
               />
               <button className="aam-primary-btn" type="button" onClick={() => void handleTokenImport()} disabled={importing || !tokenInput.trim()}>
                 {importing ? <SpinnerIcon /> : <PlusIcon />}
-                导入
+                {t("twoFactor.import")}
               </button>
             </div>
           )}
 
           {tab === "import" && (
             <div className="aam-section">
-              <p className="aam-desc">从本地 JSON 文件导入认证凭据。</p>
-              <input ref={fileRef} type="file" accept=".json,application/json" multiple hidden onChange={(e) => { onImportFile(e); setImportStatus("success"); setImportMessage("文件已导入"); }} />
+              <p className="aam-desc">{t("hardcoded.w032")}</p>
+              <input ref={fileRef} type="file" accept=".json,application/json" multiple hidden onChange={(e) => { onImportFile(e); setImportStatus("success"); setImportMessage(t("hardcoded.w033")); }} />
               <button className="aam-primary-btn" type="button" onClick={() => fileRef.current?.click()} disabled={importing}>
-                <FileIcon /> 选择 JSON 文件导入
+                <FileIcon /> {t("addAccount.importJson")}
               </button>
             </div>
           )}

@@ -120,57 +120,57 @@ async function toggleMaximize() {
 
 // Label for the global overlay shown while a proxy lifecycle action is in
 // flight, so the user gets feedback instead of clicking the button repeatedly.
-function proxyActionLabel(action: string | null): string | null {
+function proxyActionLabel(action: string | null, t: (key: string, fallback?: string) => string): string | null {
   switch (action) {
     case "start_proxy":
-      return "正在启动代理…";
+      return t("hardcoded.w034");
     case "stop_proxy":
-      return "正在停止代理…";
+      return t("hardcoded.w035");
     case "restart_proxy":
-      return "正在重启代理…";
+      return t("hardcoded.w036");
     case "download_proxy_binary":
-      return "正在下载代理…";
+      return t("hardcoded.w037");
     default:
       return null;
   }
 }
 
-function managementActionLabel(action: string | null): string | null {
+function managementActionLabel(action: string | null, t: (key: string, fallback?: string) => string): string | null {
   switch (action) {
     case "refresh_management_state":
-      return "正在刷新管理状态…";
+      return t("hardcoded.w038");
     case "get_management_proxy_url":
-      return "正在读取代理 URL…";
+      return t("hardcoded.w039");
     case "set_management_proxy_url":
-      return "正在写入代理 URL…";
+      return t("hardcoded.w040");
     case "clear_management_proxy_url":
-      return "正在清除代理 URL…";
+      return t("hardcoded.w041");
     case "set_management_debug":
-      return "正在切换调试模式…";
+      return t("hardcoded.w042");
     case "set_management_request_log":
-      return "正在切换请求日志…";
+      return t("hardcoded.w043");
     case "set_management_logging_to_file":
-      return "正在切换文件日志…";
+      return t("hardcoded.w044");
     case "set_management_routing_strategy":
-      return "正在设置路由策略…";
+      return t("hardcoded.w045");
     case "set_management_request_retry":
-      return "正在设置重试次数…";
+      return t("hardcoded.w046");
     case "clear_management_logs":
-      return "正在清除日志…";
+      return t("hardcoded.w047");
     case "clear_request_logs":
-      return "正在清空请求日志…";
+      return t("hardcoded.w048");
     case "delete_management_auth_file":
-      return "正在删除账号…";
+      return t("hardcoded.w049");
     case "set_management_auth_file_disabled":
-      return "正在切换账号状态…";
+      return t("hardcoded.w050");
     case "add_api_key":
-      return "正在添加 API Key…";
+      return t("hardcoded.w051");
     case "remove_api_key":
-      return "正在删除 API Key…";
+      return t("hardcoded.w052");
     case "update_api_key":
-      return "正在更新 API Key…";
+      return t("hardcoded.w053");
     default:
-      return action ? `正在执行 ${action}…` : null;
+      return action ? t("common.executing").replace("{action}", action) : null;
   }
 }
 
@@ -215,7 +215,7 @@ export function AppShell(props: AppShellProps) {
   }
 
   // Closing prompts whether to quit or hide to the tray, unless a remembered
-  // choice exists (saved after ticking "记住我的选择").
+  // choice exists (saved after ticking t("close.remember")).
   async function requestClose() {
     if (!("__TAURI_INTERNALS__" in window)) return;
     let saved: string | null = null;
@@ -295,13 +295,13 @@ export function AppShell(props: AppShellProps) {
       <aside className="sidebar">
         <div className="sidebar-titlebar">
           <div className="window-controls">
-            <button type="button" className="win-dot win-dot--close" onClick={() => void requestClose()} aria-label="关闭" title="关闭">
+            <button type="button" className="win-dot win-dot--close" onClick={() => void requestClose()} aria-label={t("common.close")} title={t("common.close")}>
               <svg className="win-dot-icon" viewBox="0 0 12 12"><path d="M3.172 3.172a.5.5 0 0 1 .707 0L6 5.293l2.121-2.121a.5.5 0 1 1 .707.707L6.707 6l2.121 2.121a.5.5 0 0 1-.707.707L6 6.707 3.879 8.828a.5.5 0 1 1-.707-.707L5.293 6 3.172 3.879a.5.5 0 0 1 0-.707Z" fill="currentColor"/></svg>
             </button>
-            <button type="button" className="win-dot win-dot--min" onClick={() => void requestMinimize()} aria-label="最小化" title="最小化">
+            <button type="button" className="win-dot win-dot--min" onClick={() => void requestMinimize()} aria-label={t("hardcoded.w054")} title={t("hardcoded.w054")}>
               <svg className="win-dot-icon" viewBox="0 0 12 12"><rect x="2" y="5.25" width="8" height="1.5" rx=".75" fill="currentColor"/></svg>
             </button>
-            <button type="button" className="win-dot win-dot--max" onClick={() => void toggleMaximize()} aria-label="最大化" title="最大化">
+            <button type="button" className="win-dot win-dot--max" onClick={() => void toggleMaximize()} aria-label={t("hardcoded.w055")} title={t("hardcoded.w055")}>
               <svg className="win-dot-icon" viewBox="0 0 12 12"><path d="M2 4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4Zm2-.75a.75.75 0 0 0-.75.75v4c0 .414.336.75.75.75h4a.75.75 0 0 0 .75-.75V4a.75.75 0 0 0-.75-.75H4Z" fill="currentColor"/></svg>
             </button>
           </div>
@@ -373,21 +373,21 @@ export function AppShell(props: AppShellProps) {
       {closeDialog ? (
         <div className="modal-overlay" onClick={() => setCloseDialog(false)}>
           <div className="close-dialog" onClick={(event) => event.stopPropagation()}>
-            <strong className="close-dialog-title">{t("close.title", "关闭 Quotio")}</strong>
-            <p className="close-dialog-desc">{t("close.desc", "退出程序,还是最小化到托盘继续后台运行?")}</p>
+            <strong className="close-dialog-title">{t("close.title")}</strong>
+            <p className="close-dialog-desc">{t("close.desc")}</p>
             <label className="close-dialog-remember">
               <input type="checkbox" checked={rememberClose} onChange={(event) => setRememberClose(event.target.checked)} />
-              <span>{t("close.remember", "记住我的选择")}</span>
+              <span>{t("close.remember", t("close.remember"))}</span>
             </label>
             <div className="close-dialog-actions">
               <button type="button" className="ghost-action" onClick={() => setCloseDialog(false)}>
-                {t("close.cancel", "取消")}
+                {t("close.cancel")}
               </button>
               <button type="button" className="secondary-action" onClick={() => chooseClose("tray")}>
-                {t("close.tray", "最小化到托盘")}
+                {t("close.tray")}
               </button>
               <button type="button" className="danger-action" onClick={() => chooseClose("quit")}>
-                {t("close.quit", "退出程序")}
+                {t("close.quit")}
               </button>
             </div>
           </div>
@@ -397,21 +397,21 @@ export function AppShell(props: AppShellProps) {
       {minimizeDialog ? (
         <div className="modal-overlay" onClick={() => setMinimizeDialog(false)}>
           <div className="close-dialog" onClick={(event) => event.stopPropagation()}>
-            <strong className="close-dialog-title">最小化 Quotio</strong>
-            <p className="close-dialog-desc">隐藏到托盘并弹出悬浮窗，还是最小化到任务栏？</p>
+            <strong className="close-dialog-title">{t("hardcoded.w056")}</strong>
+            <p className="close-dialog-desc">{t("hardcoded.w057")}</p>
             <label className="close-dialog-remember">
               <input type="checkbox" checked={rememberMinimize} onChange={(event) => setRememberMinimize(event.target.checked)} />
-              <span>记住我的选择</span>
+              <span>{t("close.remember")}</span>
             </label>
             <div className="close-dialog-actions">
               <button type="button" className="ghost-action" onClick={() => setMinimizeDialog(false)}>
-                取消
+                {t("common.cancel")}
               </button>
               <button type="button" className="secondary-action" onClick={() => chooseMinimize("taskbar")}>
-                最小化到任务栏
+                {t("common.minimizeTaskbar")}
               </button>
               <button type="button" className="primary-action" onClick={() => chooseMinimize("tray")}>
-                隐藏到托盘
+                {t("common.hideTray")}
               </button>
             </div>
           </div>
@@ -424,18 +424,18 @@ export function AppShell(props: AppShellProps) {
             <div className="boot-bar" aria-hidden="true">
               <span />
             </div>
-            <p>{managementActionLabel(props.managementAction) ?? "正在刷新…"}</p>
+            <p>{managementActionLabel(props.managementAction, t) ?? t("hardcoded.w058")}</p>
           </div>
         </div>
       ) : null}
 
-      {proxyActionLabel(props.proxyAction) ? (
+      {proxyActionLabel(props.proxyAction, t) ? (
         <div className="closing-overlay">
           <div className="loading-card">
             <div className="boot-bar" aria-hidden="true">
               <span />
             </div>
-            <p>{proxyActionLabel(props.proxyAction)}</p>
+            <p>{proxyActionLabel(props.proxyAction, t)}</p>
           </div>
         </div>
       ) : null}
@@ -446,7 +446,7 @@ export function AppShell(props: AppShellProps) {
             <div className="boot-bar" aria-hidden="true">
             <span />
           </div>
-            <p>{t("close.closing", "正在关闭…")}</p>
+            <p>{t("close.closing")}</p>
           </div>
         </div>
       ) : null}
@@ -467,7 +467,7 @@ export function AppShell(props: AppShellProps) {
             </div>
           )}
           <p>
-            正在加载额度… {Math.min(props.quotaToast.loaded, props.quotaToast.total || props.quotaToast.loaded)}
+            {t("common.loadingQuota")} {Math.min(props.quotaToast.loaded, props.quotaToast.total || props.quotaToast.loaded)}
             {props.quotaToast.total > 0 ? ` / ${props.quotaToast.total}` : ""}
             {props.quotaToast.current ? ` — ${props.quotaToast.current}` : ""}
           </p>
@@ -652,7 +652,7 @@ function ProxyStatusCard({ proxy, isProxyBusy, proxyAction, onRunProxyAction }: 
         type="button"
         onClick={() => onRunProxyAction(action)}
         disabled={busy}
-        title={isMissing ? t("proxy.download") : running ? "停止本地代理" : "启动本地代理"}
+        title={isMissing ? t("proxy.download") : running ? t("hardcoded.w059") : t("hardcoded.w060")}
       >
         <span className={`proxy-card-icon proxy-card-icon--${tone}`} aria-hidden="true">
           ▣
@@ -700,9 +700,6 @@ function AboutIcon({ id }: { id: string }) {
   );
 }
 
-const ABOUT_MODE_LABEL: Record<string, string> = { full: "本地代理", quota_only: "仅监控", remote: "远程代理" };
-const ABOUT_STRATEGY_LABEL: Record<string, string> = { full: "本地优先", quota_only: "仅监控", remote: "远程优先" };
-
 function AboutScreen({
   appState,
   onCheckUpdate,
@@ -726,8 +723,8 @@ function AboutScreen({
 
   const version = `v${appVersion || desktopPackage.version}`;
   const mode = appState.settings.operating_mode;
-  const modeLabel = ABOUT_MODE_LABEL[mode] ?? mode;
-  const strategyLabel = ABOUT_STRATEGY_LABEL[mode] ?? mode;
+  const modeLabel = ({ full: t("proxy.title"), quota_only: t("settings.monitorOnly"), remote: t("settings.remoteProxy") } as Record<string, string>)[mode] ?? mode;
+  const strategyLabel = ({ full: t("hardcoded.w061"), quota_only: t("settings.monitorOnly"), remote: t("hardcoded.w062") } as Record<string, string>)[mode] ?? mode;
   const proxyRunning = appState.proxy.status === "running";
   const proxyHealthy = proxyRunning && Boolean(appState.proxy.health.ok);
 
@@ -758,7 +755,7 @@ function AboutScreen({
     <section className="dashboard-content dashboard-content--fixed about-redesign">
       <header className="page-topbar" data-tauri-drag-region>
         <h1 data-tauri-drag-region="false">{t("nav.about")}</h1>
-        <p className="about-subtitle" data-tauri-drag-region="false">{t("about.pageSubtitle", "Quotio 产品信息与运行环境")}</p>
+        <p className="about-subtitle" data-tauri-drag-region="false">{t("about.pageSubtitle")}</p>
       </header>
 
       <div className="about-scroll">
@@ -770,27 +767,27 @@ function AboutScreen({
           <div className="about-hero-main">
             <strong className="about-name">Quotio</strong>
             <div className="about-version">{version}</div>
-            <p className="about-tagline">{t("about.tagline", "多服务商 AI 代理与额度管理工具")}</p>
+            <p className="about-tagline">{t("about.tagline")}</p>
             {roseMode ? (
               <div className="about-actions">
                 <button type="button" onClick={() => void openAboutLink("https://github.com/xiaocoss/quotio-desktop")}>
-                  {t("about.link.home", "项目主页")}
+                  {t("about.link.home")}
                   <AboutIcon id="external" />
                 </button>
                 <button type="button" onClick={() => void openAboutLink("https://github.com/xiaocoss/quotio-desktop#readme")}>
                   <AboutIcon id="help" />
-                  {t("about.link.help", "使用帮助")}
+                  {t("about.link.help")}
                 </button>
                 <button type="button" onClick={() => void openAboutLink("https://github.com/xiaocoss/quotio-desktop/blob/main/LICENSE")}>
                   <AboutIcon id="code" />
-                  {t("about.link.license", "开源许可")}
+                  {t("about.link.license")}
                 </button>
               </div>
             ) : (
               <div className="about-pills">
-                <span className="about-pill about-pill--blue">{t("about.cap.proxy", "多服务商代理")}</span>
-                <span className="about-pill about-pill--green">{t("about.cap.quota", "额度监控")}</span>
-                <span className="about-pill about-pill--lav">{t("about.cap.local", "本地管理")}</span>
+                <span className="about-pill about-pill--blue">{t("about.cap.proxy")}</span>
+                <span className="about-pill about-pill--green">{t("about.cap.quota")}</span>
+                <span className="about-pill about-pill--lav">{t("about.cap.local")}</span>
               </div>
             )}
           </div>
@@ -802,16 +799,16 @@ function AboutScreen({
           <div className="about-orbit" aria-hidden="true" />
           <div className="about-orbit about-orbit--mirror" aria-hidden="true" />
           <aside className="about-status">
-            <div className="about-status-title">{t("about.versionStatus", "版本状态")}</div>
+            <div className="about-status-title">{t("about.versionStatus")}</div>
             <div className="about-status-ok">
               {checking ? null : <AboutIcon id="check-solid" />}
-              {checking ? t("update.checking", "检查中…") : t("about.upToDate", "当前已是最新版本")}
+              {checking ? t("update.checking") : t("about.upToDate")}
             </div>
             <button type="button" className="about-check-btn" onClick={onCheckUpdate} disabled={checking}>
-              {checking ? t("update.checking", "检查中…") : t("update.check", "检查更新")}
+              {checking ? t("update.checking") : t("update.check")}
             </button>
             <div className="about-status-note">
-              {t("about.currentVersion", "当前版本")} {version}
+              {t("about.currentVersion")} {version}
             </div>
           </aside>
         </article>
@@ -822,19 +819,19 @@ function AboutScreen({
               <span className="about-card-icon blue">
                 <AboutIcon id="monitor" />
               </span>
-              <h2>{t("about.runtime", "运行环境")}</h2>
+              <h2>{t("about.runtime")}</h2>
             </div>
             <dl className="about-rows">
               <div>
-                <dt>{t("about.platform", "平台")}</dt>
+                <dt>{t("about.platform")}</dt>
                 <dd>{appState.platform.os}</dd>
               </div>
               <div>
-                <dt>{t("about.arch", "架构")}</dt>
+                <dt>{t("about.arch")}</dt>
                 <dd>{appState.platform.arch}</dd>
               </div>
               <div>
-                <dt>{t("about.mode", "运行模式")}</dt>
+                <dt>{t("about.mode")}</dt>
                 <dd>
                   {modeLabel}
                   <span className="about-tag">{mode}</span>
@@ -848,22 +845,22 @@ function AboutScreen({
               <span className="about-card-icon green">
                 <AboutIcon id="server" />
               </span>
-              <h2>{t("about.localService", "本地服务")}</h2>
-              {proxyRunning ? <span className="about-badge">{t("about.running", "运行正常")}</span> : null}
+              <h2>{t("about.localService")}</h2>
+              {proxyRunning ? <span className="about-badge">{t("about.running")}</span> : null}
             </div>
             <dl className="about-rows">
               <div>
-                <dt>{t("about.endpoint", "端点")}</dt>
+                <dt>{t("about.endpoint")}</dt>
                 <dd className="link">{appState.proxy.endpoint}</dd>
               </div>
               <div>
-                <dt>{t("about.proxyService", "代理服务")}</dt>
+                <dt>{t("about.proxyService")}</dt>
                 <dd className={proxyHealthy ? "ok" : undefined}>
                   {proxyHealthy ? "healthy" : appState.proxy.status}
                 </dd>
               </div>
               <div>
-                <dt>{t("about.strategy", "策略")}</dt>
+                <dt>{t("about.strategy")}</dt>
                 <dd className="link">{strategyLabel}</dd>
               </div>
             </dl>
@@ -874,22 +871,22 @@ function AboutScreen({
               <span className="about-card-icon lav">
                 <AboutIcon id="folder" />
               </span>
-              <h2>{t("about.configData", "配置与数据")}</h2>
+              <h2>{t("about.configData")}</h2>
             </div>
-            <div className="about-config-label">{t("about.configDir", "配置目录")}</div>
+            <div className="about-config-label">{t("about.configDir")}</div>
             <div className="about-config-row">
               <code>{appState.config_root}</code>
               <button
                 type="button"
                 className="about-copy"
                 onClick={() => void copyConfigRoot()}
-                title={t("common.copy", "复制")}
-                aria-label={t("common.copy", "复制")}
+                title={t("common.copy")}
+                aria-label={t("common.copy")}
               >
                 <AboutIcon id={copied ? "check" : "copy"} />
               </button>
             </div>
-            <p className="about-config-note">{t("about.configLocal", "配置保存在本机")}</p>
+            <p className="about-config-note">{t("about.configLocal")}</p>
           </article>
         </section>
 
@@ -899,8 +896,8 @@ function AboutScreen({
               <AboutIcon id="users" />
             </span>
             <div>
-              <strong>{t("about.feat.providers.title", "统一管理服务商")}</strong>
-              <p>{t("about.feat.providers.desc", "集中管理多个 AI 服务商的代理配置。")}</p>
+              <strong>{t("about.feat.providers.title")}</strong>
+              <p>{t("about.feat.providers.desc")}</p>
             </div>
           </article>
           <article className="about-feature">
@@ -908,8 +905,8 @@ function AboutScreen({
               <AboutIcon id="chart" />
             </span>
             <div>
-              <strong>{t("about.feat.quota.title", "查看额度与使用")}</strong>
-              <p>{t("about.feat.quota.desc", "实时查看各服务商额度与使用情况。")}</p>
+              <strong>{t("about.feat.quota.title")}</strong>
+              <p>{t("about.feat.quota.desc")}</p>
             </div>
           </article>
           <article className="about-feature">
@@ -917,13 +914,13 @@ function AboutScreen({
               <AboutIcon id="send" />
             </span>
             <div>
-              <strong>{t("about.feat.forward.title", "本地代理转发")}</strong>
-              <p>{t("about.feat.forward.desc", "通过本地代理安全转发 API 请求。")}</p>
+              <strong>{t("about.feat.forward.title")}</strong>
+              <p>{t("about.feat.forward.desc")}</p>
             </div>
           </article>
         </section>
 
-        <p className="about-foot">Quotio · {t("about.tagline", "多服务商 AI 代理与额度管理工具")}。</p>
+        <p className="about-foot">Quotio · {t("about.tagline")}。</p>
       </div>
     </section>
   );

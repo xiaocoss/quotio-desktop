@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "../lib/tauri";
 import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
 import { emit, listen } from "@tauri-apps/api/event";
+import { useT } from "../i18n";
 import type {
   AccountQuota,
   AgentBackupFile,
@@ -39,6 +40,7 @@ function upsertQuota(quotas: AccountQuota[], account: AccountQuota): AccountQuot
 }
 
 export function useAppState() {
+  const t = useT();
   const [appState, setAppState] = useState<AppState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -256,7 +258,10 @@ export function useAppState() {
     if (low.length === 0) return;
     try {
       if (await isPermissionGranted()) {
-        sendNotification({ title: "Quotio", body: `额度不足 / Low quota: ${low.join("，")}` });
+        sendNotification({
+          title: "Quotio",
+          body: `${t("hardcoded.w197")}: ${low.join(", ")}`,
+        });
       }
     } catch {
       /* notifications are best-effort */
@@ -568,7 +573,7 @@ export function useAppState() {
         const permission = await requestPermission();
         allowed = permission === "granted";
       }
-      setError(allowed ? null : "系统通知未授权。");
+      setError(allowed ? null : t("hardcoded.w198"));
       return allowed;
     } catch (cause) {
       setError(errorMessage(cause));
@@ -583,7 +588,7 @@ export function useAppState() {
     try {
       const allowed = await requestNotificationPermission();
       if (!allowed) return;
-      sendNotification({ title: "Quotio", body: "桌面通知已可用。" });
+      sendNotification({ title: "Quotio", body: t("hardcoded.w199") });
       setError(null);
     } catch (cause) {
       setError(errorMessage(cause));

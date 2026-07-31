@@ -184,9 +184,9 @@ export function AgentsScreen({
   const isWindows = appState.platform.os === "windows";
   const bundledDreamSkinThemes = useMemo(
     () => [
-      { id: "dream", name: t("agents.launch.dreamSkinThemeDream", "梦境粉紫"), built_in: true },
-      { id: "aurora", name: t("agents.launch.dreamSkinThemeAurora", "极光青蓝"), built_in: true },
-      { id: "midnight", name: t("agents.launch.dreamSkinThemeMidnight", "午夜星河"), built_in: true },
+      { id: "dream", name: t("agents.launch.dreamSkinThemeDream"), built_in: true },
+      { id: "aurora", name: t("agents.launch.dreamSkinThemeAurora"), built_in: true },
+      { id: "midnight", name: t("agents.launch.dreamSkinThemeMidnight"), built_in: true },
     ],
     [t],
   );
@@ -259,7 +259,7 @@ export function AgentsScreen({
           setActiveProfileId(null);
           setLaunchMsg({
             ok: true,
-            text: t("agents.launch.autoRestored", "检测到 Codex 已退出，已自动还原配置"),
+            text: t("agents.launch.autoRestored"),
           });
         }),
       )
@@ -288,8 +288,8 @@ export function AgentsScreen({
     const bound = (appState.api_key_bindings ?? []).find((binding) => binding.api_key === key)?.provider_id ?? "";
     if (bound === "codex") return null;
     if (bound && !BUILTIN_PROVIDERS.has(bound)) return null;
-    const current = bound ? `其它服务商(${bound})` : "全部服务商";
-    return `这个方案的 API 密钥没绑定到 Codex(当前:${current})——Codex 请求可能被路由到别的服务商而报错。建议先去「API 密钥」页把它绑到「Codex (OpenAI)」。`;
+    const current = bound ? `${t("logs.allProviders")} (${bound})` : t("logs.allProviders");
+    return t("agents.boundKeyWarning").replace("{current}", current);
   };
   // 未知档位（Codex 以后新增的）直接显示原始 effort，总好过显示空白。
   const reasoningLabel = (effort: string) =>
@@ -408,7 +408,7 @@ export function AgentsScreen({
     if (!("__TAURI_INTERNALS__" in window)) {
       setLaunchMsg({
         ok: false,
-        text: t("agents.launch.dreamSkinDesktopOnly", "请在 Quotio 桌面版中导入主题图片"),
+        text: t("agents.launch.dreamSkinDesktopOnly"),
       });
       return;
     }
@@ -418,7 +418,7 @@ export function AgentsScreen({
         multiple: false,
         filters: [
           {
-            name: t("agents.launch.dreamSkinImageFilter", "主题图片"),
+            name: t("agents.launch.dreamSkinImageFilter"),
             extensions: ["png", "jpg", "jpeg", "webp"],
           },
         ],
@@ -439,15 +439,12 @@ export function AgentsScreen({
       await refreshDreamSkinThemes();
       setLaunchMsg({
         ok: true,
-        text: t(
-          "agents.launch.dreamSkinImportSuccess",
-          `已导入主题「${imported.name}」，保存方案后下次启动生效`,
-        ),
+        text: t("agents.themeImported").replace("{name}", imported.name),
       });
     } catch (err) {
       setLaunchMsg({
         ok: false,
-        text: `${t("agents.launch.dreamSkinImportFailed", "主题导入失败")}：${String(err)}`,
+        text: `${t("agents.launch.dreamSkinImportFailed")}：${String(err)}`,
       });
     } finally {
       setDreamSkinImportBusy(false);
@@ -458,11 +455,11 @@ export function AgentsScreen({
     if (!profileDraft) return;
     const name = profileDraft.name.trim();
     if (!name) {
-      setLaunchMsg({ ok: false, text: t("agents.launch.needName", "请填写方案名称") });
+      setLaunchMsg({ ok: false, text: t("agents.launch.needName") });
       return;
     }
     if (!profileDraft.bound_account.trim()) {
-      setLaunchMsg({ ok: false, text: t("agents.launch.needAccount", "请选择要绑定的 Codex 账号") });
+      setLaunchMsg({ ok: false, text: t("agents.launch.needAccount") });
       return;
     }
     const launchMode = profileDraft.launch_mode || "app";
@@ -489,7 +486,7 @@ export function AgentsScreen({
 
   function deleteProfile(profile: CodexLaunchProfile) {
     if (profile.id === activeProfileId) {
-      setLaunchMsg({ ok: false, text: t("agents.launch.stopBeforeDelete", "该方案正在运行，请先停止再删除") });
+      setLaunchMsg({ ok: false, text: t("agents.launch.stopBeforeDelete") });
       return;
     }
     if (profileDraft?.id === profile.id) setProfileDraft(null);
@@ -506,7 +503,7 @@ export function AgentsScreen({
     const warnings: string[] = [];
     if (activeProfileId && activeProfileId !== profile.id) {
       const current = codexProfiles.find((item) => item.id === activeProfileId);
-      warnings.push(`会先停掉当前运行的「${current?.name ?? "方案"}」再启动这套。`);
+      warnings.push(`会先停掉当前运行的「${current?.name ?? t("hardcoded.w068")}」再启动这套。`);
     }
     const keyIssue = codexKeyIssue(profile);
     if (keyIssue) warnings.push(keyIssue);
@@ -553,9 +550,9 @@ export function AgentsScreen({
       const path = await invoke<string | null>("detect_codex_app");
       if (path) {
         onSaveSettings({ ...appState.settings, codex_app_path: path, remote_management_key: null });
-        setLaunchMsg({ ok: true, text: `${t("agents.launch.detected", "已探测到 Codex 应用")}：${path}` });
+        setLaunchMsg({ ok: true, text: `${t("agents.launch.detected")}：${path}` });
       } else {
-        setLaunchMsg({ ok: false, text: t("agents.launch.notDetected", "未探测到 Codex 应用，请确认已安装桌面版") });
+        setLaunchMsg({ ok: false, text: t("agents.launch.notDetected") });
       }
     } catch (error) {
       setLaunchMsg({ ok: false, text: String(error) });
@@ -602,33 +599,33 @@ export function AgentsScreen({
       <section className="panel scheme-panel">
         <div className="scheme-head">
           <div>
-            <h2 className="panel-title">{t("agents.launch.currentScheme", "当前启动方案")}</h2>
+            <h2 className="panel-title">{t("agents.launch.currentScheme")}</h2>
             <div className="app-path">
-              {t("agents.launch.appPath", "应用路径")}：
+              {t("agents.launch.appPath")}：
               <code>
                 {appState.settings.codex_app_path ||
-                  t("agents.launch.appPathAuto", "未设置（启动时自动探测）")}
+                  t("agents.launch.appPathAuto")}
               </code>
               <button className="detect-link" type="button" onClick={() => void detectCodexApp()} disabled={launchBusy}>
-                {t("agents.launch.detect", "探测")}
+                {t("agents.launch.detect")}
               </button>
             </div>
-            <span className="scheme-note">{t("agents.launch.onlyOne", "同一时刻只能启动一套")}</span>
+            <span className="scheme-note">{t("agents.launch.onlyOne")}</span>
           </div>
           <div className="rose-scheme-toolbar" aria-hidden="true">
-            <span>{t("agents.launch.backupProfile", "备份方案")}</span>
-            <span>{t("agents.launch.restoreProfile", "恢复方案")}</span>
-            <span>{t("agents.launch.resetProfile", "重置方案")}</span>
+            <span>{t("agents.launch.backupProfile")}</span>
+            <span>{t("agents.launch.restoreProfile")}</span>
+            <span>{t("agents.launch.resetProfile")}</span>
           </div>
           <button className="btn primary" type="button" onClick={openNewProfile}>
             <Icon name="plus" />
-            {t("agents.launch.newProfile", "新建方案")}
+            {t("agents.launch.newProfile")}
           </button>
         </div>
 
         {codexProfiles.length === 0 && !profileDraft ? (
           <p className="scheme-empty">
-            {t("agents.launch.emptyProfiles", "还没有启动方案。点「新建方案」，选好账号 / 模型 / 思考程度，就能一键拉起 Codex。")}
+            {t("agents.launch.emptyProfiles")}
           </p>
         ) : null}
 
@@ -643,8 +640,8 @@ export function AgentsScreen({
                 /^https?:\/\//,
                 "",
               );
-              const flowModel = profile.model || t("agents.launch.defaultModel", "默认模型");
-              const flowKey = profile.api_key ? maskKey(profile.api_key) : t("agents.launch.autoKey", "自动");
+              const flowModel = profile.model || t("agents.launch.defaultModel");
+              const flowKey = profile.api_key ? maskKey(profile.api_key) : t("agents.launch.autoKey");
               return (
                 <div key={profile.id} className={`scheme-card${isRunning ? "" : " scheme-card--idle"}`}>
                   <div className="scheme-identity">
@@ -657,12 +654,12 @@ export function AgentsScreen({
                         {isRunning ? (
                           <span className="badge running">
                             <i className="tiny-dot" />
-                            {t("agents.launch.running", "运行中")}
+                            {t("agents.launch.running")}
                           </span>
                         ) : null}
                         {!isRunning && keyIssue ? (
                           <span className="badge warning" title={keyIssue}>
-                            {t("agents.launch.keyWarnBadge", "⚠ 密钥未绑 Codex")}
+                            {t("agents.launch.keyWarnBadge")}
                           </span>
                         ) : null}
                         {isWindows && profile.launch_mode !== "cli" && (profile.dream_skin_enabled ?? false) ? (
@@ -673,57 +670,57 @@ export function AgentsScreen({
                       </div>
                       <div className="scheme-sub">
                         {reasoningLabel(profile.reasoning)} ·{" "}
-                        {profile.launch_mode === "cli" ? t("agents.launch.modeCli", "终端") : t("agents.launch.modeApp", "应用")}
+                        {profile.launch_mode === "cli" ? t("agents.launch.modeCli") : t("agents.launch.modeApp")}
                       </div>
                     </div>
                   </div>
                   <div className="scheme-field">
-                    <div className="field-label"><Icon name="user" />{t("agents.launch.account", "账号")}</div>
+                    <div className="field-label"><Icon name="user" />{t("agents.launch.account")}</div>
                     <div className="field-value">{accountEmail(profile.bound_account)}</div>
                   </div>
                   <div className="scheme-field">
-                    <div className="field-label"><Icon name="cube" />{t("agents.codexModel", "模型")}</div>
-                    <div className="field-value">{profile.model || t("agents.launch.defaultModel", "默认模型")}</div>
+                    <div className="field-label"><Icon name="cube" />{t("agents.codexModel")}</div>
+                    <div className="field-value">{profile.model || t("agents.launch.defaultModel")}</div>
                   </div>
                   <div className="scheme-field">
-                    <div className="field-label"><Icon name="globe" />{t("agents.launch.localEndpoint", "本地端点")}</div>
-                    <div className="field-value">{profile.proxy_url || t("agents.launch.localProxy", "本机代理")}</div>
+                    <div className="field-label"><Icon name="globe" />{t("agents.launch.localEndpoint")}</div>
+                    <div className="field-value">{profile.proxy_url || t("agents.launch.localProxy")}</div>
                   </div>
                   <div className="scheme-field">
                     <div className="field-label"><Icon name="key" />{t("agents.apiKey")}</div>
-                    <div className="field-value">{profile.api_key ? maskKey(profile.api_key) : t("agents.launch.autoKey", "自动")}</div>
+                    <div className="field-value">{profile.api_key ? maskKey(profile.api_key) : t("agents.launch.autoKey")}</div>
                   </div>
                   <div className="rose-scheme-flow" aria-hidden="true">
                     <div className="rose-flow-node rose-flow-node--entry">
                       <span className="rose-flow-icon"><Icon name="play" /></span>
                       <span className="rose-flow-copy">
-                        <strong>{t("agents.launch.entry", "入口")}</strong>
-                        <small>{t("agents.launch.appRequest", "应用请求")}</small>
+                        <strong>{t("agents.launch.entry")}</strong>
+                        <small>{t("agents.launch.appRequest")}</small>
                       </span>
                     </div>
                     <span className="rose-flow-link" />
                     <div className="rose-flow-node">
                       <span className="rose-flow-icon"><Icon name="server" /></span>
                       <span className="rose-flow-copy">
-                        <strong>{t("agents.launch.localProxy", "本地代理")}</strong>
+                        <strong>{t("agents.launch.localProxy")}</strong>
                         <small>{flowEndpoint}</small>
                       </span>
-                      {isRunning ? <em className="rose-flow-chip">{t("agents.connected", "已连接")}</em> : null}
+                      {isRunning ? <em className="rose-flow-chip">{t("agents.connected")}</em> : null}
                     </div>
                     <span className="rose-flow-link" />
                     <div className="rose-flow-node">
                       <span className="rose-flow-icon"><Icon name="route" /></span>
                       <span className="rose-flow-copy">
-                        <strong>{t("agents.launch.routeStrategy", "路由策略")}</strong>
+                        <strong>{t("agents.launch.routeStrategy")}</strong>
                         <small>{profile.name}</small>
                       </span>
-                      {isRunning ? <em className="rose-flow-status">{t("agents.launch.running", "运行中")}</em> : null}
+                      {isRunning ? <em className="rose-flow-status">{t("agents.launch.running")}</em> : null}
                     </div>
                     <span className="rose-flow-link" />
                     <div className="rose-flow-node">
                       <span className="rose-flow-icon"><Icon name="layers" /></span>
                       <span className="rose-flow-copy">
-                        <strong>{t("agents.launch.modelProvider", "模型提供方")}</strong>
+                        <strong>{t("agents.launch.modelProvider")}</strong>
                         <small>{flowModel}</small>
                       </span>
                     </div>
@@ -739,7 +736,7 @@ export function AgentsScreen({
                     <div className="rose-flow-node">
                       <span className="rose-flow-icon"><Icon name="cube" /></span>
                       <span className="rose-flow-copy">
-                        <strong>{t("agents.launch.targetModel", "目标模型")}</strong>
+                        <strong>{t("agents.launch.targetModel")}</strong>
                         <small>{flowModel}</small>
                       </span>
                     </div>
@@ -753,7 +750,7 @@ export function AgentsScreen({
                         disabled={launchBusy}
                       >
                         <Icon name="stop" />
-                        {launchBusy ? t("agents.launch.working", "处理中…") : t("agents.launch.stop", "停止")}
+                        {launchBusy ? t("agents.launch.working") : t("agents.launch.stop")}
                       </button>
                     ) : (
                       <button
@@ -763,7 +760,7 @@ export function AgentsScreen({
                         disabled={isStarting || launchBusy}
                       >
                         <Icon name="play" />
-                        {isStarting ? t("agents.launch.launching", "启动中…") : t("agents.launch.start", "启动")}
+                        {isStarting ? t("agents.launch.launching") : t("agents.launch.start")}
                       </button>
                     )}
                     <button
@@ -773,7 +770,7 @@ export function AgentsScreen({
                       disabled={isRunning}
                     >
                       <Icon name="edit" />
-                      {t("common.edit", "编辑")}
+                      {t("common.edit")}
                     </button>
                     <button
                       className="btn ghost-danger small"
@@ -782,7 +779,7 @@ export function AgentsScreen({
                       disabled={isRunning}
                     >
                       <Icon name="trash" />
-                      {t("common.delete", "删除")}
+                      {t("common.delete")}
                     </button>
                   </div>
                   {pending ? (
@@ -794,10 +791,10 @@ export function AgentsScreen({
                       </div>
                       <div className="scheme-confirm-actions">
                         <button className="btn primary small" type="button" onClick={() => void doStartProfile(profile)}>
-                          {t("agents.launch.startAnyway", "确认启动")}
+                          {t("agents.launch.startAnyway")}
                         </button>
                         <button className="btn small" type="button" onClick={() => setPendingStart(null)}>
-                          {t("common.cancel", "取消")}
+                          {t("common.cancel")}
                         </button>
                       </div>
                     </div>
@@ -812,20 +809,20 @@ export function AgentsScreen({
           <div ref={profileFormRef} className="scheme-form">
             <div className="settings-form-grid">
               <label>
-                {t("agents.launch.profileName", "方案名称")}
+                {t("agents.launch.profileName")}
                 <input
                   value={profileDraft.name}
-                  placeholder={t("agents.launch.profileNamePlaceholder", "如：日常-5.5极高")}
+                  placeholder={t("agents.launch.profileNamePlaceholder")}
                   onChange={(event) => setProfileDraft((draft) => (draft ? { ...draft, name: event.target.value } : draft))}
                 />
               </label>
               <label>
-                {t("agents.launch.mode", "启动方式")}
+                {t("agents.launch.mode")}
                 <Select
                   value={profileDraft.launch_mode}
                   options={[
-                    { value: "app", label: t("agents.launch.modeApp", "应用") },
-                    { value: "cli", label: t("agents.launch.modeCli", "终端") },
+                    { value: "app", label: t("agents.launch.modeApp") },
+                    { value: "cli", label: t("agents.launch.modeCli") },
                   ]}
                   onChange={(value) => setProfileDraft((draft) => (draft ? { ...draft, launch_mode: value } : draft))}
                 />
@@ -837,7 +834,7 @@ export function AgentsScreen({
                     <small>
                       {t(
                         "agents.launch.dreamSkinDesc",
-                        "当前 Windows 版要求商店版 Codex 与 Node.js 22+；macOS 使用原项目的独立运行时。启用期间会开放本机回环调试端口。",
+                        t("hardcoded.w069"),
                       )}
                     </small>
                   </div>
@@ -854,7 +851,7 @@ export function AgentsScreen({
               ) : null}
               {isWindows && profileDraft.launch_mode === "app" && profileDraft.dream_skin_enabled ? (
                 <label className="dream-skin-theme-field">
-                  {t("agents.launch.dreamSkinTheme", "皮肤主题")}
+                  {t("agents.launch.dreamSkinTheme")}
                   <div className="dream-skin-theme-controls">
                     <Select
                       value={profileDraft.dream_skin_theme_id}
@@ -870,27 +867,27 @@ export function AgentsScreen({
                       onClick={() => void importDreamSkinImage()}
                     >
                       {dreamSkinImportBusy
-                        ? t("agents.launch.dreamSkinImporting", "导入中…")
-                        : t("agents.launch.dreamSkinImport", "导入图片")}
+                        ? t("agents.launch.dreamSkinImporting")
+                        : t("agents.launch.dreamSkinImport")}
                     </button>
                   </div>
                   <span className="codex-reasoning-status">
                     {t(
                       "agents.launch.dreamSkinThemeHint",
-                      "可导入 PNG、JPEG、WebP（最大 16 MB）；文件名会作为主题名。停止当前方案后切换，下次启动生效。",
+                      t("hardcoded.w070"),
                     )}
                   </span>
                 </label>
               ) : null}
               <label>
-                {t("agents.launch.account", "绑定账号")}
+                {t("agents.launch.account")}
                 <Select
                   value={profileDraft.bound_account}
                   options={[
-                    { value: "", label: t("agents.launch.accountPick", "选择一个 Codex 账号") },
+                    { value: "", label: t("agents.launch.accountPick") },
                     ...codexAccounts.map((account) => ({
                       value: account.key,
-                      label: account.disabled ? `${account.email}（已禁用）` : account.email,
+                      label: account.disabled ? `${account.email} (${t("agents.disabledSuffix")})` : account.email,
                     })),
                   ]}
                   onChange={(value) => setProfileDraft((draft) => (draft ? { ...draft, bound_account: value } : draft))}
@@ -901,7 +898,7 @@ export function AgentsScreen({
                 <input
                   type="password"
                   value={profileDraft.api_key}
-                  placeholder={t("agents.launch.apiKeyPlaceholder", "留空 = 自动取代理第一个 key")}
+                  placeholder={t("agents.launch.apiKeyPlaceholder")}
                   onChange={(event) => setProfileDraft((draft) => (draft ? { ...draft, api_key: event.target.value } : draft))}
                 />
               </label>
@@ -914,7 +911,7 @@ export function AgentsScreen({
                 />
               </label>
               <label>
-                {t("agents.codexModel", "模型")}
+                {t("agents.codexModel")}
                 <Select
                   value={profileDraft.model}
                   options={[
@@ -931,7 +928,7 @@ export function AgentsScreen({
                 />
               </label>
               <label>
-                {t("agents.codexReasoning", "思考程度")}
+                {t("agents.codexReasoning")}
                 <Select
                   value={profileDraft.reasoning}
                   options={reasoningOptions}
@@ -939,24 +936,24 @@ export function AgentsScreen({
                 />
                 {modelLevelsLoading ? (
                   <span className="codex-reasoning-status" role="status" aria-live="polite">
-                    {t("agents.reasoningLoading", "正在后台读取 Codex 模型目录…")}
+                    {t("agents.reasoningLoading")}
                   </span>
                 ) : modelLevelsError ? (
                   <span className="codex-reasoning-status err" role="alert" aria-live="polite">
-                    {t("agents.reasoningLoadFailed", "读取 Codex 推理档位失败")}
+                    {t("agents.reasoningLoadFailed")}
                   </span>
                 ) : null}
               </label>
             </div>
             <p className="codex-launch-hint">
-              {t("agents.launch.accountHint", "绑定账号仅用于让应用登录启动；实际调用走代理，该账号本身不耗额度。")}
+              {t("agents.launch.accountHint")}
             </p>
             <div className="inline-actions">
               <button className="primary-action" type="button" onClick={submitProfileDraft}>
-                {t("agents.launch.saveProfile", "保存方案")}
+                {t("agents.launch.saveProfile")}
               </button>
               <button className="secondary-action" type="button" onClick={() => setProfileDraft(null)}>
-                {t("common.cancel", "取消")}
+                {t("common.cancel")}
               </button>
             </div>
           </div>
@@ -1044,7 +1041,7 @@ export function AgentsScreen({
         {status.agent.id === "codex" ? (
           <div className="settings-form-grid">
             <label>
-              {t("agents.codexModel", "模型")}
+              {t("agents.codexModel")}
               <Select
                 value={slotDrafts.sonnet ?? appState.settings.codex_model ?? ""}
                 options={[
@@ -1131,21 +1128,21 @@ export function AgentsScreen({
           type="button"
           onClick={onRefreshAgents}
           disabled={isBusy}
-          title={t("agents.refresh", "重新检测")}
-          aria-label={t("agents.refresh", "重新检测")}
+          title={t("agents.refresh")}
+          aria-label={t("agents.refresh")}
         >
           <Icon name="refresh" />
-          {t("agents.refreshStatus", "刷新状态")}
+          {t("agents.refreshStatus")}
         </button>
       </header>
 
-      <p className="page-subtitle">{t("agents.pageSubtitle", "管理 CLI 智能体与本地代理启动方案")}</p>
+      <p className="page-subtitle">{t("agents.pageSubtitle")}</p>
 
-      <section className="metrics" aria-label={t("agents.overview", "智能体概览")}>
+      <section className="metrics" aria-label={t("agents.overview")}>
         <article className="metric">
           <div className="metric-icon"><Icon name="layers" /></div>
           <div>
-            <div className="metric-label">{t("agents.metricDetected", "已检测")}</div>
+            <div className="metric-label">{t("agents.metricDetected")}</div>
             <div className="metric-value">{detectedCount}</div>
           </div>
         </article>
@@ -1166,7 +1163,7 @@ export function AgentsScreen({
         <article className="metric running">
           <div className="metric-icon"><Icon name="play" /></div>
           <div>
-            <div className="metric-label">{t("agents.launch.running", "运行中")}</div>
+            <div className="metric-label">{t("agents.launch.running")}</div>
             <div className="metric-value">{runningCount}</div>
           </div>
         </article>
@@ -1175,14 +1172,14 @@ export function AgentsScreen({
       <section className="top-grid">
         <article className="panel">
           <div className="panel-head">
-            <h2 className="panel-title">{t("agents.connectedTitle", "已接入智能体")}</h2>
+            <h2 className="panel-title">{t("agents.connectedTitle")}</h2>
             <span className="panel-note">
-              {installedAgents.length} {t("agents.installedToolsUnit", "个已安装工具")}
+              {installedAgents.length} {t("agents.installedToolsUnit")}
             </span>
           </div>
           <div className="agent-list">
             {installedAgents.length === 0 ? (
-              <p className="agent-empty">{t("agents.noneInstalled", "尚未检测到已安装的 CLI 智能体。")}</p>
+              <p className="agent-empty">{t("agents.noneInstalled")}</p>
             ) : (
               installedAgents.map((status) => (
                 <AgentCard
@@ -1204,7 +1201,7 @@ export function AgentsScreen({
           </div>
           {installedAgents.length > 0 ? (
             <div className="panel-footer-link">
-              <span>{t("agents.viewAllConnected", "查看全部已接入")}</span>
+              <span>{t("agents.viewAllConnected")}</span>
               <span aria-hidden="true">›</span>
             </div>
           ) : null}
@@ -1212,31 +1209,31 @@ export function AgentsScreen({
 
         <article className="panel runtime-panel">
           <div className="panel-head">
-            <h2 className="panel-title">{t("agents.runtimeTitle", "运行概览")}</h2>
+            <h2 className="panel-title">{t("agents.runtimeTitle")}</h2>
             <span className="badge running">
               <i className="tiny-dot" />
-              {t("agents.live", "实时")}
+              {t("agents.live")}
             </span>
           </div>
           <div className="runtime-list">
             <div className="runtime-row">
               <Icon name="server" />
-              <span className="runtime-label">{t("agents.runtime.proxy", "本地代理")}</span>
+              <span className="runtime-label">{t("agents.runtime.proxy")}</span>
               <span className={`runtime-value${proxyRunning ? " healthy" : ""}`}>
                 <i className="tiny-dot" />
                 {proxyRunning
                   ? (
                       <span className="runtime-value-copy">
-                        <strong>{t("agents.runtime.proxyOk", "运行正常")}</strong>
+                        <strong>{t("agents.runtime.proxyOk")}</strong>
                         {endpointHost ? <small>{endpointHost}</small> : null}
                       </span>
                     )
-                  : t("agents.runtime.proxyDown", "未运行")}
+                  : t("agents.runtime.proxyDown")}
               </span>
             </div>
             <div className="runtime-row">
               <Icon name="cube" />
-              <span className="runtime-label">{t("agents.runtime.currentAgent", "当前智能体")}</span>
+              <span className="runtime-label">{t("agents.runtime.currentAgent")}</span>
               <span className="runtime-value">
                 <i className="tiny-dot" />
                 {activeProfileId ? "Codex" : t("agents.runtime.none", "—")}
@@ -1244,7 +1241,7 @@ export function AgentsScreen({
             </div>
             <div className="runtime-row">
               <Icon name="play" />
-              <span className="runtime-label">{t("agents.runtime.currentScheme", "当前方案")}</span>
+              <span className="runtime-label">{t("agents.runtime.currentScheme")}</span>
               <span className="runtime-value">
                 <i className="tiny-dot" />
                 {activeProfile?.name ?? t("agents.runtime.none", "—")}
@@ -1252,16 +1249,16 @@ export function AgentsScreen({
             </div>
             <div className="runtime-row">
               <Icon name="route" />
-              <span className="runtime-label">{t("agents.runtime.route", "路由状态")}</span>
+              <span className="runtime-label">{t("agents.runtime.route")}</span>
               <span className={`runtime-value${proxyRunning ? " healthy" : ""}`}>
-                {proxyRunning ? t("agents.runtime.ready", "就绪") : t("agents.runtime.notReady", "未就绪")}
+                {proxyRunning ? t("agents.runtime.ready") : t("agents.runtime.notReady")}
               </span>
             </div>
           </div>
           <img
             className="route-asset"
             src="/agents/route-flow.svg"
-            alt={t("agents.runtime.routeAlt", "Codex 到启动方案与本地代理的路由关系")}
+            alt={t("agents.runtime.routeAlt")}
           />
         </article>
       </section>
@@ -1285,8 +1282,8 @@ export function AgentsScreen({
       {notInstalledAgents.length > 0 ? (
         <section className="panel discovery-panel">
           <div className="panel-head">
-            <h2 className="panel-title">{t("agents.discoverTitle", "发现更多智能体")}</h2>
-            <span className="panel-note">{t("agents.discoverNote", "自动扫描 PATH 与常见安装路径")}</span>
+            <h2 className="panel-title">{t("agents.discoverTitle")}</h2>
+            <span className="panel-note">{t("agents.discoverNote")}</span>
           </div>
           <div className="discovery-grid">
             {notInstalledAgents.map((status) => {
@@ -1303,10 +1300,10 @@ export function AgentsScreen({
                   </span>
                   <div className="discovery-info">
                     <strong>{status.agent.display_name}</strong>
-                    <span>{t("agents.discoverDesc", "自动检测系统中的安装")}</span>
+                    <span>{t("agents.discoverDesc")}</span>
                   </div>
                   <button className="detect-btn" type="button" onClick={onRefreshAgents} disabled={isBusy}>
-                    {t("agents.autoDetect", "自动检测")}
+                    {t("agents.autoDetect")}
                   </button>
                 </article>
               );
@@ -1315,9 +1312,9 @@ export function AgentsScreen({
           <div className="discovery-footer">
             <span>
               <Icon name="info" />
-              {t("agents.discoverFooter", "自动检测基于环境变量 PATH 与常见安装路径进行扫描，未找到时可按工具文档完成安装。")}
+              {t("agents.discoverFooter")}
             </span>
-            <span className="install-link">{t("agents.installGuide", "查看安装指南")}　›</span>
+            <span className="install-link">{t("agents.installGuide")}　›</span>
           </div>
         </section>
       ) : null}
@@ -1364,7 +1361,7 @@ function AgentCard({
           ) : (
             <>
               <span className="badge warning">{t("agents.installed")}</span>
-              <span className="badge warning">{t("agents.needConfig", "需要配置")}</span>
+              <span className="badge warning">{t("agents.needConfig")}</span>
             </>
           )}
         </div>
@@ -1373,7 +1370,7 @@ function AgentCard({
       <div className="agent-row-actions">
         {onRepairVisibility ? (
           <button className="btn small" type="button" onClick={onRepairVisibility} disabled={repairBusy}>
-            {repairBusy ? t("agents.launch.repairingVisibility", "修复中…") : t("agents.launch.repairVisibility", "修复可见性")}
+            {repairBusy ? t("agents.launch.repairingVisibility") : t("agents.launch.repairVisibility")}
           </button>
         ) : null}
         {onConfigure ? (
@@ -1399,7 +1396,7 @@ function SavedConfigurationCard({ configuration }: { configuration: SavedAgentCo
       <dl className="detail-list compact-details">
         <div>
           <dt>{t("agents.baseUrl")}</dt>
-          <dd>{configuration.base_url ?? "未配置"}</dd>
+          <dd>{configuration.base_url ?? t("hardcoded.w071")}</dd>
         </div>
         <div>
           <dt>{t("agents.backups")}</dt>
@@ -1433,11 +1430,11 @@ function AgentResultCard({ result }: { result: AgentConfigurationResult }) {
         </div>
         <div>
           <dt>{t("agents.authPath")}</dt>
-          <dd>{result.auth_path ?? "无"}</dd>
+          <dd>{result.auth_path ?? t("hardcoded.w072")}</dd>
         </div>
         <div>
           <dt>{t("agents.backup")}</dt>
-          <dd>{result.backup_path ?? "未创建"}</dd>
+          <dd>{result.backup_path ?? t("hardcoded.w073")}</dd>
         </div>
       </dl>
       {result.error ? <p className="empty-copy">{result.error}</p> : null}
@@ -1469,14 +1466,14 @@ function BackupList({
       <div className="panel-header">
         <div>
           <p className="eyebrow">{t("agents.backups")}</p>
-          <h3>配置备份</h3>
+          <h3>{t("hardcoded.w074")}</h3>
         </div>
         <button className="ghost-action" type="button" onClick={onRefresh} disabled={isBusy}>
-          刷新
+          {t("common.refresh")}
         </button>
       </div>
       {backups.length === 0 ? (
-        <p className="empty-copy">暂无备份。automatic 写入或恢复前会自动创建备份。</p>
+        <p className="empty-copy">{t("hardcoded.w075")}</p>
       ) : (
         <div className="record-list compact-records">
           {backups.map((backup) => (
@@ -1487,7 +1484,7 @@ function BackupList({
               </div>
               <p>{backup.path}</p>
               <button className="secondary-action" type="button" onClick={() => onRestore(backup.path)} disabled={isBusy}>
-                恢复
+                {t("common.restore")}
               </button>
             </div>
           ))}
