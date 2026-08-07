@@ -614,16 +614,56 @@ fn run_script(
         ));
     }
     if output.status_code != Some(0) {
-        return Err(format!(
-            "{action}失败{}",
-            if details.is_empty() {
-                String::new()
-            } else {
-                format!("：{details}")
-            }
-        ));
+        // 脚本失败时 PowerShell 会把 node 的 stderr 包成 NativeCommandError,原始输出里
+        // 只剩 `node.exe : file:///…/injector.mjs:387` 这种文件行号 + 一大段调用栈,用户
+        // 完全看不出发生了什么。这里先把已知失败特征翻译成人话,再附上原始输出备查。
+        let hint = explain_failure(&details)
+            .map(|hint| format!("{hint}\n\n原始输出：{details}"))
+            .unwrap_or_else(|| {
+                if details.is_empty() {
+                    String::new()
+                } else {
+                    format!("：{details}")
+                }
+            });
+        return Err(format!("{action}失败{hint}"));
     }
     Ok(details)
+}
+
+/// 把 Dream Skin 脚本 / 注入器的已知失败特征翻译成可操作的中文说明。
+/// 返回 None 表示不认识,调用方原样展示脚本输出。
+#[cfg(target_os = "windows")]
+fn explain_failure(details: &str) -> Option<&'static str> {
+    // injector.mjs 的 connectCodexTargets:CDP 连上了,但没有任何渲染进程能匹配它写死的
+    // Codex 界面选择器。绝大多数情况是 Codex 商店版自动更新后前端结构变了。
+    if details.contains("No verified Codex renderer")
+        || details.contains("No page matched the expected Codex shell markers")
+    {
+        return Some(
+            "：Dream Skin 认不出当前 Codex 的界面结构，通常是 Codex 自动更新后前端改版导致的（与所选皮肤主题无关，换任何主题都会失败）。\
+             在皮肤适配更新前，请先关掉该启动方案里的 Dream Skin 开关，方案本身可以正常启动。",
+        );
+    }
+    // 注入成功、但几何校验没过。Codex 26.730 改版后皮肤的布局锚点(整套 CSS 用写死的
+    // `.dream-home > div:first-child > …` 位置链)落到了不同的节点上,需要重新适配;
+    // 让用户知道这是皮肤没跟上版本,而不是他自己配错了什么。
+    if details.contains("Dream Skin verification failed") {
+        return Some(
+            "：皮肤已注入，但界面布局校验没通过 —— 当前 Codex 版本的界面结构与皮肤的布局规则不匹配（Codex 更新后改版所致，与所选主题无关）。\
+             皮肤适配更新前，请先关掉该启动方案里的 Dream Skin 开关，方案本身可以正常启动。",
+        );
+    }
+    if details.contains("Node.js") && details.contains("is required") {
+        return Some("：需要 Node.js 22 或更新版本；请安装后重试（安装完可能要重启 Quotio 才能读到新的 PATH）。");
+    }
+    if details.contains("did not expose a verified loopback CDP endpoint") {
+        return Some("：Codex 没能在本机调试端口上启动。请先手动关闭所有 Codex 窗口再重试。");
+    }
+    if details.contains("no longer matches a registered OpenAI.Codex package") {
+        return Some("：Codex 已更新到新版本，但旧版本仍在运行。请手动关闭 Codex 后重试。");
+    }
+    None
 }
 
 #[cfg(target_os = "windows")]
@@ -733,6 +773,38 @@ mod tests {
         ] {
             assert!(ids.contains(theme_id), "missing bundled theme {theme_id}");
         }
+    }
+
+    #[test]
+    fn explains_known_dream_skin_failures() {
+        // Codex 26.730.8199.0(2026-08-05 自动更新)把前端类名整套换成了 Tailwind token,
+        // injector.mjs 写死的 main.main-surface / aside.app-shell-left-panel /
+        // .composer-surface-chrome 全部匹配不上,于是在 --verify 阶段抛这个错。
+        // 这是用户实际遇到的原始输出形态:只有文件行号,看不出任何原因。
+        let real_world = "node.exe : file:///C:/Users/x/AppData/Local/Quotio/resources/dream-skin/\
+             windows/scripts/injector.mjs:387\nError: No verified Codex renderer on 127.0.0.1:9335: \
+             No page matched the expected Codex shell markers";
+        let hint = explain_failure(real_world).expect("界面结构不匹配要给出说明");
+        assert!(hint.contains("Codex 自动更新"), "要点明是 Codex 改版,不是用户配错");
+        assert!(hint.contains("与所选皮肤主题无关"), "要说明换主题也没用");
+
+        // 锚点修好之后会走到的下一个失败点:注入成功但几何校验没过。
+        let verify_failed = "Dream Skin verification failed. See C:\\Users\\x\\AppData\\Local\\CodexDreamSkin\\verify.log";
+        let hint = explain_failure(verify_failed).expect("校验失败要给出说明");
+        assert!(hint.contains("皮肤已注入"), "要说清楚注入是成功的,卡在布局校验");
+        assert!(hint.contains("与所选主题无关"));
+
+        assert!(explain_failure("Node.js 22 or newer is required and was not found in PATH")
+            .expect("缺 Node 要给出说明")
+            .contains("Node.js 22"));
+        assert!(explain_failure(
+            "Codex did not expose a verified loopback CDP endpoint on port 9335 within 45 seconds."
+        )
+        .is_some());
+
+        // 不认识的输出保持原样,不要瞎猜。
+        assert!(explain_failure("some unrelated powershell noise").is_none());
+        assert!(explain_failure("").is_none());
     }
 
     #[test]

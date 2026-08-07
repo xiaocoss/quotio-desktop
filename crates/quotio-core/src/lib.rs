@@ -1242,6 +1242,34 @@ impl AppCore {
         with_agent_config_io_lock(|| self.codex_start_unlocked(profile_id))
     }
 
+    /// 解析 Codex 桌面应用路径:优先用设置里手填 / 上次探测到的那条,失效了再重新探测。
+    ///
+    /// 关键是**探测结果要写回设置**。商店版 Codex 会自动更新,版本号在安装目录里
+    /// (`...\WindowsApps\OpenAI.Codex_<版本>_x64__<hash>\app\Codex.exe`),更新后旧目录直接被
+    /// 删掉,设置里存的那条就永久失效了。之前这里只是静默回退到探测结果、不回写,于是「智能体」
+    /// 页一直显示那条已经不存在的旧路径,用户点「探测」也看不出任何变化,只能以为是自己配错了。
+    fn resolve_codex_app_path(&mut self) -> Result<PathBuf, ManagementCoreError> {
+        let configured = self.settings.codex_app_path.trim().to_string();
+        if !configured.is_empty() && Path::new(&configured).exists() {
+            return Ok(PathBuf::from(configured));
+        }
+        let detected = codex_launch::detect_codex_app_path().ok_or_else(|| {
+            ManagementCoreError::Unavailable(
+                "未找到 Codex 应用，请在 Codex 卡片里手填应用路径".to_string(),
+            )
+        })?;
+        let detected_text = detected.to_string_lossy().to_string();
+        if detected_text != configured {
+            self.settings.codex_app_path = detected_text;
+            // best-effort:写盘失败不该拦下启动,顶多是下次再探一遍。
+            match write_settings(&self.settings) {
+                Ok(written) => self.settings = written,
+                Err(error) => eprintln!("[codex_start] 回写探测到的 Codex 路径失败: {error}"),
+            }
+        }
+        Ok(detected)
+    }
+
     fn codex_start_unlocked(&mut self, profile_id: &str) -> Result<String, ManagementCoreError> {
         let profile_id = profile_id.trim();
 
@@ -1385,15 +1413,7 @@ impl AppCore {
             let pid = if mode == "cli" {
                 codex_launch::launch_codex_cli().map_err(ManagementCoreError::Unavailable)?
             } else {
-                let exe = (!self.settings.codex_app_path.trim().is_empty())
-                    .then(|| PathBuf::from(self.settings.codex_app_path.trim()))
-                    .filter(|path| path.exists())
-                    .or_else(codex_launch::detect_codex_app_path)
-                    .ok_or_else(|| {
-                        ManagementCoreError::Unavailable(
-                            "未找到 Codex 应用，请在 Codex 卡片里手填应用路径".to_string(),
-                        )
-                    })?;
+                let exe = self.resolve_codex_app_path()?;
                 if use_dream_skin {
                     dream_skin::validate_codex_target(&exe)
                         .map_err(ManagementCoreError::Unavailable)?;
