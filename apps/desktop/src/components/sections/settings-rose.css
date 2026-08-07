@@ -521,6 +521,15 @@
   gap: 14px;
 }
 
+/* 网格项的 `min-width: auto` = min-content。浅色主题靠 .sr-compact-rows 自带的
+   `overflow: hidden` 把这个自动最小值压成 0;而 rose 把首列改成了可滚动的 flex 列、
+   窄屏又把 overflow 放回 visible,自动最小值就变回 min-content(每行说明是 nowrap,
+   实测 880px)。于是 1fr 轨道被撑到 880px、整块高级设置溢出内容区,右列的开关和输入
+   框被推到窗口外点不到。显式清零,让轨道老老实实跟随容器宽度。 */
+:root[data-theme="rose"] .settings-redesign .sr-advanced-columns > * {
+  min-width: 0;
+}
+
 :root[data-theme="rose"] .settings-redesign .sr-advanced-columns > .sr-compact-rows:first-child {
   display: flex;
   flex-direction: column;

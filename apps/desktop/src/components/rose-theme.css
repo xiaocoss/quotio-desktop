@@ -277,16 +277,19 @@
   background: #f8dce4;
 }
 
+/* 卡片高度与卡片↔状态行的间距都跟原版一致(60px / 8px):粉色设计稿的侧栏底卡与原版
+   同高,之前的 68px / 12px 把这一块整体撑高了 12px。底部 39px 外边距保留 —— 设计稿里
+   状态行本就悬在窗口底边上方约 55px,下面那段留白是给花簇装饰的,不是多余空隙。 */
 :root[data-theme="rose"] .app-shell--v2 .sidebar-footer {
   position: relative;
   z-index: 1;
   width: 185px;
   margin: auto 0 39px 1px;
-  gap: 12px;
+  gap: 8px;
 }
 :root[data-theme="rose"] .app-shell--v2 .proxy-card,
 :root[data-theme="rose"] .app-shell--v2 .sidebar .proxy-card {
-  min-height: 68px;
+  min-height: 60px;
   gap: 6px;
   padding: 11px 12px;
   border-color: var(--rose-border);
@@ -439,7 +442,17 @@
   background: var(--rose-primary-soft);
 }
 
-:root[data-theme="rose"] .modal-overlay {
+/* 全屏遮罩的定位不可被任何页面级规则改写。各页为了让花卉/云纹装饰垫在内容下面,都会给
+   `.section-page > *` 批量加 `position: relative; z-index: 1`(优先级 0-4-0);弹窗恰好是
+   页面的直接子元素,一旦被扫到就会退回文档流 —— 遮罩缩成一条窄带、弹窗不再居中,还会把下方
+   内容整块推开。
+   这里**只**提升遮罩自身的优先级来兜底(重复类名凑到 0-5-0),不去改那些 `> *` 规则:给它们
+   加 `:not(...)` 同样会把优先级抬到 0-5-0,反而会压掉页面里靠同级选择器定位的元素(实测会让
+   额度页 .quota-tabs 的 position:absolute 失效、标签行右移 35px 溢出内容区)。 */
+:root[data-theme="rose"] .modal-overlay.modal-overlay.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
   background: rgba(70, 35, 43, 0.34);
 }
 
