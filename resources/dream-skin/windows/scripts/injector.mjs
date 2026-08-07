@@ -574,7 +574,10 @@ async function verifySession(session) {
     );
     const composerContentGeometry = theme !== 'pink-custom' || !home || (
       Boolean(composer && composerEditor && composerFooterBox) &&
-      near(composerFooterBox.height, 122 * layoutScale, 6) &&
+      // 内容块要撑满外框(只减掉边框),否则说明塌了或者多夹了一层。
+      // 这里不能断言「高 = 常数 * layoutScale」: 输入框高度 = Codex 工具栏的固有高度
+      // (不随缩放变化) + 设计稿留白 * 缩放,把它当成纯缩放量在别的窗口尺寸下必然对不上。
+      composerFooterBox.height >= composer.height - 6 &&
       near(composerToolbarBottomGap, 18 * layoutScale, 5)
     );
     const composerPointerReady = theme !== 'pink-custom' || !home ||

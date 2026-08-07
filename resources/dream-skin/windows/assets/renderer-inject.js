@@ -81,12 +81,11 @@
     cardHeartWidth: 18,
     cardHeartHeight: 16,
     composerWidth: 883,
-    // 设计稿里工具栏下方留白 18 单位(verify 的 composerToolbarBottomGap 按这个校验)。
-    // 141 是旧版 Codex 的值 —— 那时 composer 内部还有一层额外 chrome,要多留 32 单位;
-    // 26.730 精简了内部结构,再留 141 会在工具栏下方空出约 23px 死区。
-    // 注意:工具栏自身高度由 Codex 决定、不随 layoutScale 缩放,所以本项必须跟着
-    // layoutScale 重新标定 —— 112 是 scale=0.926 时代的值,布局基准修正后 scale 降到
-    // 0.873,再用 112 会把留白压到 9px。
+    // 人物头部越过 hero 卡片上沿的高度。设计稿实测: 毛帽顶 y≈60、卡片上沿 124 => 64。
+    heroPeekRise: 89,
+    // 设计稿里工具栏下方留白 18 单位 —— 这才是真正的设计量,输入框总高是推导出来的。
+    composerBottomGap: 18,
+    // 仅在拿不到工具栏位置时兜底(正常路径按内容实高动态算,见上面的注释)。
     composerMinHeight: 124,
     projectHeight: 54,
     projectPaddingTop: 24,
@@ -510,13 +509,16 @@
         heroArt.append(heroArtImg);
       }
       hero.append(heroArt);
-      let heroPeek = hero.querySelector(":scope > .dream-hero-peek");
+      // 全局查找而不是 hero 的直接子节点: 下面 chrome 那段会把它移出 hero(躲开滚动容器
+      // 的裁剪),再按 :scope 找就永远找不到,于是每次 ensure 都会多建一个,残留节点还会
+      // 顶替掉真正被定位的那个。
+      let heroPeek = document.querySelector(".dream-hero-peek");
       if (!heroPeek) {
         heroPeek = document.createElement("div");
         heroPeek.className = "dream-hero-peek";
         heroPeek.setAttribute("aria-hidden", "true");
+        hero.append(heroPeek);
       }
-      hero.append(heroPeek);
       setManagedInlineStyles(hero.firstElementChild, {
         "align-items": "flex-start",
         "justify-content": "flex-start",
@@ -583,9 +585,25 @@
           "padding-bottom": px(PINK_LAYOUT.projectPaddingBottom),
           "padding-left": px(PINK_LAYOUT.projectPaddingX),
         });
+        // Codex 工具栏自身的高度由它自己决定、不随 layoutScale 缩放,所以输入框的高度
+        // 不能定成「常数 * scale」—— 那样工具栏下方的空洞会等于 常数*scale - 工具栏高,
+        // 窗口越大洞越大(实测 1280 宽时留白 17px,1920 宽时涨到 58px)。
+        // 改为按「工具栏实际底边 + 设计稿的 18 单位留白」算,两种窗口尺寸下都成立。
+        // 注意 theme.css 里那条 min-height 带 !important,会盖过内联样式,
+        // 所以必须把结果写回 --pink-composer-min-height 变量。
+        const composerChromeBox = composer?.getBoundingClientRect() ?? null;
+        const composerToolbarBottom = composer
+          ? [...composer.querySelectorAll("button")]
+              .reduce((low, node) => Math.max(low, node.getBoundingClientRect().bottom), 0)
+          : 0;
+        const composerMinHeight = composerChromeBox && composerToolbarBottom > 0
+          ? Math.round((composerToolbarBottom - composerChromeBox.top) +
+              (PINK_LAYOUT.composerBottomGap * layoutScale))
+          : Math.round(PINK_LAYOUT.composerMinHeight * layoutScale);
+        updateManagedInlineStyle(root, "--pink-composer-min-height", `${composerMinHeight}px`);
         setManagedInlineStyles(composer, {
           width: "100%",
-          "min-height": px(PINK_LAYOUT.composerMinHeight),
+          "min-height": `${composerMinHeight}px`,
         });
         if (composer) {
           const desiredComposerTop = heroBox.bottom + (PINK_LAYOUT.composerTopOffset * layoutScale);
@@ -638,6 +656,23 @@
       const brand = chrome.querySelector(".dream-brand");
       const polaroid = chrome.querySelector(".dream-polaroid");
       const scale = Number(root.dataset.dreamPinkScale || 1);
+      // 人物越过卡片上沿的那一截必须挂在 chrome 上,不能留在 hero 里:
+      // hero 的祖先 `div.[container-type:size]` 是滚动容器(overflow:hidden auto),
+      // 顶边就在顶栏下方,会把伸出去的部分裁掉 —— 留在里面最多只能探出
+      // (hero.top - 该容器 top) 那么多,实测 45 单位,到不了设计稿的 64。
+      // chrome 是皮肤自己的覆盖层,贴着 main 定位、在滚动容器之外,不受这个裁剪。
+      const heroPeekNode = document.querySelector(".dream-hero-peek");
+      if (heroPeekNode) {
+        if (heroPeekNode.parentElement !== chrome) chrome.appendChild(heroPeekNode);
+        const peekRise = PINK_LAYOUT.heroPeekRise * scale;
+        setManagedInlineStyles(heroPeekNode, {
+          position: "absolute",
+          left: `${Math.round(heroBox.left - shellBox.left)}px`,
+          top: `${Math.round(heroBox.top - shellBox.top - peekRise)}px`,
+          width: `${Math.round(heroBox.width)}px`,
+          height: `${Math.round(heroBox.height + peekRise)}px`,
+        });
+      }
       if (polaroid && !polaroid.querySelector(".dream-polaroid-tape")) {
         const tape = document.createElement("span");
         tape.className = "dream-polaroid-tape";

@@ -1489,25 +1489,47 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-hero-peek {
   position: absolute;
   left: 0;
   right: 0;
-  /* 设计稿里毛绒帽顶在 y≈35、hero 上缘在 124 => 探出 89 单位(原来只给了 56)。 */
   top: calc(-89px * var(--pink-layout-scale, 1));
   height: calc(var(--pink-hero-height, 532px) + 89px * var(--pink-layout-scale, 1));
   background-image: var(--dream-art);
   background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center center;
+  /* 关键: 设计稿是把整张素材**按 hero 宽度铺满、不裁切**(1817->1073, 比例 .5905),
+     不是 cover。cover 为了填满高度会把图放大到 .717,人物随之大一圈 ——
+     并排比对时我这版人物比设计稿大约 40%,根因就在这里。
+     素材宽高比 2.098 与卡片的 2.017 很接近,所以按宽度铺满后底部只差一点点,
+     那一小条落在建议卡片后面,由卡片自身背景兜住(设计稿也是这么处理的)。
+     纵向: 实测素材 y=0 落在设计稿 y≈70、卡片上缘 124 => 图顶在卡片上方 54 单位;
+     本元素顶边在 -89,故图顶距元素顶 89-54 = 35。 */
+  background-size: 100% auto;
+  background-position: 50% calc(35px * var(--pink-layout-scale, 1));
+}
+
+/* 遮罩标定 —— 逐行扫描 skin-01.jpg(hero 上缘 y=124)得到卡片上方那团人物:
+     纵向 y≈60(白色毛帽顶) → 124,即探出 64 单位;横向 x≈912..1072,中心 992 = hero 的 65.6%,宽 160。
+   注意毛帽是**白色**的,只看深色头发会把顶端误判到 y≈80、遮罩定低 20px 而把帽子整个抹掉。
+   约束一: 虚化必须在元素内部完成。元素顶边在 -89,若透明边界跑到元素之外,
+           遮罩到边界时仍不透明,会被元素边界砍出一条硬边。
+   约束二: 由 "局部 y=11 全透明、y=25 全不透明"(对应探出 78 / 64)解出 RY=88、CY=74。
+   横向 0.56*143=80 的实心半宽刚好包住 160 宽的头部。 */
+/* Codex 的顶栏是 `header.fixed.z-30`,只带一条装饰用的横向渐变底。人物越过卡片上沿的
+   那一截正好落在它下面被盖住(表现得很像"图没画出来",其实是被遮住了)。
+   .dream-hero 自身带 Codex 的 isolation:isolate,会形成层叠上下文,所以给 .dream-hero-peek
+   调多高的 z-index 都逃不出去;而给 .dream-hero 抬层级又会在滚动时让卡片盖住顶栏文字。
+   最小副作用的办法是去掉这条纯装饰渐变 —— 设计稿里这一带本来就是直接透出人物的。 */
+html.codex-dream-skin[data-dream-theme="pink-custom"] main header.fixed.pointer-events-none {
+  background-image: none !important;
 }
 
 html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-hero-peek {
   z-index: 4;
   pointer-events: none;
   -webkit-mask-image: radial-gradient(
-    ellipse calc(148px * var(--pink-layout-scale, 1)) calc(96px * var(--pink-layout-scale, 1))
-    at 67.5% calc(42px * var(--pink-layout-scale, 1)),
+    ellipse calc(143px * var(--pink-layout-scale, 1)) calc(88px * var(--pink-layout-scale, 1))
+    at 65.6% calc(74px * var(--pink-layout-scale, 1)),
     #000 56%, transparent 72%);
   mask-image: radial-gradient(
-    ellipse calc(148px * var(--pink-layout-scale, 1)) calc(96px * var(--pink-layout-scale, 1))
-    at 67.5% calc(42px * var(--pink-layout-scale, 1)),
+    ellipse calc(143px * var(--pink-layout-scale, 1)) calc(88px * var(--pink-layout-scale, 1))
+    at 65.6% calc(74px * var(--pink-layout-scale, 1)),
     #000 56%, transparent 72%);
 }
 
