@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AccountQuota, AppSettings, AppState, AuthFile, ProviderSummary, QuotaModelUsage, SchedulerOrderItem } from "../../types";
-import { maskEmail, quotaTone, parsePlan, parseResetCredits, matchAuthFile, servingFile } from "../../lib/format";
+import { authFileKey, isAuthFailureMessage, maskEmail, quotaTone, parsePlan, parseResetCredits, matchAuthFile, servingFile } from "../../lib/format";
 import { HealthDots } from "../HealthDots";
 import { ProviderLogo } from "../../lib/providerLogos";
 import { useT } from "../../i18n";
@@ -79,7 +79,12 @@ export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSett
         // 「主用」高亮跟着真正在服务(近期成功最多)的号走;无近期流量时保留后端 active。
         const serving = servingFile(order.map((i) => i.file_name), authFiles);
         for (const item of order) {
-          map.set(item.file_name, serving ? { ...item, active: item.file_name === serving } : item);
+          // 键归一化(见 authFileKey):顺序项的文件名是磁盘原始大小写,而 authFiles 多半来自
+          // 代理 /auth-files(全小写)。不归一化,含大写字母的账号就查不到序号、卡片没有徽章。
+          map.set(
+            authFileKey(item.file_name),
+            serving ? { ...item, active: item.file_name === serving } : item,
+          );
         }
       }
     }
@@ -90,7 +95,7 @@ export function QuotaScreen({ appState, isQuotaBusy, onRefreshQuotas, onSaveSett
     (account: AccountQuota): SchedulerOrderItem | null => {
       if (orderByFile.size === 0) return null;
       const file = matchAuthFile(account, authFiles);
-      return (file && orderByFile.get(file.name)) || null;
+      return (file && orderByFile.get(authFileKey(file.name))) || null;
     },
     [orderByFile, authFiles],
   );
@@ -281,7 +286,7 @@ function QuotaSummary({ accounts, authFiles }: { accounts: AccountQuota[]; authF
     // 风险(非待命号中):被封禁 / 需重新授权 / 任一模型剩余 ≤10%。
     const atRisk =
       account.is_forbidden ||
-      account.status_message === "auth_failed" ||
+      isAuthFailureMessage(account.status_message) ||
       account.models.some((model) => model.remaining_percent <= 10);
     if (atRisk) risk += 1;
   }
@@ -567,9 +572,12 @@ function AccountQuotaCard({
       setResetting(false);
     }
   }
-  // Codex accounts whose 401 couldn't be refreshed are flagged "auth_failed" by
-  // the backend — mark them here too (matches the Providers list).
-  const authFailed = statusMessage === "auth_failed";
+  // Accounts whose auth genuinely failed carry a per-provider sentinel in
+  // status_message ("auth_failed" for Codex, "需要重新授权" / "需要重新登录" /
+  // "密钥无效" for Claude / Copilot / Kiro / Trae / GLM). Match the whole set, not
+  // just Codex's — otherwise those accounts are labelled「额度耗尽」(wait for the
+  // window to reset) when they actually need the user to log in again.
+  const authFailed = isAuthFailureMessage(statusMessage);
   const file = matchAuthFile(account, authFiles);
   const isCodexLoginOnly = file?.quotio_bound_login_only === true;
   const isSchedulerStandby = file?.quotio_scheduler_standby === true && file?.disabled === true;
@@ -627,7 +635,9 @@ function AccountQuotaCard({
             </span>
           ) : null}
           {authFailed ? <span className="flag flag--bad">{t("providers.stateNeedsReauth", "需重新授权")}</span> : null}
-          {account.is_forbidden ? <span className="flag flag--bad">{t("quota.forbidden")}</span> : null}
+          {/* 鉴权失败的号后端同时置了 is_forbidden,但原因是「要重新登录」而不是「额度耗尽」——
+              只显示上面那个标签,别再叠一个会误导用户去等窗口刷新的「额度耗尽」。 */}
+          {account.is_forbidden && !authFailed ? <span className="flag flag--bad">{t("quota.forbidden")}</span> : null}
           {/* Weekly window maxed but the account still serves via the session
               window — a soft heads-up, not the alarming "exhausted" pill. */}
           {!account.is_forbidden &&

@@ -134,13 +134,58 @@ export function planTier(plan: string): PlanTier {
   return "plus";
 }
 
+// Auth-file names arrive from two sources with DIFFERENT casing: the proxy's
+// /auth-files lowercases them, while anything derived from the local auth dir
+// (the scheduler order, `list_local_accounts`) keeps the original mixed case.
+// Filesystems on every supported platform treat those as the same file, so every
+// cross-source lookup must normalize — otherwise a single uppercase letter in a
+// filename (e.g. codex-MartilloOlivia@….json) silently drops the account out of
+// every name-keyed map. Use this for map keys and comparisons alike.
+export function authFileKey(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+// Case-insensitive lookup of an auth file by name (see authFileKey).
+export function findAuthFileByName(authFiles: AuthFile[], name: string): AuthFile | null {
+  const key = authFileKey(name);
+  return authFiles.find((file) => authFileKey(file.name) === key) ?? null;
+}
+
+// Fixed sentinels each provider writes into quota.status_message on a genuine auth
+// failure (keep in sync with the backend `AccountQuota::is_auth_failure`). Quota
+// exhaustion has NO sentinel (just is_forbidden + None/"plan:…"), so membership
+// here cleanly separates "needs re-login" from "wait for the window to reset".
+const AUTH_FAILURE_MESSAGES = new Set(["auth_failed", "需要重新授权", "需要重新登录", "密钥无效"]);
+
+export function isAuthFailureMessage(message: string | null | undefined): boolean {
+  return message != null && AUTH_FAILURE_MESSAGES.has(message);
+}
+
+// An auth file's provider, falling back to the filename prefix when the field is
+// missing/blank (mirrors the backend's list_local_accounts). Never returns "" for
+// a normally-named file, so callers can treat "" as "unknown provider".
+function providerOf(file: AuthFile): string {
+  const declared = (file.provider ?? "").trim().toLowerCase();
+  if (declared) return declared;
+  const stem = authFileKey(file.name).replace(/\.json$/, "");
+  const prefix = stem.split("-")[0] ?? "";
+  return prefix === stem ? "" : prefix;
+}
+
 // Match a quota account to a proxy auth-file (same provider, then email, then
 // exact filename stem). Provider-scoping avoids cross-provider email collisions
 // (e.g. the same email on Codex + Trae). Shared by gating and the health view.
 export function matchAuthFile(quota: AccountQuota, authFiles: AuthFile[]): AuthFile | null {
   const provider = quota.provider_id.trim().toLowerCase();
+  if (!provider) return null;
   const candidates = authFiles.filter((file) => {
-    const fp = (file.provider ?? "").trim().toLowerCase();
+    // A blank provider must NOT reach the substring test: "x".includes("") is
+    // always true, so one provider-less auth file would become a candidate for
+    // every account of every provider — exactly the cross-provider email
+    // collision the scoping exists to prevent. Fall back to the filename prefix
+    // (same rule as the backend's list_local_accounts) so it still scopes.
+    const fp = providerOf(file);
+    if (!fp) return false;
     return fp === provider || fp.includes(provider) || provider.includes(fp);
   });
   if (candidates.length === 0) return null;
@@ -169,7 +214,9 @@ export function matchAuthFile(quota: AccountQuota, authFiles: AuthFile[]): AuthF
 // 不健康 / 无流量时返回 null,让调用方回退到后端给的 active。
 export function servingFile(orderFileNames: string[], authFiles: AuthFile[]): string | null {
   for (const name of orderFileNames) {
-    const file = authFiles.find((f) => f.name === name);
+    // Case-insensitive: `orderFileNames` comes from the local auth dir (original
+    // case) while `authFiles` usually comes from the proxy (lowercased).
+    const file = findAuthFileByName(authFiles, name);
     if (!file || file.disabled) continue;
     const success = file.success ?? 0;
     const failed = file.failed ?? 0;

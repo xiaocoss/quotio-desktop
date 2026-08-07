@@ -583,15 +583,38 @@ fn set_health_isolated(path: &Path, isolated: bool, reason: Option<&str>) -> Res
 
 /// 按给定文件名顺序把 `quotio_priority` 写成 1..N(用户手动请求顺序)。空列表 = 全部
 /// 清掉优先级(恢复自动顺序)。同时清掉该服务商里没在列表中的残留优先级。返回是否有改动。
+///
+/// 传入的文件名**先在该服务商的池子里按大小写不敏感解析**再落盘:前端拿到的账号名可能
+/// 来自代理 `/auth-files`(全小写),而磁盘上是原始大小写;直接 `dir.join(传入名)` 在
+/// 大小写敏感的文件系统(Linux)上会写不到任何文件、排序静默失效。解析不到的名字直接
+/// 忽略,顺带把「拿用户传入字符串当路径」的口子也堵上。
 pub fn reorder_provider_in(dir: &Path, provider_id: &str, ordered_file_names: &[String]) -> bool {
+    let pool = read_pool_for_provider(dir, provider_id);
+    let resolve = |name: &str| -> Option<String> {
+        pool.iter()
+            .find(|file| file.file_name.eq_ignore_ascii_case(name.trim()))
+            .map(|file| file.file_name.clone())
+    };
+    let resolved: Vec<String> = ordered_file_names
+        .iter()
+        .filter_map(|name| resolve(name))
+        .collect();
+
     let mut changed = false;
-    let listed: std::collections::HashSet<&str> =
-        ordered_file_names.iter().map(String::as_str).collect();
-    for (idx, file_name) in ordered_file_names.iter().enumerate() {
-        changed |= set_priority(&dir.join(file_name), Some((idx + 1) as u32)).is_ok();
+    let listed: std::collections::HashSet<&str> = resolved.iter().map(String::as_str).collect();
+    for (idx, file_name) in resolved.iter().enumerate() {
+        let desired = Some((idx + 1) as u32);
+        // 仅在真的变了才写,否则每次拖拽都会报「有改动」并触发一轮无谓的前端刷新。
+        let current = pool
+            .iter()
+            .find(|file| &file.file_name == file_name)
+            .and_then(|file| file.priority);
+        if current != desired {
+            changed |= set_priority(&dir.join(file_name), desired).is_ok();
+        }
     }
     // 列表外仍带优先级的(理论上只有 bound / 用户手动禁用,或刚被移出列表的)→ 清掉。
-    for file in read_pool_for_provider(dir, provider_id) {
+    for file in &pool {
         if file.priority.is_some() && !listed.contains(file.file_name.as_str()) {
             changed |= set_priority(&dir.join(&file.file_name), None).is_ok();
         }
@@ -1607,5 +1630,49 @@ mod tests {
         assert!(x.health_isolated);
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn reorder_resolves_names_case_insensitively_and_ignores_unknown() {
+        let dir = tempfile::tempdir().unwrap();
+        let dir = dir.path();
+        for name in ["codex-Alice.json", "codex-bob.json"] {
+            std::fs::write(dir.join(name), r#"{"type":"codex","access_token":"a"}"#).unwrap();
+        }
+
+        // 前端可能传来代理 /auth-files 的小写名(以及一个已被删掉的号)——都要能对上 /
+        // 被忽略,而不是静默写不到文件让排序失效。
+        let changed = reorder_provider_in(
+            dir,
+            "codex",
+            &[
+                "codex-bob.json".to_string(),
+                "codex-alice.json".to_string(),
+                "codex-ghost.json".to_string(),
+            ],
+        );
+        assert!(changed, "优先级确有变化 → changed");
+
+        let pool = read_pool_for_provider(dir, "codex");
+        let priority = |file_name: &str| {
+            pool.iter()
+                .find(|f| f.file_name == file_name)
+                .and_then(|f| f.priority)
+        };
+        assert_eq!(priority("codex-bob.json"), Some(1));
+        assert_eq!(priority("codex-Alice.json"), Some(2), "小写名必须解析到原始大小写文件");
+        assert!(!dir.join("codex-ghost.json").exists(), "未知名字不得凭空建文件");
+
+        // 幂等:同样的顺序再来一次不应报「有改动」(否则每次拖拽都触发一轮无谓刷新)。
+        assert!(!reorder_provider_in(
+            dir,
+            "codex",
+            &["codex-bob.json".to_string(), "codex-Alice.json".to_string()],
+        ));
+
+        // 空列表 = 恢复自动顺序:清掉全部手动优先级。
+        assert!(reorder_provider_in(dir, "codex", &[]));
+        let cleared = read_pool_for_provider(dir, "codex");
+        assert!(cleared.iter().all(|f| f.priority.is_none()));
     }
 }

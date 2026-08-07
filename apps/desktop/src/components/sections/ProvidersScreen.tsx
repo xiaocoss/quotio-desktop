@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback, memo, type ChangeEvent } from "react";
 import type { AccountAuthHealth, AppState, AuthFile, OAuthStatusResponse, OAuthUrlResponse, ProviderSummary, SchedulerOrderItem } from "../../types";
-import { maskEmail, matchAuthFile, servingFile } from "../../lib/format";
+import { authFileKey, isAuthFailureMessage, maskEmail, matchAuthFile, servingFile } from "../../lib/format";
 import { ProviderLogo } from "../../lib/providerLogos";
 import { EyeIcon, EyeOffIcon, PlusIcon, RefreshIcon, TrashIcon } from "../icons";
 import { useT } from "../../i18n";
@@ -266,6 +266,9 @@ export function ProvidersScreen({
   const groups = useMemo(() => groupAccounts(authFiles, appState.providers), [authFiles, appState.providers]);
   // 智能调度算出的「请求顺序」:file_name → 顺序项(全 provider 合并;file_name 全局唯一)。
   // 仅排序型调度(智能调度 / 顺序故障转移)开启时有数据,关闭时为空 → 不显示徽章。
+  // 键用 authFileKey 归一化:后端顺序里的文件名保留磁盘原始大小写,而这里的账号来自代理
+  // /auth-files(全小写),直接用原名当键会让所有含大写字母的账号查不到顺序项——徽章、
+  // 拖拽手柄、上移/下移按钮会整块消失。
   const orderByFile = useMemo(() => {
     const map = new Map<string, SchedulerOrderItem>();
     const sched = appState.scheduler;
@@ -276,7 +279,10 @@ export function ProvidersScreen({
         // 但它可能正被上游抖动临时绕过;无近期流量时保留后端 active。序号位置不变。
         const serving = servingFile(order.map((i) => i.file_name), authFiles);
         for (const item of order) {
-          map.set(item.file_name, serving ? { ...item, active: item.file_name === serving } : item);
+          map.set(
+            authFileKey(item.file_name),
+            serving ? { ...item, active: item.file_name === serving } : item,
+          );
         }
       }
     }
@@ -289,10 +295,12 @@ export function ProvidersScreen({
     (fileName: string, op: "up" | "down" | "top" | "reset") => {
       const sched = appState.scheduler;
       if (!sched || !schedulerOrdersAccounts(sched.rule)) return;
+      const key = authFileKey(fileName);
       const entry = (sched.providers ?? []).find((e) =>
-        (e.order ?? []).some((i) => i.file_name === fileName),
+        (e.order ?? []).some((i) => authFileKey(i.file_name) === key),
       );
       if (!entry) return;
+      // `ordered` 保留后端给的原始大小写:它最终会被后端当磁盘路径用,不能回传小写名。
       const ordered = [...(entry.order ?? [])]
         .sort((a, b) => a.position - b.position)
         .map((i) => i.file_name);
@@ -300,13 +308,14 @@ export function ProvidersScreen({
       if (op === "reset") {
         next = [];
       } else {
-        const idx = ordered.indexOf(fileName);
+        const idx = ordered.findIndex((name) => authFileKey(name) === key);
         if (idx < 0) return;
+        const canonical = ordered[idx];
         next = [...ordered];
         if (op === "top") {
           if (idx === 0) return;
           next.splice(idx, 1);
-          next.unshift(fileName);
+          next.unshift(canonical);
         } else if (op === "up") {
           if (idx === 0) return;
           [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
@@ -326,22 +335,26 @@ export function ProvidersScreen({
   // 拖拽重排:把 dragged 号插到 target 号的位置。
   const onReorderMove = useCallback(
     (draggedFileName: string, targetFileName: string) => {
-      if (draggedFileName === targetFileName) return;
+      const draggedKey = authFileKey(draggedFileName);
+      const targetKey = authFileKey(targetFileName);
+      if (draggedKey === targetKey) return;
       const sched = appState.scheduler;
       if (!sched || !schedulerOrdersAccounts(sched.rule)) return;
       const entry = (sched.providers ?? []).find((e) =>
-        (e.order ?? []).some((i) => i.file_name === draggedFileName),
+        (e.order ?? []).some((i) => authFileKey(i.file_name) === draggedKey),
       );
       if (!entry) return;
       const ordered = [...(entry.order ?? [])]
         .sort((a, b) => a.position - b.position)
         .map((i) => i.file_name);
-      const from = ordered.indexOf(draggedFileName);
-      const to = ordered.indexOf(targetFileName);
+      const from = ordered.findIndex((name) => authFileKey(name) === draggedKey);
+      const to = ordered.findIndex((name) => authFileKey(name) === targetKey);
       if (from < 0 || to < 0) return;
+      // 回传后端的必须是磁盘上的原始文件名(后端 dir.join 直接当路径用)。
+      const canonical = ordered[from];
       const next = [...ordered];
       next.splice(from, 1);
-      next.splice(to, 0, draggedFileName);
+      next.splice(to, 0, canonical);
       onRunManagementStateAction("reorder_provider_accounts", {
         providerId: entry.provider_id,
         orderedFileNames: next,
@@ -958,15 +971,6 @@ function healthFor(
   return undefined;
 }
 
-// Fixed sentinels each provider writes into quota.status_message on a genuine auth
-// failure (keep in sync with the backend `AccountQuota::is_auth_failure`). Quota
-// exhaustion has NO sentinel (just is_forbidden + None/"plan:…"), so membership
-// here cleanly separates "needs re-login" from "wait for the window to reset".
-const AUTH_FAILURE_MESSAGES = new Set(["auth_failed", "需要重新授权", "需要重新登录", "密钥无效"]);
-function isAuthFailureMessage(message: string | null | undefined): boolean {
-  return message != null && AUTH_FAILURE_MESSAGES.has(message);
-}
-
 function accountState(
   account: AuthFile,
   authFailed: boolean,
@@ -1071,7 +1075,7 @@ function ProviderCard({
   // 在手柄上按下:记录被拖的行(手柄最近的 [data-drag-file] 祖先),后续 pointer 事件
   // 捕获到手柄;preventDefault 压掉 compatibility mousedown,彻底不触发窗体拖拽。
   const beginRowDrag = (e: React.PointerEvent, file: string) => {
-    if (isBusy || !order.get(file)) return;
+    if (isBusy || !order.get(authFileKey(file))) return;
     e.preventDefault();
     e.stopPropagation();
     dragRef.current = {
@@ -1139,8 +1143,8 @@ function ProviderCard({
       ? // 智能调度:按生效请求顺序排(无序号的绑定/用户禁用号垫后)。
         [...group.accounts].sort(
           (a, b) =>
-            (order.get(a.name)?.position ?? Number.MAX_SAFE_INTEGER) -
-            (order.get(b.name)?.position ?? Number.MAX_SAFE_INTEGER),
+            (order.get(authFileKey(a.name))?.position ?? Number.MAX_SAFE_INTEGER) -
+            (order.get(authFileKey(b.name))?.position ?? Number.MAX_SAFE_INTEGER),
         )
       : group.accounts
           .map((account) => ({
@@ -1150,8 +1154,8 @@ function ProviderCard({
           .sort((a, b) => Number(b.needsReauth) - Number(a.needsReauth))
           .map((entry) => entry.account);
 
-  const orderCount = accounts.filter((a) => order.get(a.name)).length;
-  const hasManualOrder = accounts.some((a) => order.get(a.name)?.priority != null);
+  const orderCount = accounts.filter((a) => order.get(authFileKey(a.name))).length;
+  const hasManualOrder = accounts.some((a) => order.get(authFileKey(a.name))?.priority != null);
 
   const goodCount = accounts.filter((a) => {
     const s = accountState(a, authFailedNames.has(a.name), healthFor(a, authHealth));
@@ -1249,7 +1253,7 @@ function ProviderCard({
 
       <div className="account-list">
         {previewAccounts.map((account) => {
-          const canDrag = !isBusy && !!order.get(account.name);
+          const canDrag = !isBusy && !!order.get(authFileKey(account.name));
           const isOver = dragOverFile === account.name && !!draggingFile && draggingFile !== account.name;
           return (
             <div
@@ -1282,7 +1286,7 @@ function ProviderCard({
                 isBusy={isBusy}
                 authFailed={authFailedNames.has(account.name)}
                 health={healthFor(account, authHealth)}
-                order={order.get(account.name)}
+                order={order.get(authFileKey(account.name))}
                 orderCount={orderCount}
                 onReorder={onReorder}
                 onDelete={() => onDelete(account)}
@@ -1301,7 +1305,7 @@ function ProviderCard({
               type="button"
               title="清除手动顺序,恢复按额度自动排"
               onClick={() => {
-                const first = accounts.find((a) => order.get(a.name)) ?? accounts[0];
+                const first = accounts.find((a) => order.get(authFileKey(a.name))) ?? accounts[0];
                 if (first) onReorder(first.name, "reset");
               }}
             >
