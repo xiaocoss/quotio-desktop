@@ -126,7 +126,7 @@ html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-p
   box-shadow: none !important;
 }
 
-html.codex-dream-skin[data-dream-theme="red-white-scifi"] main.main-surface {
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] main[data-app-shell-main-surface] {
   background:
     radial-gradient(circle at 78% 3%, rgba(235, 71, 82, .10), transparent 26%),
     linear-gradient(180deg, rgba(255, 255, 255, .995), rgba(255, 248, 248, .985)) !important;
@@ -135,7 +135,7 @@ html.codex-dream-skin[data-dream-theme="red-white-scifi"] main.main-surface {
   box-shadow: none !important;
 }
 
-html.codex-dream-skin[data-dream-theme="red-white-scifi"] main.main-surface > header.app-header-tint {
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] main[data-app-shell-main-surface] > header[data-app-shell-application-menu-bar] {
   background: rgba(255, 255, 255, .96) !important;
   border-bottom: 1px solid #eee5e6 !important;
 }
@@ -235,14 +235,15 @@ html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home .group\/ho
   box-shadow: 0 0 0 5px rgba(252, 225, 227, .76), 0 5px 11px rgba(155, 27, 37, .16);
 }
 
-html.codex-dream-skin[data-dream-theme="red-white-scifi"] .composer-surface-chrome {
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] [data-composer-surface-variant],
+html.codex-dream-skin [data-composer-surface-variant] > [data-composer-layout] {
   border: 1px solid rgba(190, 27, 39, .25) !important;
   border-radius: 10px !important;
   background: rgba(255, 255, 255, .985) !important;
   box-shadow: 0 9px 22px rgba(109, 30, 36, .075) !important;
 }
 
-html.codex-dream-skin[data-dream-theme="red-white-scifi"] .composer-surface-chrome::before {
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] [data-composer-surface-variant]::before {
   content: ">";
   width: 24px;
   height: 24px;
@@ -280,7 +281,7 @@ html.codex-dream-skin[data-dream-theme="red-white-scifi"] .ProseMirror {
   caret-color: #c71925 !important;
 }
 
-html.codex-dream-skin[data-dream-theme="red-white-scifi"] .composer-surface-chrome button[class~="bg-token-foreground"] {
+html.codex-dream-skin[data-dream-theme="red-white-scifi"] [data-composer-surface-variant] button[class~="bg-token-foreground"] {
   background: linear-gradient(145deg, #e3404b, #b91723) !important;
   box-shadow: 0 5px 12px rgba(159, 25, 35, .20) !important;
 }

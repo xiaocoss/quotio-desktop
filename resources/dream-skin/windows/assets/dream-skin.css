@@ -9,6 +9,101 @@
   --dream-line: rgba(221, 122, 184, .42);
 }
 
+/* ── Codex 设计令牌:暗色 → 浅粉 ──────────────────────────────────────────────
+   Codex 的文字/边框/图标/表面颜色全部走 Tailwind v4 的 --color-* 令牌,而令牌值由
+   `prefers-color-scheme` 决定 —— 系统是暗色时它们解析成白字 + 近黑底(实测
+   --color-text: #ffffff / --color-token-bg-primary: #141414)。皮肤把底色刷成浅粉后,
+   这些原生文字就成了白字压粉底,肉眼几乎看不见(侧栏导航、项目名、输入框工具栏、
+   通知横幅都栽在这里)。
+   摘掉 html.electron-dark 不够:那只关掉类名驱动的一路,媒体查询那一路还在。
+   所以在这里统一改写令牌。只动中性色阶,danger / warning / success / accent 等
+   语义色保持原样,避免把"红色=错误"这类语义也染成粉色。 */
+:root.codex-dream-skin {
+  --color-text: #4a2b38;
+  --color-text-foreground: #4a2b38;
+  --color-text-emphasis: #331b26;
+  --color-text-primary-solid: #4a2b38;
+  --color-text-secondary: rgba(74, 43, 56, .72);
+  --color-text-secondary-solid: rgba(74, 43, 56, .72);
+  --color-text-foreground-secondary: rgba(74, 43, 56, .72);
+  --color-text-tertiary: rgba(74, 43, 56, .55);
+  --color-text-foreground-tertiary: rgba(74, 43, 56, .55);
+  --color-text-disabled: rgba(74, 43, 56, .38);
+  --color-text-inverse: #fffafc;
+  --color-text-button-secondary: #6d4152;
+  --color-text-button-tertiary: rgba(74, 43, 56, .55);
+
+  --color-icon-primary: rgba(74, 43, 56, .88);
+  --color-icon-secondary: rgba(74, 43, 56, .68);
+  --color-icon-tertiary: rgba(74, 43, 56, .5);
+
+  --color-border: rgba(214, 130, 168, .30);
+  --color-token-border: rgba(214, 130, 168, .30);
+  --color-border-light: rgba(214, 130, 168, .18);
+  --color-border-subtle: rgba(214, 130, 168, .18);
+  --color-border-heavy: rgba(214, 130, 168, .46);
+  --color-border-strong: rgba(214, 130, 168, .46);
+  --color-border-primary-outline: rgba(214, 130, 168, .46);
+
+  --color-surface: #fffafc;
+  --color-surface-secondary: #fff4f8;
+  --color-surface-tertiary: #ffeef5;
+  --color-surface-elevated: rgba(255, 252, 253, .97);
+  --color-surface-elevated-secondary: #fff6fa;
+  --color-token-bg-primary: #fffafc;
+  --color-token-bg-secondary: #fff4f8;
+  --color-token-bg-tertiary: #ffeef5;
+}
+
+/* Codex 原生控件的文字/图标颜色是 Tailwind 编译出来的 oklab 白(暗色模式值),不走
+   --color-* 令牌,所以改令牌够不着。皮肤把底刷成浅粉后它们就隐形了 —— 实测输入框左侧
+   工具栏(+ / 完全访问)与右上窗口控件整行 0~2 个暗像素。这里按区域补深色。
+   排除自带背景的主按钮(发送键在设计稿里是实心粉底白箭头),否则会把它的白箭头也染深。 */
+html.codex-dream-skin [data-composer-surface-variant]
+  :is(button, a, span, p, small, strong, svg, label):not([class*="bg-token-"]):not([class*="bg-black"]) {
+  color: #6d4152 !important;
+}
+
+html.codex-dream-skin [data-composer-surface-variant] button[class*="bg-"] svg {
+  color: #fffafc !important;
+}
+
+html.codex-dream-skin main[data-app-shell-main-surface] > header[data-app-shell-application-menu-bar]
+  :is(button, a, span, p, small, svg) {
+  color: #6d4152 !important;
+}
+
+html.codex-dream-skin header:has([data-app-shell-header-context-menu-surface])
+  :is(button, a, span, p, small, svg) {
+  color: #6d4152 !important;
+}
+
+/* 应用菜单条(文件 / 编辑 / 视图 / 帮助)。它是 div._ApplicationMenuTopBar_<hash>,不是
+   <header> —— 上面按 header 写的规则够不到它,菜单项带 text-token-text-tertiary(白字),
+   在浅粉顶栏上整排看不见。用 [class*=] 匹配以躲开每次构建都变的 CSS module hash。 */
+/* 内容区顶部的滚动淡出层 div._MainContentTopFade_<hash>:Codex 把它硬编码成
+   linear-gradient(rgb(24,24,24), transparent),在浅粉底上就是一条 16px 的黑带
+   (实测盒子 [275,82,1005,16],与肉眼看到的"黑框"完全吻合)。
+   它是 pointer-events:none 的绝对定位浮层 —— 这也是用 elementsFromPoint 排查时
+   查不到它的原因(该 API 会跳过 pointer-events:none 元素),排查时要用全量枚举。
+   保留淡出效果,只把颜色换成皮肤的浅粉表面。底部淡出层同理。 */
+html.codex-dream-skin [class*="MainContentTopFade"] {
+  background-image: linear-gradient(rgba(255, 249, 252, .96), rgba(255, 249, 252, 0)) !important;
+}
+
+html.codex-dream-skin [class*="MainContentBottomFade"] {
+  background-image: linear-gradient(rgba(255, 249, 252, 0), rgba(255, 249, 252, .96)) !important;
+}
+
+html.codex-dream-skin [class*="ApplicationMenuTopBar"],
+html.codex-dream-skin [class*="ApplicationMenuTopBar"] :is(button, a, span, p, small, svg) {
+  color: #6d4152 !important;
+}
+
+html.codex-dream-skin [class*="ApplicationMenuTopBar"] button:hover {
+  background: rgba(228, 132, 188, .16) !important;
+}
+
 html.codex-dream-skin body {
   background:
     radial-gradient(circle at 78% 2%, rgba(255, 184, 215, .66), transparent 25%),
@@ -47,7 +142,11 @@ html.codex-dream-skin aside.app-shell-left-panel nav {
   background: transparent !important;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel button {
+/* Codex 把导航项的颜色设在 button **内部的 <span>** 上(Tailwind token 类,暗色模式下
+   解析成 oklab(1 …/.85) 即白色)。只给 button 设 color 是够不到它的 —— 按钮变深了、
+   里面的字还是白的,压在浅粉底上等于隐形(实测该行整行 0 个暗像素)。所以要一并覆盖
+   按钮内的文字节点。旁边的「项目」小标题不在 button 里,所以它一直是正常的。 */
+html.codex-dream-skin aside.app-shell-left-panel :is(button, a, span, p, small, strong, svg) {
   color: #55266e !important;
   transition: transform .16s ease, background .16s ease, box-shadow .16s ease !important;
 }
@@ -81,7 +180,7 @@ html.codex-dream-skin aside.app-shell-left-panel [aria-current="page"] {
   box-shadow: 0 4px 16px rgba(146,70,162,.10) !important;
 }
 
-html.codex-dream-skin main.main-surface {
+html.codex-dream-skin main[data-app-shell-main-surface] {
   background:
     radial-gradient(circle at 84% 10%, rgba(255,180,221,.34), transparent 30%),
     radial-gradient(circle at 20% 0%, rgba(214,181,255,.25), transparent 26%),
@@ -94,7 +193,7 @@ html.codex-dream-skin main.main-surface {
   overflow: hidden !important;
 }
 
-html.codex-dream-skin main.main-surface > header.app-header-tint {
+html.codex-dream-skin main[data-app-shell-main-surface] > header[data-app-shell-application-menu-bar] {
   background:
     linear-gradient(90deg, rgba(255,249,252,.95), rgba(255,227,243,.84), rgba(229,207,255,.78)) !important;
   border-bottom: 1px solid rgba(229,151,198,.34) !important;
@@ -188,24 +287,28 @@ html.codex-dream-skin [role="main"] {
   scrollbar-color: rgba(190,91,192,.52) transparent;
 }
 
+/* 布局锚点:沿标题容器 [data-feature="game-source"] 用 :has() 逐层下钻,
+   不再用 `> div:first-child` 位置链。Codex 26.730 在 home 首位插入了一个塌陷的
+   横幅占位(div.home-banners,高度 0),位置链会整条走进死枝 —— 表现为主内容全部消失、
+   只剩皮肤浮层。跟着语义节点走则自动跳过这类兄弟节点,后续改版也更抗造。 */
 html.codex-dream-skin .dream-home {
   --thread-content-max-width: min(950px, calc(100cqw - 44px)) !important;
   overflow-x: hidden !important;
 }
 
-.dream-home > div:first-child {
+.dream-home > div:has([data-feature="game-source"]) {
   padding-top: 15px !important;
   min-height: 100% !important;
 }
 
-.dream-home > div:first-child > div:first-child {
+.dream-home > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) {
   flex: 0 0 430px !important;
   min-height: 430px !important;
   align-items: flex-start !important;
   padding-bottom: 0 !important;
 }
 
-.dream-home > div:first-child > div:first-child > div:first-child {
+.dream-home > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) {
   position: relative !important;
   isolation: isolate;
   width: calc(100% - 44px) !important;
@@ -226,7 +329,7 @@ html.codex-dream-skin .dream-home {
   box-shadow: 0 14px 34px rgba(150,60,151,.20), inset 0 0 0 4px rgba(255,255,255,.20) !important;
 }
 
-.dream-home > div:first-child > div:first-child > div:first-child::before {
+.dream-home > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"])::before {
   content: "";
   position: absolute;
   z-index: 0;
@@ -237,7 +340,7 @@ html.codex-dream-skin .dream-home {
   background: linear-gradient(90deg, rgba(90,38,154,.98) 0%, rgba(112,48,170,.94) 54%, rgba(130,56,179,.66) 78%, transparent 100%);
 }
 
-.dream-home > div:first-child > div:first-child > div:first-child > div:first-child {
+.dream-home > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) {
   position: relative;
   z-index: 1;
   height: 100%;
@@ -246,7 +349,7 @@ html.codex-dream-skin .dream-home {
   padding-left: 38px;
 }
 
-.dream-home > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child {
+.dream-home > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) {
   width: 54% !important;
   align-items: flex-start !important;
   gap: 0 !important;
@@ -303,7 +406,11 @@ html.codex-dream-skin .dream-home {
   opacity: .86;
 }
 
-.dream-home > div:first-child > div:first-child > div:first-child > div:nth-child(2) {
+/* 只针对 Codex 自己的悬浮建议层(hero 里唯一不含标题的原生子元素)。必须排除
+   [class*="dream-"] —— 皮肤自己会往 hero 里 append .dream-hero-art / .dream-hero-peek,
+   它们同样不含标题,若被这条规则扫到会拿到 top:100%,整幅立绘被推到 hero 下沿、
+   再被父层 overflow:hidden 裁得只剩底部一条缝(表现为"人物图不见了")。 */
+.dream-home > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) > div:not(:has([data-feature="game-source"])):not([class*="dream-"]) {
   left: 14px !important;
   right: 14px !important;
   top: 100% !important;
@@ -363,7 +470,51 @@ html.codex-dream-skin .dream-home {
   text-align: center !important;
 }
 
-html.codex-dream-skin .composer-surface-chrome {
+/* Codex 的通知横幅(配额用尽 / 升级提示等)。它是 .dream-home 里唯一的 <aside>
+   (侧栏那个 aside.app-shell-left-panel 在 home 之外),自带 rgb(24,24,24) 深底,
+   不换肤会在整片浅粉里留一条黑杠。设计稿没画它是因为示例账号没有该提示,属于真实数据。 */
+/* 深色面画在 aside 的**内层**包裹上(和输入框一个套路:外层透明、内层带
+   --color-surface-elevated 的 #363636)。只刷外层会被内层整片盖住,实测横幅底色仍是
+   #353535。所以外层内层一起刷。 */
+html.codex-dream-skin .dream-home aside > *,
+html.codex-dream-skin .dream-home aside {
+  /* 横幅在窄窗口下会和 hero 卡片底沿重叠,而 hero 的立绘层(.dream-hero-art)是绝对定位的
+     兄弟层,不提层级的话会盖在横幅文字上,看着像文字褪色(实测文字颜色其实是对的)。 */
+  position: relative !important;
+  z-index: 6 !important;
+  color: #5b3340 !important;
+  border: 1px solid rgba(228, 132, 188, .42) !important;
+  background:
+    linear-gradient(145deg, rgba(255, 252, 253, .97), rgba(255, 236, 246, .95)) !important;
+  box-shadow: 0 8px 20px rgba(132, 54, 125, .12) !important;
+}
+
+/* 横幅正文:换成浅底后必须同时压深文字,否则粉字压粉底读不清。用 * 覆盖 Codex 自己
+   给标题/说明设的 token 颜色;链接和按钮另给主色。 */
+html.codex-dream-skin .dream-home aside * {
+  color: #5b3340 !important;
+}
+
+html.codex-dream-skin .dream-home aside :is(h1, h2, h3, h4, strong, b) {
+  color: #3d1f2b !important;
+}
+
+html.codex-dream-skin .dream-home aside a {
+  color: #b7326f !important;
+}
+
+html.codex-dream-skin .dream-home aside svg {
+  color: #c96a97 !important;
+}
+
+html.codex-dream-skin .dream-home aside button {
+  color: #b7326f !important;
+  border-color: rgba(228, 132, 188, .55) !important;
+  background: rgba(255, 255, 255, .82) !important;
+}
+
+html.codex-dream-skin [data-composer-surface-variant],
+html.codex-dream-skin [data-composer-surface-variant] > [data-composer-layout] {
   border: 2px solid rgba(228,132,188,.58) !important;
   border-radius: 25px !important;
   background:
@@ -374,7 +525,7 @@ html.codex-dream-skin .composer-surface-chrome {
   overflow: visible !important;
 }
 
-html.codex-dream-skin .composer-surface-chrome::before {
+html.codex-dream-skin [data-composer-surface-variant]::before {
   content: "♡";
   position: absolute;
   left: -13px;
@@ -454,7 +605,8 @@ html.codex-dream-skin[data-dream-gallery="true"] aside.app-shell-left-panel {
   border-right-color: color-mix(in srgb, var(--gallery-accent, #c45bea) 25%, transparent) !important;
 }
 
-html.codex-dream-skin[data-dream-gallery="true"] aside.app-shell-left-panel button {
+html.codex-dream-skin[data-dream-gallery="true"] aside.app-shell-left-panel
+  :is(button, a, span, p, small, strong, svg) {
   color: var(--gallery-text, #302636) !important;
 }
 
@@ -467,7 +619,7 @@ html.codex-dream-skin[data-dream-gallery="true"] aside.app-shell-left-panel [cla
       color-mix(in srgb, var(--gallery-accent-alt, #ff83b7) 18%, transparent)) !important;
 }
 
-html.codex-dream-skin[data-dream-gallery="true"] main.main-surface {
+html.codex-dream-skin[data-dream-gallery="true"] main[data-app-shell-main-surface] {
   background:
     linear-gradient(180deg,
       color-mix(in srgb, var(--gallery-panel, #fff) 88%, transparent),
@@ -481,7 +633,7 @@ html.codex-dream-skin[data-dream-gallery="true"] [data-message-author-role] {
   color: var(--gallery-text, #302636) !important;
 }
 
-html.codex-dream-skin[data-dream-gallery="true"] main.main-surface > header.app-header-tint {
+html.codex-dream-skin[data-dream-gallery="true"] main[data-app-shell-main-surface] > header[data-app-shell-application-menu-bar] {
   background: color-mix(in srgb, var(--gallery-panel, #fff) 78%, transparent) !important;
   border-bottom-color: color-mix(in srgb, var(--gallery-accent, #c45bea) 20%, transparent) !important;
 }
@@ -543,7 +695,7 @@ html.codex-dream-skin[data-dream-gallery="true"] #codex-dream-skin-chrome .dream
   background-position: var(--gallery-polaroid-position, 100% 100%);
 }
 
-html.codex-dream-skin[data-dream-gallery="true"] .dream-home > div:first-child > div:first-child > div:first-child {
+html.codex-dream-skin[data-dream-gallery="true"] .dream-home > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) {
   background-image:
     linear-gradient(90deg,
       color-mix(in srgb, var(--gallery-bg, #fff7fb) 94%, transparent) 0%,
@@ -554,7 +706,8 @@ html.codex-dream-skin[data-dream-gallery="true"] .dream-home > div:first-child >
   background-position: center, var(--gallery-art-position, right 22%) !important;
 }
 
-html.codex-dream-skin[data-dream-gallery="true"] .composer-surface-chrome {
+html.codex-dream-skin[data-dream-gallery="true"] [data-composer-surface-variant],
+html.codex-dream-skin [data-composer-surface-variant] > [data-composer-layout] {
   background: color-mix(in srgb, var(--gallery-panel, #fff) 88%, transparent) !important;
   border-color: color-mix(in srgb, var(--gallery-accent, #c45bea) 28%, transparent) !important;
   box-shadow: 0 16px 36px color-mix(in srgb, var(--gallery-accent, #c45bea) 16%, transparent) !important;
@@ -570,17 +723,17 @@ html.codex-dream-skin[data-dream-gallery="true"] button[class~="bg-token-foregro
   .dream-polaroid { display: none !important; }
   .dream-ribbon { bottom: 70px; font-size: 25px; }
   .dream-home { --thread-content-max-width: min(860px, calc(100cqw - 30px)) !important; }
-  .dream-home > div:first-child > div:first-child > div:first-child { width: calc(100% - 28px) !important; }
+  .dream-home > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) { width: calc(100% - 28px) !important; }
 }
 
 @media (max-width: 900px) {
   .dream-signature { display: none !important; }
   .dream-brand { left: 15px; }
   .dream-brand b { font-size: 13px; }
-  .dream-home > div:first-child > div:first-child { flex-basis: 396px !important; min-height: 396px !important; }
-  .dream-home > div:first-child > div:first-child > div:first-child { height: 224px !important; min-height: 224px !important; background-size: 100% 100%, cover !important; }
-  .dream-home > div:first-child > div:first-child > div:first-child > div:first-child { padding-left: 26px; }
-  .dream-home > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child { width: 66% !important; }
+  .dream-home > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) { flex-basis: 396px !important; min-height: 396px !important; }
+  .dream-home > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) { height: 224px !important; min-height: 224px !important; background-size: 100% 100%, cover !important; }
+  .dream-home > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) { padding-left: 26px; }
+  .dream-home > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) > div:has([data-feature="game-source"]) { width: 66% !important; }
   .dream-home [data-feature="game-source"] { font-size: 18px !important; }
   .dream-home [data-feature="game-source"]::after { font-size: 12px; margin-top: 10px; }
   .dream-home .group\/home-suggestions button { min-height: 114px !important; font-size: 12px !important; }

@@ -118,7 +118,7 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] aside.app-shell-left-panel
   transform: none !important;
 }
 
-html.codex-dream-skin[data-dream-theme="pink-custom"] main.main-surface {
+html.codex-dream-skin[data-dream-theme="pink-custom"] main[data-app-shell-main-surface] {
   color: #57353d !important;
   background:
     radial-gradient(circle at 79% 4%, rgba(237, 187, 200, .14), transparent 29%),
@@ -128,7 +128,7 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] main.main-surface {
   box-shadow: -5px 0 22px rgba(111, 56, 72, .04) !important;
 }
 
-html.codex-dream-skin[data-dream-theme="pink-custom"] main.main-surface > header.app-header-tint {
+html.codex-dream-skin[data-dream-theme="pink-custom"] main[data-app-shell-main-surface] > header[data-app-shell-application-menu-bar] {
   background: linear-gradient(90deg, rgba(255, 253, 251, .98), rgba(252, 240, 243, .90)) !important;
   border-bottom-color: rgba(180, 93, 122, .14) !important;
 }
@@ -502,7 +502,7 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-home-composer .Pros
   outline: none !important;
 }
 
-html.codex-dream-skin[data-dream-theme="pink-custom"] .composer-surface-chrome button[class~="bg-token-foreground"] {
+html.codex-dream-skin[data-dream-theme="pink-custom"] [data-composer-surface-variant] button[class~="bg-token-foreground"] {
   background: linear-gradient(145deg, #e39ab0, #b45473) !important;
   box-shadow: 0 5px 13px rgba(133, 64, 85, .20) !important;
 }
@@ -510,17 +510,23 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] .composer-surface-chrome b
 html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .dream-polaroid {
   right: 16px;
   bottom: 22px;
-  width: 108px;
-  height: 154px;
+  width: 139px;
+  height: 185px;
   display: none !important;
   background-image: var(--dream-art);
-  background-size: auto 180%;
+  /* 照片区 123x110。设计稿里取的是素材图(1817x866)的 x940..1530 / y0..528 那一块
+     —— 白毛帽完整、脸居中、下缘刚好切在交叠的手下面。
+     换算: s=123/590 => 图高 866*s=180.5 = 照片高的 164%; 横向偏移 -940*s 解出 77%。 */
+  background-size: auto 164%;
+  /* 横向标定: 实测 P 每 +3% 人物右移约 8% 框宽;设计稿里人物中心在照片宽的 43%,
+     由 77%(实测 49%) 反推得 75%。 */
   background-position: 75% 0%;
-  border: 7px solid rgba(255, 253, 250, .98) !important;
-  border-bottom-width: 48px !important;
+  border: 8px solid rgba(255, 253, 250, .98) !important;
+  border-bottom-width: 67px !important;
   border-radius: 2px;
   box-shadow: 0 8px 18px rgba(108, 59, 73, .14), 0 0 0 1px rgba(188, 112, 135, .20) !important;
-  transform: rotate(-8deg);
+  /* 左右两边逐行拟合出来的倾角就是 11.8deg */
+  transform: rotate(-12deg);
 }
 
 html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome.dream-home-shell .dream-polaroid {
@@ -1291,19 +1297,20 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .
   border-bottom-width: var(--pink-polaroid-bottom-border, 48px) !important;
 }
 
+/* 尺寸在这里定,位置由文件末尾那条同优先级但更靠后的规则定(见"拍立得挂饰"一节)。 */
 html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .dream-polaroid::before {
-  left: -7.4% !important;
-  top: -3.9% !important;
-  width: var(--pink-polaroid-bow-width, 30px) !important;
-  height: var(--pink-polaroid-bow-height, 45px) !important;
+  width: var(--pink-polaroid-bow-width, 34px) !important;
+  height: var(--pink-polaroid-bow-height, 52px) !important;
 }
 
+/* 文案落在下方白边里: 设计稿量得字号 11、两行、末行右侧一个爱心,
+   文字下缘距照片下缘 46 => -46/110 = -41.8%; 左右各外扩 8(白边宽) => -6.5%。 */
 html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .dream-polaroid::after {
-  left: -3.7% !important;
-  right: -3.7% !important;
-  bottom: -23.4% !important;
-  font-size: var(--pink-polaroid-label-size, 8px) !important;
-  line-height: 1.45 !important;
+  left: -6.5% !important;
+  right: -6.5% !important;
+  bottom: -41.8% !important;
+  font-size: var(--pink-polaroid-label-size, 11px) !important;
+  line-height: 1.7 !important;
 }
 
 
@@ -1341,7 +1348,7 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] body {
     linear-gradient(145deg, #fdf3f5, #fae8ec 58%, #f7dfe5) !important;
 }
 
-html.codex-dream-skin[data-dream-theme="pink-custom"] main.main-surface {
+html.codex-dream-skin[data-dream-theme="pink-custom"] main[data-app-shell-main-surface] {
   background:
     radial-gradient(circle at 79% 4%, rgba(237, 175, 192, .22), transparent 31%),
     radial-gradient(circle at 6% 96%, rgba(240, 190, 203, .18), transparent 26%),
@@ -1482,8 +1489,9 @@ html.codex-dream-skin[data-dream-theme="pink-custom"] .dream-hero-peek {
   position: absolute;
   left: 0;
   right: 0;
-  top: calc(-56px * var(--pink-layout-scale, 1));
-  height: calc(var(--pink-hero-height, 511px) + 56px * var(--pink-layout-scale, 1));
+  /* 设计稿里毛绒帽顶在 y≈35、hero 上缘在 124 => 探出 89 单位(原来只给了 56)。 */
+  top: calc(-89px * var(--pink-layout-scale, 1));
+  height: calc(var(--pink-hero-height, 532px) + 89px * var(--pink-layout-scale, 1));
   background-image: var(--dream-art);
   background-repeat: no-repeat;
   background-size: cover;
@@ -1520,19 +1528,34 @@ html.codex-dream-skin[data-dream-theme="pink-custom"][data-dream-gallery="true"]
 }
 
 
-/* Polaroid details per the mock: a glossy heart charm pins the top-left
-   corner (replacing the bow), and there is no tape strip. The tape node
-   stays in the DOM for the injector's structural checks. */
+/* 拍立得挂饰 —— 逐像素比对 设计图/皮肤/skin-01.jpg 右下角后重做:
+   1) 顶边中央(相纸局部横向 51%)是一枚**蝴蝶结**,上方延出一截缎带压在 hero 卡片底缘上,
+      拍立得就是靠它挂在大卡片下面的(用户原话:"右侧小卡片是通过蝴蝶结连接上面的大框的")。
+      之前这个位置是 display:none 的胶带,所以"连接"关系整个缺失。
+   2) 左上角另挂一枚**心形吊坠+挂钩**,描边加斜纹填充、不是实心,更不是蝴蝶结 ——
+      蝴蝶结与心形的位置此前被弄反了。
+   两者都是垂挂物,故各自反向旋转 12deg 抵消相纸倾角,保持铅垂。 */
 html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .dream-polaroid-tape {
-  display: none !important;
+  position: absolute;
+  left: 51% !important;
+  top: calc(-28px * var(--pink-layout-scale, 1)) !important;
+  z-index: 4;
+  display: block !important;
+  width: var(--pink-polaroid-ribbon-width, 22px) !important;
+  height: var(--pink-polaroid-ribbon-height, 34px) !important;
+  opacity: 1;
+  box-shadow: none;
+  clip-path: none;
+  background: transparent url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCA0NiI+PHBhdGggZD0iTTEzLjQgMGgzLjJ2MTRoLTMuMnoiIGZpbGw9IiNmMGE4YmMiLz48ZyBzdHJva2U9IiNkZDhiYTQiIHN0cm9rZS13aWR0aD0iMS4xIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTQgMTkuNUMxMCAxMSAzIDcuMiAxLjYgMTIuMi4yIDE3LjYgNC42IDIzLjYgMTMuNCAyMi44WiIgZmlsbD0iI2Y2YjhjOCIvPjxwYXRoIGQ9Ik0xNiAxOS41YzQtOC41IDExLTEyLjMgMTIuNC03LjMgMS40IDUuNC0zIDExLjQtMTEuOCAxMC42WiIgZmlsbD0iI2VkYTNiOCIvPjxwYXRoIGQ9Ik0xMy4yIDI0IDcgNDMuNWw0LjUtMi43TDE0IDQ2bDEtMjJaIiBmaWxsPSIjZjRhZWMxIi8+PHBhdGggZD0ibTE2LjggMjQgNi4yIDE5LjUtNC41LTIuN0wxNiA0NmwtMS0yMloiIGZpbGw9IiNlOTk5YjAiLz48L2c+PGVsbGlwc2UgY3g9IjE1IiBjeT0iMjEuNSIgcng9IjMuNCIgcnk9IjQuMiIgZmlsbD0iI2UwOGJhNSIgc3Ryb2tlPSIjZDE3ZTk5IiBzdHJva2Utd2lkdGg9IjEiLz48L3N2Zz4=") center / contain no-repeat !important;
+  filter: drop-shadow(0 2px 3px rgba(156, 75, 99, .20));
+  transform: translateX(-50%) rotate(12deg);
 }
 
 html.codex-dream-skin[data-dream-theme="pink-custom"] #codex-dream-skin-chrome .dream-polaroid::before {
-  left: calc(-5px * var(--pink-layout-scale, 1)) !important;
-  top: calc(-9px * var(--pink-layout-scale, 1)) !important;
-  width: calc(36px * var(--pink-layout-scale, 1)) !important;
-  height: calc(40px * var(--pink-layout-scale, 1)) !important;
-  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 44'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23f8b4c5'/%3E%3Cstop offset='1' stop-color='%23ea89a5'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='9' cy='7' r='4.6' fill='%23fdf1f4' stroke='%23e88aa2' stroke-width='2'/%3E%3Cpath d='M20 40C11.5 32.5 5 26.6 5 18.8 5 13 9 9.4 13.2 9.4c2.9 0 5.5 1.6 6.8 4.1 1.3-2.5 3.9-4.1 6.8-4.1C31 9.4 35 13 35 18.8 35 26.6 28.5 32.5 20 40Z' fill='url(%23g)' stroke='%23df7c98' stroke-width='1'/%3E%3Cellipse cx='13.4' cy='17.4' rx='3.4' ry='2.1' fill='%23fff' opacity='.72' transform='rotate(-24 13.4 17.4)'/%3E%3C/svg%3E") center / contain no-repeat !important;
+  left: calc(-26px * var(--pink-layout-scale, 1)) !important;
+  top: calc(-33px * var(--pink-layout-scale, 1)) !important;
+  z-index: 4;
+  background: transparent url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MiA2NCI+PGRlZnM+PGNsaXBQYXRoIGlkPSJhIj48cGF0aCBkPSJNMjEgNjBDNyA0OCAzIDQwIDMgMzJjMC03IDUtMTEgOS41LTExIDQgMCA3IDIgOC41IDUgMS41LTMgNC41LTUgOC41LTUgNC41IDAgOS41IDQgOS41IDExIDAgOC00IDE2LTE4IDI4WiIvPjwvY2xpcFBhdGg+PC9kZWZzPjxwYXRoIGQ9Ik0yOC41IDMuNWMtOCAwLTEyLjUgNS0xMi41IDExIDAgNS42IDQuNiA4LjggOC4yIDExLjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2U3OWFhZSIgc3Ryb2tlLXdpZHRoPSIzLjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxwYXRoIGQ9Ik0yMSA2MEM3IDQ4IDMgNDAgMyAzMmMwLTcgNS0xMSA5LjUtMTEgNCAwIDcgMiA4LjUgNSAxLjUtMyA0LjUtNSA4LjUtNSA0LjUgMCA5LjUgNCA5LjUgMTEgMCA4LTQgMTYtMTggMjhaIiBmaWxsPSIjZmRlZWYxIi8+PGcgY2xpcC1wYXRoPSJ1cmwoI2EpIiBzdHJva2U9IiNmMGE5YmQiIHN0cm9rZS13aWR0aD0iMS42Ij48cGF0aCBkPSJNLTYgMjQgNDggNjBNLTYgMzIgNDggNjhNLTYgMTYgNDggNTJNLTYgNDAgNDggNzZNLTYgOCA0OCA0NCIvPjwvZz48cGF0aCBkPSJNMjEgNjBDNyA0OCAzIDQwIDMgMzJjMC03IDUtMTEgOS41LTExIDQgMCA3IDIgOC41IDUgMS41LTMgNC41LTUgOC41LTUgNC41IDAgOS41IDQgOS41IDExIDAgOC00IDE2LTE4IDI4WiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZTI4NDlmIiBzdHJva2Utd2lkdGg9IjIuMiIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg==") center / contain no-repeat !important;
   filter: drop-shadow(0 3px 4px rgba(156, 75, 99, .22)) !important;
-  transform: rotate(-12deg) !important;
+  transform: rotate(12deg) !important;
 }

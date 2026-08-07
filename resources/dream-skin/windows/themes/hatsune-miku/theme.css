@@ -46,7 +46,7 @@ html.codex-dream-skin[data-dream-theme="hatsune-miku"] aside.app-shell-left-pane
     inset -1px 0 rgba(255, 255, 255, .92) !important;
 }
 
-html.codex-dream-skin[data-dream-theme="hatsune-miku"] main.main-surface {
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] main[data-app-shell-main-surface] {
   background:
     radial-gradient(circle at 82% 8%, rgba(102, 225, 219, .22), transparent 30%),
     radial-gradient(circle at 24% 0%, rgba(255, 174, 224, .16), transparent 28%),
@@ -59,7 +59,7 @@ html.codex-dream-skin[data-dream-theme="hatsune-miku"] main.main-surface {
     -8px 0 30px rgba(42, 164, 170, .08) !important;
 }
 
-html.codex-dream-skin[data-dream-theme="hatsune-miku"] main.main-surface > header.app-header-tint {
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] main[data-app-shell-main-surface] > header[data-app-shell-application-menu-bar] {
   background:
     linear-gradient(90deg, rgba(247, 255, 255, .96), rgba(235, 253, 251, .90), rgba(247, 240, 255, .82)) !important;
   border-bottom-color: rgba(70, 196, 197, .24) !important;
@@ -277,7 +277,8 @@ html.codex-dream-skin[data-dream-theme="hatsune-miku"] .dream-home .group\/home-
   box-shadow: 0 0 0 7px rgba(238, 226, 255, .66), 0 5px 12px rgba(113, 77, 178, .19);
 }
 
-html.codex-dream-skin[data-dream-theme="hatsune-miku"] .composer-surface-chrome {
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] [data-composer-surface-variant],
+html.codex-dream-skin [data-composer-surface-variant] > [data-composer-layout] {
   border: 2px solid rgba(72, 194, 197, .46) !important;
   outline: 1px solid rgba(72, 194, 197, .42);
   outline-offset: -1px;
@@ -290,7 +291,7 @@ html.codex-dream-skin[data-dream-theme="hatsune-miku"] .composer-surface-chrome 
     inset 0 0 0 5px rgba(255, 255, 255, .55) !important;
 }
 
-html.codex-dream-skin[data-dream-theme="hatsune-miku"] .composer-surface-chrome::before {
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] [data-composer-surface-variant]::before {
   content: "☆";
   color: white;
   background: linear-gradient(145deg, #69ded5, #21b4bd);
@@ -319,7 +320,7 @@ html.codex-dream-skin[data-dream-theme="hatsune-miku"] .ProseMirror {
   caret-color: #18a9b0 !important;
 }
 
-html.codex-dream-skin[data-dream-theme="hatsune-miku"] .composer-surface-chrome button[class~="bg-token-foreground"] {
+html.codex-dream-skin[data-dream-theme="hatsune-miku"] [data-composer-surface-variant] button[class~="bg-token-foreground"] {
   background: linear-gradient(145deg, #69ded5, #21b4bd) !important;
   box-shadow: 0 5px 13px rgba(33, 180, 189, .26) !important;
 }

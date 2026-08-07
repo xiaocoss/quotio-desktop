@@ -28,7 +28,7 @@ html.codex-dream-skin aside.app-shell-left-panel [aria-current="page"] {
   border-color: rgba(53, 149, 176, .3) !important;
 }
 
-html.codex-dream-skin main.main-surface {
+html.codex-dream-skin main[data-app-shell-main-surface] {
   background:
     radial-gradient(circle at 84% 10%, rgba(92,218,196,.28), transparent 30%),
     radial-gradient(circle at 20% 0%, rgba(92,176,232,.22), transparent 27%),
@@ -36,7 +36,7 @@ html.codex-dream-skin main.main-surface {
   border-color: rgba(80, 181, 191, .42) !important;
 }
 
-html.codex-dream-skin main.main-surface > header.app-header-tint {
+html.codex-dream-skin main[data-app-shell-main-surface] > header[data-app-shell-application-menu-bar] {
   background: linear-gradient(90deg, rgba(247,255,255,.96), rgba(217,248,245,.88), rgba(211,234,255,.82)) !important;
   border-bottom-color: rgba(72, 171, 187, .34) !important;
 }
@@ -65,12 +65,13 @@ html.codex-dream-skin main.main-surface > header.app-header-tint {
 }
 
 .dream-home .group\/home-suggestions button > span:first-child > span:first-child,
-html.codex-dream-skin .composer-surface-chrome::before,
+html.codex-dream-skin [data-composer-surface-variant]::before,
 html.codex-dream-skin button[class~="bg-token-foreground"] {
   background: linear-gradient(145deg, #54d7bd, #258fc2) !important;
 }
 
-html.codex-dream-skin .composer-surface-chrome {
+html.codex-dream-skin [data-composer-surface-variant],
+html.codex-dream-skin [data-composer-surface-variant] > [data-composer-layout] {
   border-color: rgba(71, 184, 193, .58) !important;
   background: radial-gradient(circle at 88% 22%, rgba(255,255,255,.92), transparent 24%), linear-gradient(145deg, rgba(249,255,255,.97), rgba(225,247,247,.95)) !important;
   box-shadow: 0 10px 25px rgba(25, 111, 130, .15), inset 0 0 0 4px rgba(255,255,255,.45) !important;

@@ -112,7 +112,7 @@ html.codex-dream-skin[data-dream-theme="wealth-worker"] aside.app-shell-left-pan
   border-color: rgba(167, 113, 31, .22) !important;
 }
 
-html.codex-dream-skin[data-dream-theme="wealth-worker"] main.main-surface {
+html.codex-dream-skin[data-dream-theme="wealth-worker"] main[data-app-shell-main-surface] {
   background:
     radial-gradient(circle at 84% 3%, rgba(232, 185, 55, .16), transparent 27%),
     linear-gradient(180deg, rgba(255, 254, 245, .99), rgba(250, 243, 220, .98)) !important;
@@ -121,7 +121,7 @@ html.codex-dream-skin[data-dream-theme="wealth-worker"] main.main-surface {
   box-shadow: -7px 0 27px rgba(99, 62, 18, .05) !important;
 }
 
-html.codex-dream-skin[data-dream-theme="wealth-worker"] main.main-surface > header.app-header-tint {
+html.codex-dream-skin[data-dream-theme="wealth-worker"] main[data-app-shell-main-surface] > header[data-app-shell-application-menu-bar] {
   background: linear-gradient(90deg, rgba(255, 254, 245, .98), rgba(246, 231, 190, .88)) !important;
   border-bottom-color: rgba(181, 124, 33, .20) !important;
 }
@@ -235,7 +235,8 @@ html.codex-dream-skin[data-dream-theme="wealth-worker"] .dream-home .group\/home
   box-shadow: 0 0 0 6px rgba(219, 232, 181, .72), 0 5px 12px rgba(49, 99, 69, .18);
 }
 
-html.codex-dream-skin[data-dream-theme="wealth-worker"] .composer-surface-chrome {
+html.codex-dream-skin[data-dream-theme="wealth-worker"] [data-composer-surface-variant],
+html.codex-dream-skin [data-composer-surface-variant] > [data-composer-layout] {
   border: 1px solid rgba(179, 123, 32, .38) !important;
   border-radius: 15px !important;
   background:
@@ -244,7 +245,7 @@ html.codex-dream-skin[data-dream-theme="wealth-worker"] .composer-surface-chrome
   box-shadow: 0 11px 25px rgba(97, 61, 18, .11), inset 0 0 0 2px rgba(255, 255, 255, .56) !important;
 }
 
-html.codex-dream-skin[data-dream-theme="wealth-worker"] .composer-surface-chrome::before {
+html.codex-dream-skin[data-dream-theme="wealth-worker"] [data-composer-surface-variant]::before {
   content: "财";
   color: #fff8d6;
   font-weight: 800;
@@ -273,7 +274,7 @@ html.codex-dream-skin[data-dream-theme="wealth-worker"] .ProseMirror {
   caret-color: #ac2d22 !important;
 }
 
-html.codex-dream-skin[data-dream-theme="wealth-worker"] .composer-surface-chrome button[class~="bg-token-foreground"] {
+html.codex-dream-skin[data-dream-theme="wealth-worker"] [data-composer-surface-variant] button[class~="bg-token-foreground"] {
   background: linear-gradient(145deg, #d9482e, #a82720) !important;
   box-shadow: 0 5px 13px rgba(151, 49, 30, .24) !important;
 }

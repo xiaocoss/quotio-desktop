@@ -125,7 +125,7 @@ html.codex-dream-skin[data-dream-theme="purple-night"] aside.app-shell-left-pane
   box-shadow: inset 0 0 0 1px rgba(104, 77, 225, .15) !important;
 }
 
-html.codex-dream-skin[data-dream-theme="purple-night"] main.main-surface {
+html.codex-dream-skin[data-dream-theme="purple-night"] main[data-app-shell-main-surface] {
   color: #44396f !important;
   background:
     radial-gradient(circle at 84% 5%, rgba(78, 187, 241, .15), transparent 29%),
@@ -135,7 +135,7 @@ html.codex-dream-skin[data-dream-theme="purple-night"] main.main-surface {
   box-shadow: inset 0 1px rgba(255, 255, 255, .98), -8px 0 29px rgba(72, 56, 158, .08) !important;
 }
 
-html.codex-dream-skin[data-dream-theme="purple-night"] main.main-surface > header.app-header-tint {
+html.codex-dream-skin[data-dream-theme="purple-night"] main[data-app-shell-main-surface] > header[data-app-shell-application-menu-bar] {
   background: linear-gradient(90deg, rgba(249, 248, 255, .97), rgba(232, 232, 255, .91), rgba(232, 245, 255, .86)) !important;
   border-bottom-color: rgba(104, 77, 225, .21) !important;
 }
@@ -293,7 +293,8 @@ html.codex-dream-skin[data-dream-theme="purple-night"] .dream-home .group\/home-
   box-shadow: 0 0 0 7px rgba(249, 222, 245, .78), 0 5px 13px rgba(185, 72, 166, .20) !important;
 }
 
-html.codex-dream-skin[data-dream-theme="purple-night"] .composer-surface-chrome {
+html.codex-dream-skin[data-dream-theme="purple-night"] [data-composer-surface-variant],
+html.codex-dream-skin [data-composer-surface-variant] > [data-composer-layout] {
   border: 2px solid rgba(105, 79, 225, .46) !important;
   outline: 1px solid rgba(76, 185, 240, .30);
   outline-offset: -1px;
@@ -304,7 +305,7 @@ html.codex-dream-skin[data-dream-theme="purple-night"] .composer-surface-chrome 
   box-shadow: 0 12px 28px rgba(73, 57, 164, .13), inset 0 0 0 4px rgba(255, 255, 255, .56) !important;
 }
 
-html.codex-dream-skin[data-dream-theme="purple-night"] .composer-surface-chrome::before {
+html.codex-dream-skin[data-dream-theme="purple-night"] [data-composer-surface-variant]::before {
   content: "✦";
   color: white;
   background: linear-gradient(145deg, #75cfff, #6650df);
@@ -334,7 +335,7 @@ html.codex-dream-skin[data-dream-theme="purple-night"] .ProseMirror {
   caret-color: #6650dd !important;
 }
 
-html.codex-dream-skin[data-dream-theme="purple-night"] .composer-surface-chrome button[class~="bg-token-foreground"] {
+html.codex-dream-skin[data-dream-theme="purple-night"] [data-composer-surface-variant] button[class~="bg-token-foreground"] {
   color: white !important;
   background: linear-gradient(145deg, #7f8eff, #6249dc 58%, #d25bc0) !important;
   box-shadow: 0 5px 14px rgba(83, 62, 190, .27) !important;

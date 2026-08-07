@@ -7,6 +7,26 @@
   const PINK_PLACEHOLDER = "随心输入，让灵感陪你一起写代码吧～";
   window.__CODEX_DREAM_SKIN_DISABLED__ = false;
 
+  // Codex 26.730.8199.0(2026-08-05 商店版更新)把外壳语义类名换成了带 hash 的 CSS module
+  // 类(hash 每次构建都变),但给出了稳定的语义 data-* 属性。优先认 data 属性,旧类名回退,
+  // 新旧两代都能锚到正确节点。注意不能只回退成 document.querySelector("main") —— 新版里
+  // 第一个 <main> 是最外层窗口壳(整窗大小),不是内容区,拿它算布局会整体偏掉。
+  // 必须**按优先级逐个查**,不能写成 'A, B, C' 一次 querySelector —— 选择器列表没有优先级,
+  // querySelector 返回的是文档顺序最靠前的匹配。新版 Codex 里第一个 <main> 是一个被
+  // Tailwind `.invisible` 父元素藏起来的窗口浮层(整窗大小),裸 `main` 兜底会命中它,
+  // 于是 .dream-home-shell 被打到隐藏壳上、布局全锚到一个不可见的 1280×820 盒子,
+  // 表现就是主内容整块消失、只剩皮肤浮层。
+  const SHELL_MAIN_SELECTORS = ['main[data-app-shell-main-surface]', 'main.main-surface', 'main'];
+  const SHELL_HEADER_SELECTOR =
+    ':scope > header[data-app-shell-application-menu-bar], :scope > header.app-header-tint';
+  const resolveShellMain = () => {
+    for (const selector of SHELL_MAIN_SELECTORS) {
+      const node = document.querySelector(selector);
+      if (node) return node;
+    }
+    return null;
+  };
+
   const escapeHtml = (value) => String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -14,20 +34,30 @@
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 
+  // 单位 = 设计稿(设计图/皮肤/skin-01.jpg, 1400x890)的像素。
+  // 渲染值 = 本表数值 * layoutScale, layoutScale = min(flow.w/flowWidth, home.h/homeHeight)。
+  //
+  // 逐项实测(扫描 skin-01.jpg 的边缘得到,勿凭手感回调):
+  //   侧栏右缘 251 / hero 288..1361 x 124..656 / 输入框 296..1179 x 673..854
+  //   卡片 326..573, 584..817, 826..1058, 1067..1295, y 456..640
+  // flowWidth 取设计稿 flow 宽: 内容区(1400-251=1149) 减去 flow 相对 home 的左右内边距
+  // (线上实测各 15px, 折算设计稿 ≈16) => 1149-32 = 1117。
+  // 早先这里是 1025,比真值小 8%,导致 widthScale 永远大于 heightScale、宽度约束失效,
+  // 于是 hero 只能按高度定尺寸而比设计稿窄了 9% —— 这就是"跟设计图不一样"的根因。
   const PINK_LAYOUT = Object.freeze({
-    flowWidth: 1025,
-    homeHeight: 797,
-    heroWidth: 974,
-    heroHeight: 511,
+    flowWidth: 1117,
+    homeHeight: 790,
+    heroWidth: 1073,
+    heroHeight: 532,
     flowTop: 45,
     flowGap: 22,
     copyTop: 172,
     copyLeft: 74,
     cardHeight: 184,
-    cardFrameBottom: 14,
-    cardFrameLeft: 35,
-    cardFrameRight: 59,
-    cardGridGap: 12,
+    cardFrameBottom: 16,
+    cardFrameLeft: 37,
+    cardFrameRight: 66,
+    cardGridGap: 10,
     heroRadius: 18,
     signatureSize: 38,
     signatureLineHeight: 40,
@@ -50,8 +80,14 @@
     cardHeartBottom: 16,
     cardHeartWidth: 18,
     cardHeartHeight: 16,
-    composerWidth: 847,
-    composerMinHeight: 141,
+    composerWidth: 883,
+    // 设计稿里工具栏下方留白 18 单位(verify 的 composerToolbarBottomGap 按这个校验)。
+    // 141 是旧版 Codex 的值 —— 那时 composer 内部还有一层额外 chrome,要多留 32 单位;
+    // 26.730 精简了内部结构,再留 141 会在工具栏下方空出约 23px 死区。
+    // 注意:工具栏自身高度由 Codex 决定、不随 layoutScale 缩放,所以本项必须跟着
+    // layoutScale 重新标定 —— 112 是 scale=0.926 时代的值,布局基准修正后 scale 降到
+    // 0.873,再用 112 会把留白压到 9px。
+    composerMinHeight: 124,
     projectHeight: 54,
     projectPaddingTop: 24,
     projectPaddingX: 6,
@@ -61,20 +97,28 @@
     projectLabelSize: 13,
     projectLabelLineHeight: 19.5,
     composerTopOffset: 69,
-    railOffsetX: 22,
+    railOffsetX: 8,
     panelRadius: 18,
     flowerWidth: 190,
     flowerHeight: 72,
     flowerBottom: 24,
-    polaroidWidth: 108,
-    polaroidHeight: 154,
-    polaroidBorder: 7,
-    polaroidBottomBorder: 48,
-    polaroidLabelSize: 8,
-    polaroidBowWidth: 30,
-    polaroidBowHeight: 45,
-    polaroidComposerGap: 24,
-    polaroidBottomInset: 7,
+    // 拍立得实测(同样来自 skin-01.jpg):
+    //   照片区水平弦长 126 / 左右边拟合倾角 11.8deg => 照片真实宽 126*cos(11.8)=123
+    //   相纸 = 123 + 2*8(白边) = 139 宽; 高 = 110(照片) + 8(上白边) + 67(下白边) = 185
+    //   未旋转盒 左1236 下840; 输入框 右1179 下854 => 间距 57 / 底部内缩 14
+    polaroidWidth: 139,
+    polaroidHeight: 185,
+    polaroidBorder: 8,
+    polaroidBottomBorder: 67,
+    polaroidLabelSize: 11,
+    // 左上角悬挂的心形吊坠(含上方挂钩),不是蝴蝶结 —— 蝴蝶结在顶边中央。
+    polaroidBowWidth: 34,
+    polaroidBowHeight: 52,
+    // 顶边中央的蝴蝶结: 设计稿里拍立得就是靠它"挂"在 hero 卡底缘上的。
+    polaroidRibbonWidth: 22,
+    polaroidRibbonHeight: 34,
+    polaroidComposerGap: 57,
+    polaroidBottomInset: 14,
   });
   const MANAGED_CLASSES = Object.freeze([
     "dream-home-flow",
@@ -238,6 +282,13 @@
     const root = document.documentElement;
     if (!root) return;
     root.classList.add("codex-dream-skin");
+    // Codex 26.730 的配色由 `html.electron-dark` 驱动 Tailwind 的 --token-* 变量,
+    // 光靠 CSS 的 `color-scheme: light` 翻不过来(那只影响原生控件)。粉系皮肤整体是浅色稿,
+    // 生效期间把暗色类摘掉、并记下来供 cleanup 还原,别让用户的 Codex 永久变浅色。
+    if (root.classList.contains("electron-dark")) {
+      root.dataset.dreamRestoreElectronDark = "true";
+      root.classList.remove("electron-dark");
+    }
     root.dataset.dreamTheme = theme?.id || "dream";
     if (theme?.galleryPreset === true) {
       root.dataset.dreamGallery = "true";
@@ -261,7 +312,7 @@
       style.dataset.dreamVersion = STYLE_VERSION;
     }
 
-    const shellMain = document.querySelector("main.main-surface") || document.querySelector("main");
+    const shellMain = resolveShellMain();
     observeLayoutTargets(shellMain);
     const sidebar = document.querySelector("aside.app-shell-left-panel");
     const home = document.querySelector('[role="main"]:has([data-testid="home-icon"])');
@@ -274,9 +325,14 @@
       document.querySelectorAll(`.${className}`).forEach((node) => node.classList.remove(className));
     }
 
-    const homeFlow = home?.firstElementChild || null;
-    const homeStage = homeFlow?.firstElementChild || null;
-    const hero = homeStage?.firstElementChild || null;
+    // 沿标题容器逐层下钻,不能用 firstElementChild:Codex 26.730 在 home 首位插了个
+    // 塌陷的横幅占位(div.home-banners,高 0),按位置取会整条走进死枝 —— 而且随后还会给
+    // 它设 min-height:100% 的内联样式,把真正的内容整块顶到视口外(表现为主区域全空)。
+    const HOME_HEAD = '[data-feature="game-source"]';
+    const stepDown = (node) => node?.querySelector(`:scope > div:has(${HOME_HEAD})`) || null;
+    const homeFlow = stepDown(home) || home?.firstElementChild || null;
+    const homeStage = stepDown(homeFlow) || homeFlow?.firstElementChild || null;
+    const hero = stepDown(homeStage) || homeStage?.firstElementChild || null;
     const heroCopy = hero?.querySelector('[data-feature="game-source"]') || null;
     let suggestions = home?.querySelector(".group\\/home-suggestions:not(.dream-fallback-suggestions)") || null;
     let fallbackFrame = hero?.querySelector(":scope > .dream-fallback-frame") || null;
@@ -302,7 +358,9 @@
     }
     const projectSelector = home?.querySelector(".group\\/project-selector") || null;
     const projectPanel = projectSelector?.closest("div:has(> .horizontal-scroll-fade-mask)") || null;
-    const composer = home?.querySelector(".composer-surface-chrome") || null;
+    // 新版 Codex 用 data-composer-surface-variant 承载输入框外框(旧版是 .composer-surface-chrome)。
+    // 这里查不到会连带丢掉:占位符替换、composer 轨道定位、以及依赖它几何的拍立得落位。
+    const composer = home?.querySelector("[data-composer-surface-variant], .composer-surface-chrome") || null;
     const placeholder = composer?.querySelector("p[data-placeholder]") || null;
     let composerRail = composer?.parentElement || null;
     while (composerRail && composerRail !== home &&
@@ -310,7 +368,7 @@
       composerRail = composerRail.parentElement;
     }
     if (composerRail === home) composerRail = null;
-    const homeHeader = shellMain?.querySelector(":scope > header.app-header-tint") || null;
+    const homeHeader = shellMain?.querySelector(SHELL_HEADER_SELECTOR) || null;
     const headerSurface = homeHeader?.querySelector('[data-testid="app-shell-header-context-menu-surface"]') || null;
     const headerGrid = headerSurface?.firstElementChild?.firstElementChild || null;
     const nativeHeaderContext = headerGrid?.firstElementChild || null;
@@ -416,6 +474,8 @@
         "--pink-polaroid-label-size": px(PINK_LAYOUT.polaroidLabelSize),
         "--pink-polaroid-bow-width": px(PINK_LAYOUT.polaroidBowWidth),
         "--pink-polaroid-bow-height": px(PINK_LAYOUT.polaroidBowHeight),
+        "--pink-polaroid-ribbon-width": px(PINK_LAYOUT.polaroidRibbonWidth),
+        "--pink-polaroid-ribbon-height": px(PINK_LAYOUT.polaroidRibbonHeight),
       });
       setManagedInlineStyles(homeFlow, {
         "padding-top": px(PINK_LAYOUT.flowTop),
@@ -603,6 +663,10 @@
   const cleanup = () => {
     window.__CODEX_DREAM_SKIN_DISABLED__ = true;
     document.documentElement?.classList.remove("codex-dream-skin");
+    if (document.documentElement?.dataset.dreamRestoreElectronDark === "true") {
+      document.documentElement.classList.add("electron-dark");
+      delete document.documentElement.dataset.dreamRestoreElectronDark;
+    }
     document.documentElement?.style.removeProperty("--dream-art");
     if (document.documentElement) {
       delete document.documentElement.dataset.dreamTheme;
@@ -659,10 +723,10 @@
   const layoutObserver = typeof ResizeObserver === "function"
     ? new ResizeObserver(scheduleLayoutEnsure)
     : null;
-  observeLayoutTargets = (shellMain = document.querySelector("main.main-surface") || document.querySelector("main")) => {
+  observeLayoutTargets = (shellMain = resolveShellMain()) => {
     if (!layoutObserver) return;
     const sidebar = document.querySelector("aside.app-shell-left-panel");
-    const header = shellMain?.querySelector(":scope > header.app-header-tint") || null;
+    const header = shellMain?.querySelector(SHELL_HEADER_SELECTOR) || null;
     if (shellMain === observedShellMain && sidebar === observedSidebar && header === observedHeader) return;
     layoutObserver.disconnect();
     observedShellMain = shellMain;

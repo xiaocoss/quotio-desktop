@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
 const SKIN_VERSION = "1.1.5";
-const PINK_CARD_FRAME_BOTTOM = 14;
+const PINK_CARD_FRAME_BOTTOM = 16;
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
 const BROWSER_ID_PATTERN = /^[A-Za-z0-9._-]{1,200}$/;
 
@@ -338,12 +338,34 @@ async function loadPayload(themeDir) {
     .replace("__DREAM_THEME_JSON__", JSON.stringify(loaded.theme));
 }
 
+/// Codex 26.730.8199.0(2026-08-05 商店版更新)把外壳的语义类名换成了带 hash 的
+/// CSS module 类(`main.main-surface` → `main._MainContentSurface_<hash>`),hash 每次
+/// 构建都会变,不能直接匹配。好在同一版给出了稳定的语义 `data-*` 属性,这里优先认它们,
+/// 旧类名保留作回退,新旧两代 Codex 都能连上。
+/// 侧栏 `aside.app-shell-left-panel` 两代未变。
+/// 按优先级逐个查(不能写成一次 querySelector 的选择器列表 —— 列表没有优先级,返回的是
+/// 文档顺序最靠前的匹配;新版 Codex 的第一个 <main> 是被 `.invisible` 藏起来的窗口浮层)。
+const SHELL_MAIN_SELECTORS = ['main[data-app-shell-main-surface]', 'main.main-surface'];
+const SHELL_MAIN_PICK_JS =
+  `(${JSON.stringify(SHELL_MAIN_SELECTORS)}.reduce((found, s) => found || document.querySelector(s), null))`;
+const SHELL_SIDEBAR_SELECTOR = 'aside.app-shell-left-panel';
+const COMPOSER_MARKER_SELECTOR = '[data-codex-composer], .composer-surface-chrome';
+/// 输入框的**视觉外框**(旧版是 .composer-surface-chrome)。新版 Codex 用
+/// `_ComposerLayoutRoot_<hash>` 承载,同时带一组稳定的 data-composer-* 属性;
+/// data-composer-surface-variant 只出现在 Root 上,足以唯一定位,且与 Body 同尺寸。
+const COMPOSER_CHROME_SELECTOR = '[data-composer-surface-variant], .composer-surface-chrome';
+/// 设计稿里 composerFooter 指的是输入框的**内容主体**(约 109 单位高),新版 Codex 对应
+/// `_ComposerLayoutBody_<hash>`(= Root 的直接子节点,带 data-composer-layout)。
+/// 不能用 [data-composer-footer-responsive] —— 那是更靠内的 `_ComposerLayoutFooter_`,
+/// 实测只有 76px(期望 ~101),差出的 25px 正好也让 toolbar 间距量错。
+const COMPOSER_BODY_SELECTOR = '[data-composer-surface-variant] > [data-composer-layout]';
+
 async function probeSession(session) {
   return session.evaluate(`(() => {
     const markers = {
-      shell: Boolean(document.querySelector('main.main-surface')),
-      sidebar: Boolean(document.querySelector('aside.app-shell-left-panel')),
-      composer: Boolean(document.querySelector('.composer-surface-chrome')),
+      shell: Boolean(${SHELL_MAIN_PICK_JS}),
+      sidebar: Boolean(document.querySelector(${JSON.stringify(SHELL_SIDEBAR_SELECTOR)})),
+      composer: Boolean(document.querySelector(${JSON.stringify(COMPOSER_MARKER_SELECTOR)})),
       main: Boolean(document.querySelector('[role="main"]')),
     };
     return {
@@ -430,11 +452,16 @@ async function verifySession(session) {
     const suggestions = home?.querySelector('.group\\\\/home-suggestions') ?? null;
     const cardNodes = suggestions ? [...suggestions.querySelectorAll('button')] : [];
     const cards = cardNodes.map(box);
-    const hero = box(home?.firstElementChild?.firstElementChild?.firstElementChild);
-    const composerNode = document.querySelector('.composer-surface-chrome');
+    // hero 卡片 = 沿标题容器逐层下钻的第 3 层(与 dream-skin.css 的锚点保持一致)。
+    // 原来按 firstElementChild 固定下钻,Codex 26.730 在 home 首位插了个塌陷的横幅占位后就走岔了。
+    const heroHead = '[data-feature="game-source"]';
+    const down = (node) => node?.querySelector(':scope > div:has(' + heroHead + ')') ?? null;
+    const hero = box(down(down(down(home))));
+    const composerNode = document.querySelector(${JSON.stringify(COMPOSER_CHROME_SELECTOR)});
     const composer = box(composerNode);
     const composerEditor = composerNode?.querySelector('.ProseMirror[contenteditable="true"]') ?? null;
-    const composerFooter = composerEditor?.closest('.dream-home-composer > .contents > div') ?? null;
+    const composerFooter = composerEditor?.closest('.dream-home-composer > .contents > div')
+      ?? composerEditor?.closest(${JSON.stringify(COMPOSER_BODY_SELECTOR)}) ?? null;
     const composerFooterBox = box(composerFooter);
     const composerButtons = composerNode ? [...composerNode.querySelectorAll('button')] : [];
     const composerToolbarBottom = composerButtons.length
@@ -447,9 +474,11 @@ async function verifySession(session) {
     const sidebarNode = document.querySelector('aside.app-shell-left-panel');
     const sidebar = box(sidebarNode);
     const sidebarInner = box(sidebarNode?.firstElementChild);
-    const mainNode = document.querySelector('main.main-surface');
+    const mainNode = ${SHELL_MAIN_PICK_JS};
     const main = box(mainNode);
-    const headerNode = document.querySelector('main.main-surface > header.app-header-tint');
+    const headerNode = mainNode?.querySelector(
+      ':scope > header[data-app-shell-application-menu-bar], :scope > header.app-header-tint',
+    ) ?? null;
     const header = box(headerNode);
     const headerContentNode = headerNode
       ? [...headerNode.children].sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width)[0] ?? null
@@ -478,8 +507,8 @@ async function verifySession(session) {
       Number.isFinite(actual) && Number.isFinite(expected) && Math.abs(actual - expected) <= tolerance;
     const polaroidVisualDetails = theme === 'pink-custom' && home
       ? Boolean(polaroidStyle && polaroidBeforeStyle && polaroidAfterStyle && polaroidTapeNode) &&
-        near(Number.parseFloat(polaroidStyle.borderBottomWidth), 48 * layoutScale, 3) &&
-        polaroidStyle.backgroundSize === 'auto 180%' &&
+        near(Number.parseFloat(polaroidStyle.borderBottomWidth), 67 * layoutScale, 3) &&
+        polaroidStyle.backgroundSize === 'auto 164%' &&
         polaroidStyle.backgroundPosition === '75% 0%' &&
         polaroidBeforeStyle.backgroundImage !== 'none' &&
         polaroidAfterStyle.content.includes('一直陪伴') &&
@@ -539,13 +568,13 @@ async function verifySession(session) {
     const pinkUniformScale = theme !== 'pink-custom' || !home || (
       Number.isFinite(layoutScale) && layoutScale >= .75 && layoutScale <= 2.5 &&
       Boolean(hero) && Boolean(composer) && Boolean(sidebar) &&
-      near(hero.width, 974 * layoutScale) && near(hero.height, 511 * layoutScale) &&
-      near(composer.width, 847 * layoutScale) &&
+      near(hero.width, 1073 * layoutScale) && near(hero.height, 532 * layoutScale) &&
+      near(composer.width, 883 * layoutScale) &&
       cards.every((card) => near(card.height, 184 * layoutScale, 6))
     );
     const composerContentGeometry = theme !== 'pink-custom' || !home || (
       Boolean(composer && composerEditor && composerFooterBox) &&
-      near(composerFooterBox.height, 109 * layoutScale, 5) &&
+      near(composerFooterBox.height, 122 * layoutScale, 6) &&
       near(composerToolbarBottomGap, 18 * layoutScale, 5)
     );
     const composerPointerReady = theme !== 'pink-custom' || !home ||
@@ -564,22 +593,22 @@ async function verifySession(session) {
         : !polaroidVisible);
     const polaroidGeometry = !polaroidExpected ? !polaroidVisible :
       Boolean(polaroid) && polaroidVisible && Boolean(polaroidContent) &&
-      near(polaroidContent.width, 108 * layoutScale, 3) &&
-      near(polaroidContent.height, 154 * layoutScale, 3) &&
+      near(polaroidContent.width, 139 * layoutScale, 3) &&
+      near(polaroidContent.height, 185 * layoutScale, 3) &&
       polaroidVisualDetails && polaroidPositionAligned &&
       polaroid.x >= 0 && polaroid.x + polaroid.width <= innerWidth + 4 &&
       polaroid.y >= 0 && polaroid.y + polaroid.height <= innerHeight + 4;
     const pinkCompositionGeometry = theme !== 'pink-custom' || !home || (
       pinkUniformScale && glyphsCentered && composerContentGeometry && composerPointerReady && polaroidGeometry &&
-      near(composer.x - hero.x, 22 * layoutScale, 8) &&
+      near(composer.x - hero.x, 8 * layoutScale, 8) &&
       near(composer.y - (hero.y + hero.height), 69 * layoutScale, 8) &&
       cards.every((card) =>
-        near(card.width, 210 * layoutScale, 10) &&
-        near(card.y - hero.y, (511 - 184 - ${JSON.stringify(PINK_CARD_FRAME_BOTTOM)}) * layoutScale, 8)) &&
+        near(card.width, 235 * layoutScale, 10) &&
+        near(card.y - hero.y, (532 - 184 - ${JSON.stringify(PINK_CARD_FRAME_BOTTOM)}) * layoutScale, 8)) &&
       near(hero.y + hero.height - (cards.at(-1)?.y + cards.at(-1)?.height),
         ${JSON.stringify(PINK_CARD_FRAME_BOTTOM)} * layoutScale, 8) &&
-      near(cards[0]?.x - hero.x, 35 * layoutScale, 8) &&
-      near((hero.x + hero.width) - (cards.at(-1)?.x + cards.at(-1)?.width), 59 * layoutScale, 12) &&
+      near(cards[0]?.x - hero.x, 37 * layoutScale, 8) &&
+      near((hero.x + hero.width) - (cards.at(-1)?.x + cards.at(-1)?.width), 66 * layoutScale, 12) &&
       document.documentElement.scrollWidth <= document.documentElement.clientWidth &&
       document.documentElement.scrollHeight <= document.documentElement.clientHeight
     );
