@@ -265,6 +265,17 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
     el.focus();
   }
 
+  /// 同 [focusSecretInput]，但允许表单还没挂载：等 React 提交后再试，最多几帧。
+  /// 从「添加账号」进来时输入框可能这一帧才被渲染出来。
+  function focusSecretInputWhenReady(attempts = 6) {
+    if (secretInputRef.current) {
+      focusSecretInput();
+      return;
+    }
+    if (attempts <= 0) return;
+    window.requestAnimationFrame(() => focusSecretInputWhenReady(attempts - 1));
+  }
+
   function applyQueryResult(parsed: ParsedMfaCredential) {
     setActiveQuery(parsed);
     setInputError("");
@@ -456,6 +467,11 @@ export function TwoFactorAuthScreen({ roseMode = false }: { roseMode?: boolean }
     setNameValue("");
     setInputValue("");
     setSecretRevealed(false);
+    // 必须命令式滚动，不能靠 composerOpen 变化触发的 effect：保险库为空时右栏本来就已经是
+    // 新建表单（`composerOpen || !selectedRecord` 已为真），再点一次「添加账号」state 不变、
+    // effect 也不会重跑。而 ≤1080px 是单栏布局，表单排在列表面板下方、通常整块在首屏之外
+    // （实测 760px 高的窗口里表单顶端在 y=762），于是点击看上去毫无反应。
+    focusSecretInputWhenReady();
   }
 
   function selectRoseRecord(record: MfaRecord) {
