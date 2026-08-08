@@ -742,3 +742,135 @@ html.codex-dream-skin[data-dream-gallery="true"] button[class~="bg-token-foregro
 @media (prefers-reduced-motion: reduce) {
   .dream-sparkles i { animation: none !important; }
 }
+
+
+/* ── 配色令牌接管 ─────────────────────────────────────────────────────────────
+ *
+ * 本文件上面那一整套是默认的粉色浅色皮肤,写死在选择器里;因此每个主题过去都得
+ * 用同等特异度的选择器把它逐条顶掉 —— 十个主题为此写了四千多行,而且 Codex 一改
+ * DOM 就集体失效。
+ *
+ * 现在:主题只要在 theme.json 里声明 colors,renderer-inject 就会打上
+ * [data-ds-tokens] 并注入 --ds-theme-color-*,由下面这一段统一把颜色铺到各表面。
+ *
+ * 之所以放在文件末尾并复用上面同一批选择器 + 多带一个 [data-ds-tokens]:
+ * 特异度比上面高一级、位置又靠后,能稳定盖住默认粉色;而主题自己的 theme.css 是
+ * 拼在本文件之后的,仍然可以继续覆盖这里的任何一条。
+ * 没声明 colors 的主题不会命中 [data-ds-tokens],外观与之前完全一致。
+ */
+html.codex-dream-skin[data-ds-tokens] body {
+  background: var(--ds-theme-color-background) !important;
+  color: var(--ds-theme-color-text) !important;
+}
+
+html.codex-dream-skin[data-ds-tokens] aside.app-shell-left-panel {
+  background: var(--ds-theme-color-panel) !important;
+  border-color: var(--ds-theme-color-line) !important;
+  box-shadow: 1px 0 0 var(--ds-theme-color-line) !important;
+  color: var(--ds-theme-color-text) !important;
+}
+
+/* Codex 把导航项的颜色设在 button 内部的 <span> 上,只给 button 设 color 够不到它
+   (见上面同一选择器处的说明),所以这里同样要一并覆盖按钮内的文字节点。 */
+html.codex-dream-skin[data-ds-tokens] aside.app-shell-left-panel
+  :is(button, a, span, p, small, strong, svg) {
+  color: var(--ds-theme-color-muted) !important;
+}
+
+html.codex-dream-skin[data-ds-tokens] aside.app-shell-left-panel button:hover {
+  background: var(--ds-theme-color-panelAlt) !important;
+  box-shadow: none !important;
+}
+
+html.codex-dream-skin[data-ds-tokens] aside.app-shell-left-panel
+  [class~="bg-token-list-hover-background"],
+html.codex-dream-skin[data-ds-tokens] aside.app-shell-left-panel [aria-current="page"] {
+  background: var(--ds-theme-color-panelAlt) !important;
+  border-color: var(--ds-theme-color-accent) !important;
+  box-shadow: none !important;
+}
+
+html.codex-dream-skin[data-ds-appearance="dark"] { color-scheme: dark !important; }
+html.codex-dream-skin[data-ds-appearance="light"] { color-scheme: light !important; }
+
+html.codex-dream-skin[data-ds-tokens] main[data-app-shell-main-surface] {
+  background-color: var(--ds-theme-color-background) !important;
+  background-image: none !important;
+  border-color: var(--ds-theme-color-line) !important;
+  box-shadow: none !important;
+}
+
+/* 壁纸型主题(theme.json 的 art.taskMode = "ambient"):整图铺满主区域,构图焦点由
+   art.focusX / art.focusY 决定。做在基础样式里,主题就不必为"贴一张图"再写 CSS。
+   多带一个 [data-ds-task-mode] 属性,特异度高于上面那条,能盖掉它的 background-image:none。 */
+html.codex-dream-skin[data-ds-tokens][data-ds-task-mode="ambient"]
+  main[data-app-shell-main-surface] {
+  background-image: var(--dream-art) !important;
+  background-size: cover !important;
+  background-position: var(--ds-art-focus-x) var(--ds-art-focus-y) !important;
+  background-repeat: no-repeat !important;
+}
+
+html.codex-dream-skin[data-ds-tokens] main[data-app-shell-main-surface]
+  > header[data-app-shell-application-menu-bar] {
+  background: var(--ds-theme-color-panel) !important;
+  border-bottom-color: var(--ds-theme-color-line) !important;
+  color: var(--ds-theme-color-text) !important;
+}
+
+html.codex-dream-skin[data-ds-tokens] [role="main"] {
+  color: var(--ds-theme-color-text) !important;
+}
+
+/* hero 卡片在上面的选择器是 :has() 三级链,特异度 (0,4,3) —— 比本段其余规则都高,
+   所以这里靠重复属性选择器抬到 (0,5,1) 才压得住。重复的是皮肤自己打的部件属性,
+   不引入任何 Codex 的 DOM 知识。壁纸已经铺在主区域上了,hero 这里不再重复贴图。 */
+html.codex-dream-skin[data-ds-tokens] [data-ds-part="hero"][data-ds-part][data-ds-part] {
+  background-color: var(--ds-theme-color-panel) !important;
+  background-image: none !important;
+  border-color: var(--ds-theme-color-line) !important;
+  box-shadow: none !important;
+  color: var(--ds-theme-color-text) !important;
+}
+
+html.codex-dream-skin[data-ds-tokens] [data-ds-part="hero"][data-ds-part][data-ds-part]::before {
+  background: none !important;
+}
+
+html.codex-dream-skin[data-ds-tokens] .dream-home .group\/home-suggestions button {
+  background: var(--ds-theme-color-panel) !important;
+  border-color: var(--ds-theme-color-line) !important;
+  box-shadow: none !important;
+  color: var(--ds-theme-color-text) !important;
+}
+
+html.codex-dream-skin[data-ds-tokens] .dream-home .group\/home-suggestions button:hover {
+  background: var(--ds-theme-color-panelAlt) !important;
+  border-color: var(--ds-theme-color-accent) !important;
+}
+
+html.codex-dream-skin[data-ds-tokens] [data-composer-surface-variant],
+html.codex-dream-skin[data-ds-tokens] [data-composer-surface-variant] > [data-composer-layout] {
+  background: var(--ds-theme-color-panel) !important;
+  border-color: var(--ds-theme-color-line) !important;
+  box-shadow: none !important;
+  color: var(--ds-theme-color-text) !important;
+}
+
+html.codex-dream-skin[data-ds-tokens] .ProseMirror {
+  color: var(--ds-theme-color-text) !important;
+  caret-color: var(--ds-theme-color-accentAlt) !important;
+}
+
+html.codex-dream-skin[data-ds-tokens] button[class~="bg-token-foreground"] {
+  background: linear-gradient(145deg,
+    var(--ds-theme-color-accentAlt), var(--ds-theme-color-accent)) !important;
+}
+
+html.codex-dream-skin[data-ds-tokens] .dream-brand {
+  color: var(--ds-theme-color-text) !important;
+}
+
+html.codex-dream-skin[data-ds-tokens] .dream-signature {
+  color: var(--ds-theme-color-secondary) !important;
+}

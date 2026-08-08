@@ -63,3 +63,45 @@ layout and need re-deriving against the current shell. `hero` in particular is
 read positionally via `home.firstElementChild.firstElementChild
 .firstElementChild`, which now lands on a collapsed `div.home-banners`; it should
 measure a node the skin itself marks instead of a fixed descent path.
+
+## Colour tokens and semantic parts
+
+A theme used to restyle Codex by naming Codex's own selectors, so the ten bundled
+themes carry ~4300 lines of CSS between them and every Codex DOM change breaks
+all of them at once. Themes can now declare data instead.
+
+`theme.json` may carry three optional blocks. `renderer-inject.js` translates
+them; nothing else in the theme is required.
+
+| Field | Effect |
+| --- | --- |
+| `colors` | Each key becomes `--ds-theme-color-<key>` on `<html>`, in both camelCase and kebab-case (custom properties are case-sensitive and authors use both). Recognised keys: `background`, `panel`, `panelAlt`, `accent`, `accentAlt`, `secondary`, `highlight`, `text`, `muted`, `line`. |
+| `appearance` | `"light"` / `"dark"` → `data-ds-appearance`, which drives `color-scheme`. |
+| `art.focusX` / `art.focusY` | `--ds-art-focus-x` / `--ds-art-focus-y` (percentages), used as the wallpaper's `background-position`. |
+| `art.taskMode` | `data-ds-task-mode`. `"ambient"` makes the base stylesheet cover the main surface with the theme image. |
+| `art.safeArea` | `data-ds-safe-area`, for themes that want to keep one side clear. |
+
+Declaring any colour also sets `data-ds-tokens` on `<html>`. The **token takeover
+block at the end of `dream-skin.css`** is gated on that attribute and paints every
+surface from the tokens. Themes that declare no colours never match it and look
+exactly as they did before — that gate is what keeps the change regression-free.
+
+These nodes carry a `data-ds-part` attribute, so a theme can select them without
+knowing anything about Codex's markup:
+
+`root` (`<html>`), `shell` (main surface), `sidebar`, `menubar`, `home`, `hero`,
+`card` (each suggestion button), `composer`, `editor`.
+
+Two things to know before writing rules against them:
+
+- The attributes are re-applied on every `ensure()` pass, because Codex swaps
+  these nodes on re-render. Do not cache them.
+- `[data-ds-part="x"]` alone is only specificity `(0,1,0)`, which loses to the
+  base stylesheet's own rules. Prefer letting the token takeover block do the
+  work; when a theme genuinely must override it, repeat the attribute
+  (`[data-ds-part="hero"][data-ds-part][data-ds-part]`) rather than reaching for
+  a Codex class name. The hero's base rule is a `:has()` chain at `(0,4,3)`, so
+  it needs two repeats.
+
+`themes/cecilylove002` is the worked example: a wallpaper theme whose entire
+`theme.css` is one rule, because everything else is declared in `theme.json`.

@@ -757,12 +757,15 @@ mod tests {
             .into_iter()
             .map(|theme| theme.id)
             .collect::<std::collections::BTreeSet<_>>();
-        assert_eq!(ids.len(), 11);
+        assert_eq!(ids.len(), 12);
         for theme_id in [
             "dream",
             "aurora",
             "midnight",
             "pink-custom",
+            // 配色令牌格式的第一个主题:theme.json 声明 colors/appearance/art,
+            // theme.css 只剩一条规则(见 resources/dream-skin/INTEGRATION.md)。
+            "cecilylove002",
             "wealth-worker",
             "red-white-scifi",
             "clear-custom",

@@ -1,0 +1,24 @@
+/* 休闲室内居家 —— 壁纸型主题。
+ *
+ * 配色全部在 theme.json 的 colors 里声明,由 dream-skin.css 末尾的令牌接管块铺开;
+ * 壁纸由 art.taskMode = "ambient" 触发,同样在基础样式里处理。所以这里只剩下这个
+ * 主题自己的取舍:面板要不要更实一点。
+ *
+ * 对比:本仓库早期的主题为同样的效果各写了 80 ~ 1600 行选择器,且都焊死在 Codex 的
+ * 类名/层级上,26.730 换 DOM 后集体失效。可用部件与令牌见 ../../INTEGRATION.md。
+ */
+
+/* panel 令牌(#1e1e1e55,约 33% 不透明)直接压在 4K 照片上文字偏糊。
+   把同一个颜色叠两层,alpha 复合到约 55%,壁纸仍透得出来但字能读清。
+   注意别用 backdrop-filter: blur() —— 几个大面板叠在 3840×2160 的壁纸上做实时模糊,
+   合成开销大到连 Page.captureScreenshot 都会超时,实际使用同样会卡。 */
+html.codex-dream-skin[data-ds-tokens] aside.app-shell-left-panel,
+html.codex-dream-skin[data-ds-tokens] main[data-app-shell-main-surface]
+  > header[data-app-shell-application-menu-bar],
+html.codex-dream-skin[data-ds-tokens] .dream-home .group\/home-suggestions button,
+html.codex-dream-skin[data-ds-tokens] [data-composer-surface-variant] {
+  background-color: transparent !important;
+  background-image:
+    linear-gradient(0deg, var(--ds-theme-color-panel), var(--ds-theme-color-panel)),
+    linear-gradient(0deg, var(--ds-theme-color-panel), var(--ds-theme-color-panel)) !important;
+}

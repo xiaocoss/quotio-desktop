@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "cecilylove002",
+  "name": "休闲室内居家",
+  "brandTitle": "休闲室内居家",
+  "brandSubtitle": "CODEX AMBIENT",
+  "signature": "Stay home, stay focused ·",
+  "image": "background.jpg",
+  "appearance": "dark",
+  "art": {
+    "focusX": 0.5,
+    "focusY": 0.5,
+    "safeArea": "none",
+    "taskMode": "ambient"
+  },
+  "colors": {
+    "background": "#131313",
+    "panel": "#1e1e1e55",
+    "panelAlt": "#2a2a2a",
+    "accent": "#4b75a6",
+    "accentAlt": "#6488b2",
+    "secondary": "#b9a788",
+    "highlight": "#7898bc",
+    "text": "#f0f0f0",
+    "muted": "#939393",
+    "line": "#3f3f3f"
+  }
+}
