@@ -8,10 +8,15 @@
  * 类名/层级上,26.730 换 DOM 后集体失效。可用部件与令牌见 ../../INTEGRATION.md。
  */
 
-/* panel 令牌(#1e1e1e55,约 33% 不透明)直接压在 4K 照片上文字偏糊。
-   把同一个颜色叠两层,alpha 复合到约 55%,壁纸仍透得出来但字能读清。
+/* panel 令牌(#1e1e1e55,约 33% 不透明)直接压在 4K 照片上文字读不清。
+   把同一个颜色叠三层,alpha 复合到约 70%(1 - 0.67³),壁纸仍透得出来但字能读清。
+   实拍验证过:叠两层(约 55%)在这张照片上仍然偏糊。
    注意别用 backdrop-filter: blur() —— 几个大面板叠在 3840×2160 的壁纸上做实时模糊,
    合成开销大到连 Page.captureScreenshot 都会超时,实际使用同样会卡。 */
+/* hero 这条必须带上 [data-ds-task-mode="ambient"]:基础样式里清掉 hero 主视觉图的
+   那条规则也带着它(特异度 0,6,1),不跟上就会被它盖掉,面板叠加层根本画不出来。 */
+html.codex-dream-skin[data-ds-tokens][data-ds-task-mode="ambient"]
+  [data-ds-part="hero"][data-ds-part][data-ds-part],
 html.codex-dream-skin[data-ds-tokens] aside.app-shell-left-panel,
 html.codex-dream-skin[data-ds-tokens] main[data-app-shell-main-surface]
   > header[data-app-shell-application-menu-bar],
@@ -19,6 +24,7 @@ html.codex-dream-skin[data-ds-tokens] .dream-home .group\/home-suggestions butto
 html.codex-dream-skin[data-ds-tokens] [data-composer-surface-variant] {
   background-color: transparent !important;
   background-image:
+    linear-gradient(0deg, var(--ds-theme-color-panel), var(--ds-theme-color-panel)),
     linear-gradient(0deg, var(--ds-theme-color-panel), var(--ds-theme-color-panel)),
     linear-gradient(0deg, var(--ds-theme-color-panel), var(--ds-theme-color-panel)) !important;
 }

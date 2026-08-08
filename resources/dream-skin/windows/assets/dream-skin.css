@@ -857,6 +857,13 @@ html.codex-dream-skin[data-ds-tokens] .dream-home .group\/home-suggestions butto
   color: var(--ds-theme-color-text) !important;
 }
 
+/* 和侧栏同一个坑:Codex 把建议卡片的文字颜色设在 button **内部的 <span>** 上,
+   只给 button 设 color 够不到它,卡片标题会保持 Codex 自己的浅色 token 而糊成一片。 */
+html.codex-dream-skin[data-ds-tokens]
+  .dream-home .group\/home-suggestions button :is(span, p, strong, small, b) {
+  color: var(--ds-theme-color-text) !important;
+}
+
 html.codex-dream-skin[data-ds-tokens] .dream-home .group\/home-suggestions button:hover {
   background: var(--ds-theme-color-panelAlt) !important;
   border-color: var(--ds-theme-color-accent) !important;
@@ -887,4 +894,50 @@ html.codex-dream-skin[data-ds-tokens] .dream-brand {
 
 html.codex-dream-skin[data-ds-tokens] .dream-signature {
   color: var(--ds-theme-color-secondary) !important;
+}
+
+/* 局部着色也要跟着令牌走,否则建议卡片的图标、输入框的装饰条会继续用基础样式里那套
+   粉紫渐变,压在别的配色上很跳。 */
+html.codex-dream-skin[data-ds-tokens]
+  .dream-home .group\/home-suggestions button > span:first-child > span:first-child,
+html.codex-dream-skin[data-ds-tokens] [data-composer-surface-variant]::before {
+  background: linear-gradient(145deg,
+    var(--ds-theme-color-accentAlt), var(--ds-theme-color-accent)) !important;
+}
+
+/* 占位符用 muted:基础样式给的是粉系灰,压在深色面板上会几乎看不见。 */
+html.codex-dream-skin[data-ds-tokens] .ProseMirror [data-placeholder]::before,
+html.codex-dream-skin[data-ds-tokens] [data-composer-surface-variant] [data-placeholder]::before {
+  color: var(--ds-theme-color-muted) !important;
+  opacity: 1 !important;
+}
+
+/* Codex 的通知横幅(配额用尽 / 升级提示)。基础样式给的是粉白面,压在别的配色上很跳。 */
+html.codex-dream-skin[data-ds-tokens] .dream-home aside,
+html.codex-dream-skin[data-ds-tokens] .dream-home aside > * {
+  background: linear-gradient(145deg,
+    var(--ds-theme-color-panelAlt), var(--ds-theme-color-panel)) !important;
+  border-color: var(--ds-theme-color-line) !important;
+  color: var(--ds-theme-color-text) !important;
+}
+
+html.codex-dream-skin[data-ds-tokens] .dream-home aside * {
+  color: var(--ds-theme-color-text) !important;
+}
+
+/* 品牌区那枚音符,基础样式写死成粉紫。 */
+html.codex-dream-skin[data-ds-tokens] .dream-brand .dream-note {
+  color: var(--ds-theme-color-accent) !important;
+  filter: none !important;
+}
+
+/* 拍立得 / 缎带 / 闪点是 pink-custom 的造型语言,基础样式默认对所有主题都开着。
+   壁纸型主题(ambient)的主角就是那张图,再挂一堆粉色挂件只会打架 —— 关掉。 */
+html.codex-dream-skin[data-ds-tokens][data-ds-task-mode="ambient"]
+  #codex-dream-skin-chrome .dream-polaroid,
+html.codex-dream-skin[data-ds-tokens][data-ds-task-mode="ambient"]
+  #codex-dream-skin-chrome .dream-ribbon,
+html.codex-dream-skin[data-ds-tokens][data-ds-task-mode="ambient"]
+  #codex-dream-skin-chrome .dream-sparkles {
+  display: none !important;
 }
