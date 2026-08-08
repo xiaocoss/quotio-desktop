@@ -6,5 +6,18 @@
   "brandSubtitle": "INSPIRATION IN COLOR",
   "signature": "先有灵感 ✦",
   "image": "background.jpg",
-  "galleryPreset": true
+  "galleryPreset": true,
+  "appearance": "light",
+  "colors": {
+    "background": "#fffaf0",
+    "panel": "rgba(255,254,247,.96)",
+    "panelAlt": "#eef8e9",
+    "accent": "#25aa91",
+    "accentAlt": "#58acd4",
+    "secondary": "#ef755e",
+    "highlight": "#25aa91",
+    "text": "#273f3c",
+    "muted": "#25aa91",
+    "line": "rgba(47,176,150,.30)"
+  }
 }

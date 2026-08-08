@@ -83,8 +83,28 @@ them; nothing else in the theme is required.
 
 Declaring any colour also sets `data-ds-tokens` on `<html>`. The **token takeover
 block at the end of `dream-skin.css`** is gated on that attribute and paints every
-surface from the tokens. Themes that declare no colours never match it and look
-exactly as they did before — that gate is what keeps the change regression-free.
+surface from the tokens. Themes that declare no colours never match it and render
+exactly as before, which is what made migrating the existing themes safe.
+
+Nine bundled themes are migrated: `aurora`, `midnight`, `clear-custom`,
+`hatsune-miku`, `inspiration-cosmos`, `purple-night`, `red-white-scifi`,
+`stage-black-gold`, `wealth-worker`. Their palettes came straight out of the
+`--dream-ink / purple / violet / pink / blush / pearl / line` variables each of
+them already defined, so the rendered colours are unchanged — verified per theme
+by comparing the declared token against the computed style on each surface.
+Between them they shed ~560 lines of CSS. Panels use a `panel -> panelAlt`
+gradient rather than one flat fill, because these themes each had their own
+per-surface gradient and a single flat colour visibly flattens them; deriving the
+two stops from the theme's original gradient ends reproduces the old look.
+
+Two are deliberately left alone:
+
+- `dream` declares no palette because it *is* the base stylesheet's pink look;
+  giving it tokens would change the default appearance, not preserve it.
+- `pink-custom` is a full custom layout — of its 1583 lines the colour rules are a
+  small fraction and the rest is calibrated geometry. Migrating it would mean
+  deleting styling with nothing equivalent to take over, so its surfaces stay
+  hand-written.
 
 These nodes carry a `data-ds-part` attribute, so a theme can select them without
 knowing anything about Codex's markup:

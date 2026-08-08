@@ -4,5 +4,18 @@
   "name": "极光青蓝",
   "brandTitle": "Quotio Aurora",
   "brandSubtitle": "AURORA FLOW",
-  "signature": "Aurora ✦"
+  "signature": "Aurora ✦",
+  "appearance": "light",
+  "colors": {
+    "background": "#f5ffff",
+    "panel": "rgba(247,255,255,.98)",
+    "panelAlt": "rgba(229,249,248,.97)",
+    "accent": "#258fc2",
+    "accentAlt": "#54d7bd",
+    "secondary": "#4fd6bd",
+    "highlight": "#16889d",
+    "text": "#123f52",
+    "muted": "#147d96",
+    "line": "rgba(58,174,190,.4)"
+  }
 }

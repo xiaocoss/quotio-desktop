@@ -6,5 +6,18 @@
   "brandSubtitle": "FORTUNE AT WORK",
   "signature": "好运开工 ✦",
   "image": "background.jpg",
-  "galleryPreset": true
+  "galleryPreset": true,
+  "appearance": "light",
+  "colors": {
+    "background": "#fff9e9",
+    "panel": "rgba(255,252,239,.96)",
+    "panelAlt": "#f6e7bd",
+    "accent": "#9f2e24",
+    "accentAlt": "#d4432e",
+    "secondary": "#e7a42e",
+    "highlight": "#b82f24",
+    "text": "#4d2a17",
+    "muted": "#9f2e24",
+    "line": "rgba(177,112,33,.31)"
+  }
 }

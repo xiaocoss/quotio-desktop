@@ -6,5 +6,18 @@
   "brandSubtitle": "JACKSON YEE CUSTOM",
   "signature": "Jackson Yee ✧",
   "image": "background.jpg",
-  "galleryPreset": true
+  "galleryPreset": true,
+  "appearance": "light",
+  "colors": {
+    "background": "#f7f6ed",
+    "panel": "rgba(253,252,246,.96)",
+    "panelAlt": "#e8eadc",
+    "accent": "#77865a",
+    "accentAlt": "#a8b284",
+    "secondary": "#c7b89a",
+    "highlight": "#7b875c",
+    "text": "#3e4938",
+    "muted": "#77865a",
+    "line": "rgba(127,139,93,.31)"
+  }
 }

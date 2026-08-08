@@ -6,5 +6,18 @@
   "brandSubtitle": "CODEX APP · KUN LIMITED",
   "signature": "KUN · GOLD STAGE",
   "image": "background.jpg",
-  "galleryPreset": true
+  "galleryPreset": true,
+  "appearance": "dark",
+  "colors": {
+    "background": "#111215",
+    "panel": "rgba(22,23,27,.96)",
+    "panelAlt": "#1c1e23",
+    "accent": "#c8a55e",
+    "accentAlt": "#e0c27c",
+    "secondary": "#b88b42",
+    "highlight": "#c8a55e",
+    "text": "#eee4cb",
+    "muted": "#b8ad96",
+    "line": "rgba(211,177,103,.30)"
+  }
 }

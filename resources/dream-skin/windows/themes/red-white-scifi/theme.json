@@ -6,5 +6,18 @@
   "brandSubtitle": "RED WHITE SCI-FI",
   "signature": "Future Mode ◉",
   "image": "background.jpg",
-  "galleryPreset": true
+  "galleryPreset": true,
+  "appearance": "light",
+  "colors": {
+    "background": "#fff7f7",
+    "panel": "rgba(255,255,255,.97)",
+    "panelAlt": "#f8e9ea",
+    "accent": "#b71925",
+    "accentAlt": "#d92c37",
+    "secondary": "#ee6a72",
+    "highlight": "#c71925",
+    "text": "#191919",
+    "muted": "#b71925",
+    "line": "rgba(183,25,37,.22)"
+  }
 }

@@ -28,14 +28,6 @@
   --gallery-art-position: right 20%;
 }
 
-html.codex-dream-skin[data-dream-theme="stage-black-gold"] body {
-  color: #eee4cb !important;
-  background:
-    radial-gradient(circle at 72% 0%, rgba(141, 102, 43, .14), transparent 32%),
-    radial-gradient(circle at 11% 82%, rgba(211, 177, 103, .055), transparent 27%),
-    linear-gradient(145deg, #08090b 0%, #0d0e11 54%, #13100d 100%) !important;
-}
-
 html.codex-dream-skin[data-dream-theme="stage-black-gold"] body::before {
   opacity: .22;
   background-image:
@@ -43,18 +35,6 @@ html.codex-dream-skin[data-dream-theme="stage-black-gold"] body::before {
     radial-gradient(circle, rgba(255, 249, 230, .35) 0 .7px, transparent 1.4px);
   background-position: 0 0, 31px 19px;
   background-size: 83px 83px, 119px 119px;
-}
-
-html.codex-dream-skin[data-dream-theme="stage-black-gold"] aside.app-shell-left-panel {
-  position: relative;
-  color: #d8ccb1 !important;
-  background:
-    radial-gradient(circle at 8% 0%, rgba(203, 165, 83, .08), transparent 25%),
-    linear-gradient(180deg, rgba(12, 13, 15, .99), rgba(9, 10, 12, .985)) !important;
-  border: 0 !important;
-  border-right: 1px solid rgba(211, 177, 103, .20) !important;
-  border-radius: 0 !important;
-  box-shadow: 10px 0 28px rgba(0, 0, 0, .28), inset -1px 0 rgba(255, 241, 205, .025) !important;
 }
 
 html.codex-dream-skin[data-dream-theme="stage-black-gold"] aside.app-shell-left-panel::before,
@@ -119,32 +99,9 @@ html.codex-dream-skin[data-dream-theme="stage-black-gold"] aside.app-shell-left-
   transform: none !important;
 }
 
-html.codex-dream-skin[data-dream-theme="stage-black-gold"] main[data-app-shell-main-surface] {
-  color: #eee4cb !important;
-  background:
-    radial-gradient(circle at 80% 5%, rgba(138, 102, 45, .09), transparent 31%),
-    linear-gradient(180deg, #111216 0%, #0d0e11 100%) !important;
-  border: 1px solid rgba(211, 177, 103, .20) !important;
-  border-right: 0 !important;
-  border-bottom: 0 !important;
-  border-radius: 13px 0 0 0 !important;
-  box-shadow: inset 0 1px rgba(255, 239, 198, .045), -9px 0 30px rgba(0, 0, 0, .24) !important;
-}
-
-html.codex-dream-skin[data-dream-theme="stage-black-gold"] main[data-app-shell-main-surface] > header[data-app-shell-application-menu-bar] {
-  color: #ddd1b7 !important;
-  background: linear-gradient(90deg, rgba(16, 17, 20, .98), rgba(18, 18, 19, .96), rgba(22, 19, 15, .94)) !important;
-  border-bottom: 1px solid rgba(211, 177, 103, .16) !important;
-}
-
 html.codex-dream-skin[data-dream-theme="stage-black-gold"] main[data-app-shell-main-surface] > header[data-app-shell-application-menu-bar] button,
 html.codex-dream-skin[data-dream-theme="stage-black-gold"] main[data-app-shell-main-surface] > header[data-app-shell-application-menu-bar] svg {
   color: #cfc4aa !important;
-}
-
-html.codex-dream-skin[data-dream-theme="stage-black-gold"] [role="main"] {
-  color: #eee4cb !important;
-  scrollbar-color: rgba(184, 145, 70, .44) transparent;
 }
 
 html.codex-dream-skin[data-dream-theme="stage-black-gold"] #codex-dream-skin-chrome .dream-brand,
@@ -258,18 +215,6 @@ html.codex-dream-skin[data-dream-theme="stage-black-gold"] .dream-home [data-fea
   background: rgba(211, 177, 103, .055) !important;
 }
 
-html.codex-dream-skin[data-dream-theme="stage-black-gold"] .dream-home .group\/home-suggestions button {
-  min-height: 126px !important;
-  padding: 15px 12px 13px !important;
-  color: #ded2b8 !important;
-  border: 1px solid rgba(211, 177, 103, .28) !important;
-  border-radius: 12px !important;
-  background:
-    radial-gradient(circle at 50% 16%, rgba(211, 177, 103, .065), transparent 36%),
-    linear-gradient(155deg, rgba(26, 27, 30, .98), rgba(14, 15, 18, .98)) !important;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, .25), inset 0 1px rgba(255, 240, 205, .035) !important;
-}
-
 html.codex-dream-skin[data-dream-theme="stage-black-gold"] .dream-home .group\/home-suggestions button:hover {
   color: #f4e6c4 !important;
   border-color: rgba(223, 190, 116, .52) !important;
@@ -343,17 +288,6 @@ html.codex-dream-skin[data-dream-theme="stage-black-gold"] .dream-home .group\/p
   border-radius: 7px !important;
   background: linear-gradient(135deg, rgba(37, 35, 30, .94), rgba(17, 18, 20, .94)) !important;
   box-shadow: 0 3px 10px rgba(0, 0, 0, .18) !important;
-}
-
-html.codex-dream-skin[data-dream-theme="stage-black-gold"] .ProseMirror {
-  color: #eee4cb !important;
-  caret-color: #d8b668 !important;
-}
-
-html.codex-dream-skin[data-dream-theme="stage-black-gold"] [data-composer-surface-variant] button[class~="bg-token-foreground"] {
-  color: #17130c !important;
-  background: linear-gradient(145deg, #e1c37a, #a87d39) !important;
-  box-shadow: 0 5px 13px rgba(0, 0, 0, .30) !important;
 }
 
 html.codex-dream-skin[data-dream-theme="stage-black-gold"] #codex-dream-skin-chrome .dream-polaroid {
