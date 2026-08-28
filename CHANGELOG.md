@@ -13,6 +13,7 @@
 
 - **修复 Codex 账号约 10 天后集体「失效」、只能重新登录**：令牌刷新此前走第三方中转 `token.oaifree.com`（已停服，连接都建不起来），请求体也不合规（只带裸 `refresh_token`，缺 `grant_type` 与 `client_id`），access_token 的 10 天有效期一到就永远刷不出来。现改走官方 `auth.openai.com/oauth/token`；OpenAI 每次刷新都会**轮换** refresh_token，因此新的 access/id/refresh 三个令牌连同 `last_refresh`/`expired` 一并原子写回授权文件——只写 access_token 的话下次刷新必撞 `invalid_grant`。refresh_token 也不再寄给第三方域名。
 - **Codex 登录授权参数对齐现行官方客户端**：授权链接补上 `id_token_add_organizations=true`（id_token 携带组织/账号 claim，account_id 提取靠它）与 `codex_cli_simplified_flow=true`，scope 增加 connectors 两项，originator 从已停用的 `codex_vscode` 换成 `Codex Desktop`。
+- **修复启动偶发卡在启动屏、红字报 `state not managed … get_app_state`**：Tauri 2 会在应用 setup 钩子**之前**创建配置里的窗口，前端加载完发出的首个 IPC 可能抢在后端状态注册（启动恢复：读设置、恢复 Codex 会话等）完成之前，而前端首屏失败不重试，便永久卡死——后端与代理其实都已正常启动。现把两个窗口改为 `create: false`，在 `.manage()` 之后手动创建：窗口存在之前后端必然就绪，竞态从结构上消除。
 
 ## v0.7.7 - 2026-08-07
 
