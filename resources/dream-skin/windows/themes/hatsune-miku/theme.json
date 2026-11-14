@@ -6,5 +6,18 @@
   "brandSubtitle": "DIGITAL DIVA",
   "signature": "Future Sound ♫",
   "image": "background.jpg",
-  "galleryPreset": true
+  "galleryPreset": true,
+  "appearance": "light",
+  "colors": {
+    "background": "#effdfc",
+    "panel": "rgba(248,255,254,.94)",
+    "panelAlt": "#d6f5f1",
+    "accent": "#12aeb0",
+    "accentAlt": "#77bff0",
+    "secondary": "#ef7fc1",
+    "highlight": "#21b4bd",
+    "text": "#214f59",
+    "muted": "#12aeb0",
+    "line": "rgba(70,196,197,.34)"
+  }
 }

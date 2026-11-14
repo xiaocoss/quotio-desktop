@@ -19,15 +19,6 @@
   --gallery-art-position: 88% 6%;
 }
 
-html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] body {
-  color: #273f3c !important;
-  background:
-    radial-gradient(circle at 87% 7%, rgba(255, 215, 87, .24), transparent 27%),
-    radial-gradient(circle at 62% 2%, rgba(76, 188, 164, .19), transparent 24%),
-    radial-gradient(circle at 28% 9%, rgba(239, 117, 94, .14), transparent 24%),
-    linear-gradient(145deg, #fffdf5 0%, #fff9ec 55%, #f0f9ec 100%) !important;
-}
-
 html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] body::before {
   opacity: .34;
   background-image:
@@ -37,18 +28,6 @@ html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] body::before {
     radial-gradient(circle, rgba(80, 169, 213, .35) 0 1px, transparent 1.7px);
   background-position: 5px 9px, 32px 22px, 51px 4px, 19px 47px;
   background-size: 73px 73px, 89px 89px, 97px 97px, 107px 107px;
-}
-
-html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-left-panel {
-  position: relative;
-  color: #29413e !important;
-  background:
-    radial-gradient(circle at 14% 8%, rgba(255, 210, 83, .17), transparent 22%),
-    linear-gradient(180deg, rgba(255, 254, 247, .99), rgba(241, 249, 239, .98)) !important;
-  border-color: rgba(43, 174, 147, .24) !important;
-  border-left: 0 !important;
-  border-radius: 0 17px 17px 0 !important;
-  box-shadow: 10px 0 28px rgba(31, 125, 108, .08), inset -1px 0 rgba(255, 255, 255, .94) !important;
 }
 
 html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-left-panel::before,
@@ -123,26 +102,6 @@ html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] aside.app-shell-lef
   background: linear-gradient(90deg, rgba(67, 195, 166, .23), rgba(255, 196, 75, .19), rgba(239, 117, 94, .14)) !important;
   border-color: rgba(43, 174, 147, .18) !important;
   box-shadow: inset 0 0 0 1px rgba(43, 174, 147, .14) !important;
-}
-
-html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] main[data-app-shell-main-surface] {
-  color: #273f3c !important;
-  background:
-    radial-gradient(circle at 84% 6%, rgba(255, 211, 78, .15), transparent 28%),
-    radial-gradient(circle at 32% 0%, rgba(64, 185, 158, .10), transparent 24%),
-    linear-gradient(180deg, rgba(255, 254, 248, .99), rgba(250, 251, 241, .99)) !important;
-  border-color: rgba(43, 174, 147, .22) !important;
-  box-shadow: inset 0 1px rgba(255, 255, 255, .98), -8px 0 28px rgba(31, 125, 108, .07) !important;
-}
-
-html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] main[data-app-shell-main-surface] > header[data-app-shell-application-menu-bar] {
-  background: linear-gradient(90deg, rgba(255, 254, 248, .97), rgba(239, 250, 244, .92), rgba(255, 248, 222, .88)) !important;
-  border-bottom-color: rgba(43, 174, 147, .20) !important;
-}
-
-html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] [role="main"] {
-  color: #273f3c !important;
-  scrollbar-color: rgba(39, 173, 145, .44) transparent;
 }
 
 html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] #codex-dream-skin-chrome .dream-brand,
@@ -243,13 +202,6 @@ html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home [data-f
   background: rgba(255, 255, 249, .62) !important;
 }
 
-html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home .group\/home-suggestions button {
-  min-height: 134px !important;
-  color: #344642 !important;
-  border-radius: 20px !important;
-  box-shadow: 0 9px 21px rgba(45, 100, 88, .09), inset 0 0 0 3px rgba(255, 255, 255, .62) !important;
-}
-
 html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home .group\/home-suggestions button:nth-child(1) {
   border: 1px solid rgba(235, 119, 93, .45) !important;
   background: radial-gradient(circle at 50% 20%, white, transparent 37%), linear-gradient(145deg, #fffdf8, #fff0e9) !important;
@@ -329,17 +281,6 @@ html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .dream-home .group\
   border-color: rgba(43, 174, 147, .34) !important;
   background: linear-gradient(135deg, rgba(255, 255, 250, .96), rgba(221, 247, 238, .91)) !important;
   box-shadow: 0 3px 10px rgba(31, 125, 108, .10) !important;
-}
-
-html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] .ProseMirror {
-  color: #273f3c !important;
-  caret-color: #24aa8f !important;
-}
-
-html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] [data-composer-surface-variant] button[class~="bg-token-foreground"] {
-  color: white !important;
-  background: linear-gradient(145deg, #58d0b2, #1aa388) !important;
-  box-shadow: 0 5px 13px rgba(24, 147, 122, .24) !important;
 }
 
 html.codex-dream-skin[data-dream-theme="inspiration-cosmos"] #codex-dream-skin-chrome .dream-polaroid {

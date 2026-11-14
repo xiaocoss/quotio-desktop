@@ -1829,6 +1829,14 @@ pub fn run() {
                 shutdown_started: AtomicBool::new(false),
             });
 
+            // 配置里的窗口标了 `create: false`，在 manage 之后手动创建。Tauri 2 本会在
+            // 跑这个 setup 钩子**之前**就把配置窗口建出来，webview 抢在 AppCore 启动恢复
+            // 完成前发出的首个 IPC（get_app_state）会撞上 "state not managed"，前端首屏
+            // 不重试就永久卡在启动屏。窗口晚于 manage 创建后，这场竞态从结构上不存在。
+            for window_config in app.config().app.windows.iter().filter(|w| !w.create) {
+                tauri::WebviewWindowBuilder::from_config(app.handle(), window_config)?.build()?;
+            }
+
             let show = MenuItem::with_id(app, "show", "打开 Quotio", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;

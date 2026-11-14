@@ -18,12 +18,6 @@
   --gallery-art-position: 50% 9%;
 }
 
-html.codex-dream-skin[data-dream-theme="red-white-scifi"] body {
-  background:
-    radial-gradient(circle at 74% 2%, rgba(238, 86, 96, .15), transparent 29%),
-    linear-gradient(145deg, #ffffff, #fff8f8 58%, #f8eeee) !important;
-}
-
 html.codex-dream-skin[data-dream-theme="red-white-scifi"] body::before {
   opacity: .12;
   background-image:
@@ -31,16 +25,6 @@ html.codex-dream-skin[data-dream-theme="red-white-scifi"] body::before {
     linear-gradient(90deg, rgba(197, 28, 40, .09) 1px, transparent 1px);
   background-size: 38px 38px;
   background-position: 0 0;
-}
-
-html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-panel {
-  position: relative;
-  color: #252525 !important;
-  background: rgba(255, 255, 255, .985) !important;
-  border: 0 !important;
-  border-right: 1px solid #ece4e5 !important;
-  border-radius: 0 !important;
-  box-shadow: 5px 0 22px rgba(93, 27, 33, .035) !important;
 }
 
 html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-panel::before,
@@ -126,20 +110,6 @@ html.codex-dream-skin[data-dream-theme="red-white-scifi"] aside.app-shell-left-p
   box-shadow: none !important;
 }
 
-html.codex-dream-skin[data-dream-theme="red-white-scifi"] main[data-app-shell-main-surface] {
-  background:
-    radial-gradient(circle at 78% 3%, rgba(235, 71, 82, .10), transparent 26%),
-    linear-gradient(180deg, rgba(255, 255, 255, .995), rgba(255, 248, 248, .985)) !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-
-html.codex-dream-skin[data-dream-theme="red-white-scifi"] main[data-app-shell-main-surface] > header[data-app-shell-application-menu-bar] {
-  background: rgba(255, 255, 255, .96) !important;
-  border-bottom: 1px solid #eee5e6 !important;
-}
-
 html.codex-dream-skin[data-dream-theme="red-white-scifi"] #codex-dream-skin-chrome .dream-brand,
 html.codex-dream-skin[data-dream-theme="red-white-scifi"] #codex-dream-skin-chrome .dream-signature,
 html.codex-dream-skin[data-dream-theme="red-white-scifi"] #codex-dream-skin-chrome .dream-ribbon,
@@ -214,15 +184,6 @@ html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home [data-feat
   box-shadow: none;
 }
 
-html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home .group\/home-suggestions button {
-  min-height: 112px !important;
-  border: 1px solid #eee5e6 !important;
-  border-radius: 8px !important;
-  color: #272326 !important;
-  background: linear-gradient(160deg, rgba(255, 255, 255, .99), rgba(255, 247, 247, .97)) !important;
-  box-shadow: 0 7px 16px rgba(119, 31, 38, .055) !important;
-}
-
 html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home .group\/home-suggestions button:hover {
   transform: translateY(-2px) !important;
   border-color: rgba(196, 29, 41, .26) !important;
@@ -274,16 +235,6 @@ html.codex-dream-skin[data-dream-theme="red-white-scifi"] .dream-home .group\/pr
   border-radius: 6px !important;
   background: #fff !important;
   box-shadow: none !important;
-}
-
-html.codex-dream-skin[data-dream-theme="red-white-scifi"] .ProseMirror {
-  color: #202020 !important;
-  caret-color: #c71925 !important;
-}
-
-html.codex-dream-skin[data-dream-theme="red-white-scifi"] [data-composer-surface-variant] button[class~="bg-token-foreground"] {
-  background: linear-gradient(145deg, #e3404b, #b91723) !important;
-  box-shadow: 0 5px 12px rgba(159, 25, 35, .20) !important;
 }
 
 @media (max-width: 900px) {

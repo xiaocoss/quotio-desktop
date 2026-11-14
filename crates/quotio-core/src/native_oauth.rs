@@ -72,16 +72,24 @@ enum ProviderOAuthConfig {
 
 fn provider_config(provider_id: &str) -> Option<ProviderOAuthConfig> {
     match provider_id {
+        // 与当前官方 Codex 客户端（cockpit-tools 同款）对齐：connectors 两个 scope、
+        // `id_token_add_organizations`（id_token 里带上组织/账号 claim，account_id
+        // 提取靠它）、`codex_cli_simplified_flow`（走 CLI 简化授权页）以及现役的
+        // originator。旧值 `codex_vscode` 已过时。
         "codex" => Some(ProviderOAuthConfig::AuthorizationCode(AuthCodeConfig {
             client_id: "app_EMoamEEZ73f0CkXaXp7hrann",
             client_secret: None,
             auth_endpoint: "https://auth.openai.com/oauth/authorize",
             token_endpoint: "https://auth.openai.com/oauth/token",
-            scopes: "openid profile email offline_access",
+            scopes: "openid profile email offline_access api.connectors.read api.connectors.invoke",
             callback_path: "/auth/callback",
             fixed_port: Some(1455),
             use_pkce: true,
-            extra_auth_params: &[("originator", "codex_vscode")],
+            extra_auth_params: &[
+                ("id_token_add_organizations", "true"),
+                ("codex_cli_simplified_flow", "true"),
+                ("originator", "Codex Desktop"),
+            ],
         })),
         "claude" => Some(ProviderOAuthConfig::AuthorizationCode(AuthCodeConfig {
             client_id: "app_EMoamEEZ73f0CkXaXp7hrann",

@@ -4,5 +4,18 @@
   "name": "午夜星河",
   "brandTitle": "Quotio Midnight",
   "brandSubtitle": "STELLAR NIGHT",
-  "signature": "Midnight ✧"
+  "signature": "Midnight ✧",
+  "appearance": "dark",
+  "colors": {
+    "background": "#0c0d1c",
+    "panel": "rgba(20,20,38,.98)",
+    "panelAlt": "rgba(30,28,54,.92)",
+    "accent": "#a99cff",
+    "accentAlt": "#7f72d8",
+    "secondary": "#e4bd78",
+    "highlight": "#e0b46a",
+    "text": "#e9e5ff",
+    "muted": "#a99cff",
+    "line": "rgba(152,139,229,.42)"
+  }
 }

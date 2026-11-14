@@ -6,5 +6,18 @@
   "brandSubtitle": "DILRABA EXCLUSIVE",
   "signature": "Dilraba ♡",
   "image": "background.jpg",
-  "galleryPreset": true
+  "galleryPreset": true,
+  "appearance": "light",
+  "colors": {
+    "background": "#f4f1ff",
+    "panel": "rgba(249,248,255,.96)",
+    "panelAlt": "#e7e6ff",
+    "accent": "#674ce6",
+    "accentAlt": "#477cf4",
+    "secondary": "#df67cf",
+    "highlight": "#674ce6",
+    "text": "#44396f",
+    "muted": "#674ce6",
+    "line": "rgba(104,77,225,.31)"
+  }
 }

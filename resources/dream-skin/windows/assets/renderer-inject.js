@@ -27,6 +27,67 @@
     return null;
   };
 
+  // ── 配色令牌层 ───────────────────────────────────────────────────────────
+  // 主题只在 theme.json 里声明 colors / appearance / art,运行时把它们翻译成 CSS 变量
+  // 和语义部件属性;主题 CSS 于是不必再逐个手写 Codex 的选择器(现有 10 个主题为此写了
+  // 4000 多行,而且每次 Codex 换 DOM 都要跟着改)。
+  // 变量名与 [data-ds-part] 沿用 Fei-Away/Codex-Dream-Skin 的约定,按那套格式写的
+  // 主题(theme.css 往往只有几行)可以直接放进 themes/ 用。
+  const DS_COLOR_KEYS = Object.freeze([
+    "background", "panel", "panelAlt", "accent", "accentAlt",
+    "secondary", "highlight", "text", "muted", "line",
+  ]);
+  const DS_PART_ATTR = "data-ds-part";
+  const toKebab = (value) => value.replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`);
+
+  const applyThemeTokens = (root) => {
+    const colors = theme?.colors && typeof theme.colors === "object" ? theme.colors : {};
+    // 只有声明了 colors 的主题才打这个标记 —— dream-skin.css 末尾的令牌接管块以它为闸门,
+    // 没声明的老主题不会命中,外观与加令牌层之前完全一致(零回归)。
+    if (DS_COLOR_KEYS.some((key) => typeof colors[key] === "string" && colors[key].trim())) {
+      root.dataset.dsTokens = "true";
+    } else {
+      delete root.dataset.dsTokens;
+    }
+    for (const key of DS_COLOR_KEYS) {
+      const raw = colors[key];
+      const value = typeof raw === "string" ? raw.trim() : "";
+      // 驼峰与短横线两种拼法都写一份:CSS 自定义属性区分大小写,而主题作者两种都可能用,
+      // 多设一条变量远比猜错便宜。
+      for (const name of new Set([`--ds-theme-color-${key}`, `--ds-theme-color-${toKebab(key)}`])) {
+        if (value) root.style.setProperty(name, value);
+        else root.style.removeProperty(name);
+      }
+    }
+    if (theme?.appearance === "light" || theme?.appearance === "dark") {
+      root.dataset.dsAppearance = theme.appearance;
+    } else {
+      delete root.dataset.dsAppearance;
+    }
+    const art = theme?.art && typeof theme.art === "object" ? theme.art : {};
+    const focus = (value, fallback) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? Math.min(1, Math.max(0, parsed)) : fallback;
+    };
+    root.style.setProperty("--ds-art-focus-x", `${(focus(art.focusX, 0.5) * 100).toFixed(2)}%`);
+    root.style.setProperty("--ds-art-focus-y", `${(focus(art.focusY, 0.5) * 100).toFixed(2)}%`);
+    for (const [key, prop] of [["safeArea", "dsSafeArea"], ["taskMode", "dsTaskMode"]]) {
+      if (typeof art[key] === "string" && art[key]) root.dataset[prop] = art[key];
+      else delete root.dataset[prop];
+    }
+  };
+
+  // Codex 每次重渲染都会换掉节点,所以每轮先清空再打,不能只增不减。
+  const tagThemeParts = (parts) => {
+    document.querySelectorAll(`[${DS_PART_ATTR}]`)
+      .forEach((node) => node.removeAttribute(DS_PART_ATTR));
+    for (const [name, value] of Object.entries(parts)) {
+      for (const node of Array.isArray(value) ? value : [value]) {
+        node?.setAttribute?.(DS_PART_ATTR, name);
+      }
+    }
+  };
+
   const escapeHtml = (value) => String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -295,6 +356,7 @@
       delete root.dataset.dreamGallery;
     }
     root.style.setProperty("--dream-art", `url("${artUrl}")`);
+    applyThemeTokens(root);
     if (previousArtUrl && previousArtUrl !== artUrl) {
       URL.revokeObjectURL(previousArtUrl);
       previousArtUrl = null;
@@ -306,9 +368,12 @@
       style.id = STYLE_ID;
       (document.head || root).appendChild(style);
     }
-    if (style.dataset.dreamVersion !== STYLE_VERSION) {
+    // 印记要带上主题 id:只比 STYLE_VERSION 的话,在同一个页面里换主题时 cssText 变了、
+    // 版本号没变,旧主题的样式表会原封不动留着,新主题只有令牌生效、选择器全被旧规则压住。
+    const styleStamp = `${STYLE_VERSION}:${theme?.id || "dream"}`;
+    if (style.dataset.dreamVersion !== styleStamp) {
       style.textContent = cssText;
-      style.dataset.dreamVersion = STYLE_VERSION;
+      style.dataset.dreamVersion = styleStamp;
     }
 
     const shellMain = resolveShellMain();
@@ -368,6 +433,18 @@
     }
     if (composerRail === home) composerRail = null;
     const homeHeader = shellMain?.querySelector(SHELL_HEADER_SELECTOR) || null;
+    // 语义部件:主题 CSS 用 [data-ds-part="..."] 选中它们,不必再跟着 Codex 的类名/层级跑。
+    tagThemeParts({
+      root: document.documentElement,
+      shell: shellMain,
+      sidebar,
+      menubar: homeHeader,
+      home,
+      hero,
+      composer,
+      editor: composer?.querySelector('.ProseMirror[contenteditable="true"]') || null,
+      card: suggestions ? [...suggestions.querySelectorAll("button")] : [],
+    });
     const headerSurface = homeHeader?.querySelector('[data-testid="app-shell-header-context-menu-surface"]') || null;
     const headerGrid = headerSurface?.firstElementChild?.firstElementChild || null;
     const nativeHeaderContext = headerGrid?.firstElementChild || null;
@@ -707,7 +784,20 @@
       delete document.documentElement.dataset.dreamTheme;
       delete document.documentElement.dataset.dreamGallery;
       delete document.documentElement.dataset.dreamPinkScale;
+      // 配色令牌层留下的变量与属性,同样要还原,否则关掉皮肤后 Codex 还挂着一身主题色。
+      for (const key of DS_COLOR_KEYS) {
+        document.documentElement.style.removeProperty(`--ds-theme-color-${key}`);
+        document.documentElement.style.removeProperty(`--ds-theme-color-${toKebab(key)}`);
+      }
+      document.documentElement.style.removeProperty("--ds-art-focus-x");
+      document.documentElement.style.removeProperty("--ds-art-focus-y");
+      delete document.documentElement.dataset.dsAppearance;
+      delete document.documentElement.dataset.dsSafeArea;
+      delete document.documentElement.dataset.dsTaskMode;
+      delete document.documentElement.dataset.dsTokens;
     }
+    document.querySelectorAll(`[${DS_PART_ATTR}]`)
+      .forEach((node) => node.removeAttribute(DS_PART_ATTR));
     document.querySelectorAll(".dream-home").forEach((node) => node.classList.remove("dream-home"));
     document.querySelectorAll(".dream-home-shell").forEach((node) => node.classList.remove("dream-home-shell"));
     for (const className of MANAGED_CLASSES) {

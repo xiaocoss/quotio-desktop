@@ -63,3 +63,65 @@ layout and need re-deriving against the current shell. `hero` in particular is
 read positionally via `home.firstElementChild.firstElementChild
 .firstElementChild`, which now lands on a collapsed `div.home-banners`; it should
 measure a node the skin itself marks instead of a fixed descent path.
+
+## Colour tokens and semantic parts
+
+A theme used to restyle Codex by naming Codex's own selectors, so the ten bundled
+themes carry ~4300 lines of CSS between them and every Codex DOM change breaks
+all of them at once. Themes can now declare data instead.
+
+`theme.json` may carry three optional blocks. `renderer-inject.js` translates
+them; nothing else in the theme is required.
+
+| Field | Effect |
+| --- | --- |
+| `colors` | Each key becomes `--ds-theme-color-<key>` on `<html>`, in both camelCase and kebab-case (custom properties are case-sensitive and authors use both). Recognised keys: `background`, `panel`, `panelAlt`, `accent`, `accentAlt`, `secondary`, `highlight`, `text`, `muted`, `line`. |
+| `appearance` | `"light"` / `"dark"` → `data-ds-appearance`, which drives `color-scheme`. |
+| `art.focusX` / `art.focusY` | `--ds-art-focus-x` / `--ds-art-focus-y` (percentages), used as the wallpaper's `background-position`. |
+| `art.taskMode` | `data-ds-task-mode`. `"ambient"` makes the base stylesheet cover the main surface with the theme image. |
+| `art.safeArea` | `data-ds-safe-area`, for themes that want to keep one side clear. |
+
+Declaring any colour also sets `data-ds-tokens` on `<html>`. The **token takeover
+block at the end of `dream-skin.css`** is gated on that attribute and paints every
+surface from the tokens. Themes that declare no colours never match it and render
+exactly as before, which is what made migrating the existing themes safe.
+
+Nine bundled themes are migrated: `aurora`, `midnight`, `clear-custom`,
+`hatsune-miku`, `inspiration-cosmos`, `purple-night`, `red-white-scifi`,
+`stage-black-gold`, `wealth-worker`. Their palettes came straight out of the
+`--dream-ink / purple / violet / pink / blush / pearl / line` variables each of
+them already defined, so the rendered colours are unchanged — verified per theme
+by comparing the declared token against the computed style on each surface.
+Between them they shed ~560 lines of CSS. Panels use a `panel -> panelAlt`
+gradient rather than one flat fill, because these themes each had their own
+per-surface gradient and a single flat colour visibly flattens them; deriving the
+two stops from the theme's original gradient ends reproduces the old look.
+
+Two are deliberately left alone:
+
+- `dream` declares no palette because it *is* the base stylesheet's pink look;
+  giving it tokens would change the default appearance, not preserve it.
+- `pink-custom` is a full custom layout — of its 1583 lines the colour rules are a
+  small fraction and the rest is calibrated geometry. Migrating it would mean
+  deleting styling with nothing equivalent to take over, so its surfaces stay
+  hand-written.
+
+These nodes carry a `data-ds-part` attribute, so a theme can select them without
+knowing anything about Codex's markup:
+
+`root` (`<html>`), `shell` (main surface), `sidebar`, `menubar`, `home`, `hero`,
+`card` (each suggestion button), `composer`, `editor`.
+
+Two things to know before writing rules against them:
+
+- The attributes are re-applied on every `ensure()` pass, because Codex swaps
+  these nodes on re-render. Do not cache them.
+- `[data-ds-part="x"]` alone is only specificity `(0,1,0)`, which loses to the
+  base stylesheet's own rules. Prefer letting the token takeover block do the
+  work; when a theme genuinely must override it, repeat the attribute
+  (`[data-ds-part="hero"][data-ds-part][data-ds-part]`) rather than reaching for
+  a Codex class name. The hero's base rule is a `:has()` chain at `(0,4,3)`, so
+  it needs two repeats.
+
+`themes/cecilylove002` is the worked example: a wallpaper theme whose entire
+`theme.css` is one rule, because everything else is declared in `theme.json`.
