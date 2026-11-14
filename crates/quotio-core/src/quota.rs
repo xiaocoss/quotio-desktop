@@ -2,18 +2,15 @@
 //!
 //! Each provider reads its CLIProxyAPI auth files under `~/.cli-proxy-api/` and
 //! calls that provider's usage endpoint directly over HTTPS (routed through the
-//! user's proxy, like the original app's proxied URLSession). Expired access
-//! tokens are refreshed against each provider's own token endpoint. Codex must
-//! write the refreshed tokens back to the auth file because OpenAI rotates refresh
-//! tokens — see [`refresh_codex_auth_file`].
+//! user's proxy, like the original app's proxied URLSession). Access tokens are
+//! refreshed in-memory on 401 — we never write back to the auth files, since an
+//! external CLIProxyAPI process may be using them concurrently.
 //!
 //! Ported so far: Codex/OpenAI (`OpenAIQuotaFetcher`), Claude Code
 //! (`ClaudeCodeQuotaFetcher`).
 
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use base64::Engine;
@@ -24,12 +21,7 @@ use sha2::{Digest, Sha256};
 
 // ---- Codex / OpenAI ----
 const CODEX_USAGE_URL: &str = "https://chatgpt.com/backend-api/wham/usage";
-// OpenAI 官方 OAuth token 端点 + Codex CLI 的公开 client_id,与 Codex 登录
-// (`native_oauth`)和 CLIProxyAPI 自身续期用的是同一组。refresh_token 是账号的长期
-// 凭据,只能发给 OpenAI。
-const CODEX_TOKEN_URL: &str = "https://auth.openai.com/oauth/token";
-const CODEX_CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
-const CODEX_REFRESH_SCOPE: &str = "openid profile email";
+const CODEX_TOKEN_REFRESH_URL: &str = "https://token.oaifree.com/api/auth/refresh";
 // Spending one "主动重置次数" (rate-limit reset credit) force-resets the 5h
 // primary window. Same endpoint + payload the CLIProxyAPI Management Center uses.
 const CODEX_RESET_CREDITS_URL: &str =
@@ -594,13 +586,16 @@ fn fetch_codex_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Option<A
         .or_else(|| auth.id_token.as_deref().and_then(decode_jwt_email))
         .unwrap_or_else(|| key.clone());
 
-    // Proactively refresh an expired access token (written back to the auth file
-    // by `refresh_codex_auth_file`), so both the quota fetch and the proxy use a
+    // Proactively refresh an expired access token and write it back to the auth
+    // file (mirrors the macOS app), so both the quota fetch and the proxy use a
     // fresh token instead of hitting 401.
     let mut access_token = auth.access_token.clone();
     if jwt_token_expired(&access_token) {
-        if let Ok(refreshed) = refresh_codex_auth_file(agent, path, &access_token) {
-            access_token = refreshed;
+        if let Some(refresh_token) = auth.refresh_token.as_deref() {
+            if let Ok(refreshed) = refresh_codex_token(agent, refresh_token) {
+                write_codex_access_token(path, &refreshed);
+                access_token = refreshed;
+            }
         }
     }
 
@@ -608,9 +603,12 @@ fn fetch_codex_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Option<A
     let usage = match fetch_codex_usage(agent, &access_token, account_id.as_deref()) {
         Ok(usage) => Some(usage),
         Err(FetchError::Unauthorized) => {
-            let recovered = refresh_codex_auth_file(agent, path, &access_token)
-                .ok()
+            let recovered = auth
+                .refresh_token
+                .as_deref()
+                .and_then(|token| refresh_codex_token(agent, token).ok())
                 .and_then(|refreshed| {
+                    write_codex_access_token(path, &refreshed);
                     fetch_codex_usage(agent, &refreshed, account_id.as_deref()).ok()
                 });
             // A 401 we couldn't recover (no/expired refresh token) means the
@@ -629,9 +627,12 @@ fn fetch_codex_one(agent: &ureq::Agent, path: &Path, filename: &str) -> Option<A
                 // this, a token that expired during a transient blip is shown as a
                 // healthy account and the scheduler keeps picking a dead token.
                 Err(FetchError::Unauthorized) => {
-                    let recovered = refresh_codex_auth_file(agent, path, &access_token)
-                        .ok()
+                    let recovered = auth
+                        .refresh_token
+                        .as_deref()
+                        .and_then(|token| refresh_codex_token(agent, token).ok())
                         .and_then(|refreshed| {
+                            write_codex_access_token(path, &refreshed);
                             fetch_codex_usage(agent, &refreshed, account_id.as_deref()).ok()
                         });
                     auth_failed = recovered.is_none();
@@ -735,169 +736,19 @@ fn fetch_codex_usage(
     }
 }
 
-/// 按账号文件串行化 Codex 续期。UI 手动刷新配额和后台健康探测可能同时打到同一个账号
-/// 文件;OpenAI 的 refresh_token 每续期一次就轮换,两路拿同一个旧 token 并发续期,后到的
-/// 那一路会被判成 `refresh_token_reused`。按文件分锁而不是一把全局锁:配额是多账号并发
-/// 拉取的,token 端点不通时全局锁会把每个账号的超时串起来。
-static CODEX_REFRESH_LOCKS: Mutex<Option<RefreshLocks>> = Mutex::new(None);
-
-type RefreshLocks = HashMap<PathBuf, Arc<Mutex<()>>>;
-
-fn codex_refresh_lock(path: &Path) -> Arc<Mutex<()>> {
-    let mut locks = CODEX_REFRESH_LOCKS
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    locks
-        .get_or_insert_with(HashMap::new)
-        .entry(path.to_path_buf())
-        .or_default()
-        .clone()
-}
-
-/// 用 OpenAI 官方端点为 `path` 指向的 Codex 账号续期,把新签发的整组令牌写回文件,
-/// 返回可用的 access_token。
-///
-/// - **必须写回**:OpenAI 会轮换 refresh_token,旧的随即作废。只在内存里用新
-///   access_token 的话,文件(以及读它的 CLIProxyAPI)会留着一个已作废的 refresh_token,
-///   下次续期失败,账号只能重新登录。
-/// - **拿锁后重读文件**:`stale_access_token` 是调用方手里失效的那个。文件里若已经是
-///   另一个未过期的 token(CLIProxyAPI 或另一个线程刚续过),直接用它,不再消耗
-///   refresh_token;真要续期时也总用文件里**最新**的 refresh_token。
-fn refresh_codex_auth_file(
-    agent: &ureq::Agent,
-    path: &Path,
-    stale_access_token: &str,
-) -> Result<String, FetchError> {
-    refresh_codex_auth_file_with(agent, CODEX_TOKEN_URL, path, stale_access_token)
-}
-
-fn refresh_codex_auth_file_with(
-    agent: &ureq::Agent,
-    token_url: &str,
-    path: &Path,
-    stale_access_token: &str,
-) -> Result<String, FetchError> {
-    let lock = codex_refresh_lock(path);
-    let _guard = lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    let raw = fs::read_to_string(path).map_err(|_| FetchError::Other)?;
-    let mut value: serde_json::Value = serde_json::from_str(&raw).map_err(|_| FetchError::Other)?;
-
-    if let Some(current) = non_empty_field(&value, "access_token")
-        .filter(|token| *token != stale_access_token && !jwt_token_expired(token))
-    {
-        return Ok(current.to_string());
-    }
-    let refresh_token = non_empty_field(&value, "refresh_token")
-        .ok_or(FetchError::Unauthorized)?
-        .to_string();
-
-    let refreshed = request_codex_token_refresh(agent, token_url, &refresh_token)?;
-    apply_codex_token_refresh(&mut value, &refreshed, now_unix());
-    // 新 refresh_token 只在这份 JSON 里,写不回去的话账号迟早要重新登录,至少留个痕迹。
-    match serde_json::to_vec_pretty(&value) {
-        Ok(bytes) => {
-            if let Err(error) = quotio_platform::atomic_write(path, &bytes, true) {
-                eprintln!("[quota] 写回 Codex 令牌失败 {}: {error}", path.display());
-            }
-        }
-        Err(error) => eprintln!("[quota] 序列化 Codex 令牌失败: {error}"),
-    }
-    Ok(refreshed.access_token)
-}
-
-fn non_empty_field<'a>(value: &'a serde_json::Value, key: &str) -> Option<&'a str> {
-    value
-        .get(key)
-        .and_then(|field| field.as_str())
-        .filter(|text| !text.is_empty())
-}
-
-fn non_empty(text: &Option<String>) -> Option<&str> {
-    text.as_deref().filter(|text| !text.is_empty())
-}
-
-/// 按 OAuth 2.0 的 refresh_token 授权向 OpenAI 换新令牌。请求形状与 CLIProxyAPI 自身的
-/// Codex 续期一致:表单编码 + Codex CLI 的 client_id。不做传输层重试——请求若已到达
-/// 服务端,旧 refresh_token 就已作废,重发只会换来 `refresh_token_reused`。
-fn request_codex_token_refresh(
-    agent: &ureq::Agent,
-    token_url: &str,
-    refresh_token: &str,
-) -> Result<CodexTokenRefreshResponse, FetchError> {
-    let body = format!(
-        "grant_type=refresh_token&client_id={}&refresh_token={}&scope={}",
-        urlencoding::encode(CODEX_CLIENT_ID),
-        urlencoding::encode(refresh_token),
-        urlencoding::encode(CODEX_REFRESH_SCOPE),
-    );
+fn refresh_codex_token(agent: &ureq::Agent, refresh_token: &str) -> Result<String, FetchError> {
+    let body = format!("refresh_token={}", urlencoding::encode(refresh_token));
     match agent
-        .post(token_url)
+        .post(CODEX_TOKEN_REFRESH_URL)
         .set("Content-Type", "application/x-www-form-urlencoded")
-        .set("Accept", "application/json")
         .send_string(&body)
     {
         Ok(response) => response
-            .into_json::<CodexTokenRefreshResponse>()
-            .ok()
-            .filter(|parsed| !parsed.access_token.is_empty())
-            .ok_or(FetchError::Other),
-        // refresh_token 过期 / 已被用过(轮换掉的旧 token)/ 已吊销:只能重新授权。
-        Err(ureq::Error::Status(400 | 401 | 403, _)) => Err(FetchError::Unauthorized),
+            .into_json::<TokenRefreshResponse>()
+            .map(|parsed| parsed.access_token)
+            .map_err(|_| FetchError::Other),
         Err(_) => Err(FetchError::Other),
     }
-}
-
-/// 把续期结果合并进账号 JSON,其它字段原样保留。字段名沿用 CLIProxyAPI 的 Codex 凭据
-/// 格式:`last_refresh` / `expired` 都是 RFC 3339,代理据 `expired` 决定下次何时续期。
-fn apply_codex_token_refresh(
-    value: &mut serde_json::Value,
-    refreshed: &CodexTokenRefreshResponse,
-    now: i64,
-) {
-    let Some(object) = value.as_object_mut() else {
-        return;
-    };
-    // 导入的账号可能只带空 id_token、没有 account_id,下面借新 id_token 补全。
-    let has_account_id = matches!(
-        object.get("account_id"),
-        Some(serde_json::Value::String(id)) if !id.is_empty()
-    );
-    let mut set = |key: &str, text: &str| {
-        object.insert(key.into(), text.into());
-    };
-    set("access_token", &refreshed.access_token);
-    // 轮换后的新 refresh_token —— 旧的已作废,这一项最不能丢;空串或缺省都不能覆盖它。
-    if let Some(token) = non_empty(&refreshed.refresh_token) {
-        set("refresh_token", token);
-    }
-    if let Some(id_token) = non_empty(&refreshed.id_token) {
-        set("id_token", id_token);
-        if !has_account_id {
-            if let Some(account_id) = decode_jwt_account_id(id_token) {
-                set("account_id", &account_id);
-            }
-        }
-    }
-    if let Some(stamp) = rfc3339_utc(now) {
-        set("last_refresh", &stamp);
-    }
-    let expires_at = refreshed
-        .expires_in
-        .filter(|seconds| *seconds > 0)
-        .map(|seconds| now + seconds)
-        .or_else(|| {
-            decode_jwt_payload(&refreshed.access_token)
-                .and_then(|claims| claims.get("exp").and_then(|exp| exp.as_f64()))
-                .map(|exp| exp as i64)
-        });
-    if let Some(stamp) = expires_at.and_then(rfc3339_utc) {
-        set("expired", &stamp);
-    }
-}
-
-fn rfc3339_utc(unix: i64) -> Option<String> {
-    DateTime::from_timestamp(unix, 0)
-        .map(|time| time.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
 }
 
 /// Spend one "主动重置次数" (rate-limit reset credit) to force-reset the Codex
@@ -924,16 +775,24 @@ pub fn consume_codex_reset_credit(account_key: &str, proxy_url: Option<&str>) ->
 
     let mut access_token = auth.access_token.clone();
     if jwt_token_expired(&access_token) {
-        if let Ok(refreshed) = refresh_codex_auth_file(&agent, &path, &access_token) {
-            access_token = refreshed;
+        if let Some(refresh_token) = auth.refresh_token.as_deref() {
+            if let Ok(refreshed) = refresh_codex_token(&agent, refresh_token) {
+                write_codex_access_token(&path, &refreshed);
+                access_token = refreshed;
+            }
         }
     }
 
     match post_codex_reset(&agent, &access_token, account_id.as_deref(), &redeem_id) {
         Ok(()) => Ok(()),
         Err(ResetError::Unauthorized) => {
-            let refreshed = refresh_codex_auth_file(&agent, &path, &access_token)
-                .map_err(codex_refresh_error_message)?;
+            let refresh_token = auth
+                .refresh_token
+                .as_deref()
+                .ok_or_else(|| "账号需要重新授权".to_string())?;
+            let refreshed = refresh_codex_token(&agent, refresh_token)
+                .map_err(|_| "令牌刷新失败，账号可能需要重新授权".to_string())?;
+            write_codex_access_token(&path, &refreshed);
             post_codex_reset(&agent, &refreshed, account_id.as_deref(), &redeem_id).map_err(
                 |err| match err {
                     ResetError::Unauthorized => "重置失败：令牌刷新后仍被拒绝".to_string(),
@@ -942,13 +801,6 @@ pub fn consume_codex_reset_credit(account_key: &str, proxy_url: Option<&str>) ->
             )
         }
         Err(ResetError::Failed(message)) => Err(message),
-    }
-}
-
-fn codex_refresh_error_message(error: FetchError) -> String {
-    match error {
-        FetchError::Unauthorized => "账号需要重新授权".to_string(),
-        FetchError::Other => "令牌刷新失败，账号可能需要重新授权".to_string(),
     }
 }
 
@@ -1002,6 +854,27 @@ fn jwt_token_expired(token: &str) -> bool {
     {
         Some(exp) => exp < (now_unix() as f64) + 60.0,
         None => false,
+    }
+}
+
+/// Atomically write a refreshed access token back into a Codex auth file,
+/// preserving every other field, so both the quota fetch and the proxy pick up
+/// the fresh token (mirrors the macOS app's updateAuthFile). Best-effort.
+fn write_codex_access_token(path: &Path, new_token: &str) {
+    let Ok(raw) = fs::read_to_string(path) else {
+        return;
+    };
+    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(&raw) else {
+        return;
+    };
+    if let Some(object) = value.as_object_mut() {
+        object.insert(
+            "access_token".to_string(),
+            serde_json::Value::String(new_token.to_string()),
+        );
+    }
+    if let Ok(serialized) = serde_json::to_vec_pretty(&value) {
+        let _ = quotio_platform::atomic_write(path, &serialized, true);
     }
 }
 
@@ -1267,7 +1140,8 @@ struct CodexAuthFile {
     email: Option<String>,
     #[serde(default)]
     id_token: Option<String>,
-    // refresh_token 不在这里读:续期时由 `refresh_codex_auth_file` 在锁内重读文件取最新值。
+    #[serde(default)]
+    refresh_token: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1311,19 +1185,6 @@ struct WindowInfo {
 #[derive(Debug, Deserialize)]
 struct TokenRefreshResponse {
     access_token: String,
-}
-
-/// `auth.openai.com/oauth/token` 的续期响应。refresh_token 每次都会轮换。
-#[derive(Debug, Deserialize)]
-struct CodexTokenRefreshResponse {
-    access_token: String,
-    #[serde(default)]
-    refresh_token: Option<String>,
-    #[serde(default)]
-    id_token: Option<String>,
-    /// access_token 的有效期(秒)。
-    #[serde(default)]
-    expires_in: Option<i64>,
 }
 
 // ===================== Claude Code =====================
@@ -2499,209 +2360,4 @@ struct TraeUsage {
     premium_model_fast_amount: Option<i64>,
     #[serde(default)]
     premium_model_slow_amount: Option<i64>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-    use std::io::{BufRead, BufReader, Read, Write};
-    use std::net::TcpListener;
-
-    struct CapturedRequest {
-        method: String,
-        content_type: String,
-        form: HashMap<String, String>,
-    }
-
-    /// 起一个只应答一次的本地 token 端点,返回它的 URL 和收到的请求。
-    fn one_shot_token_endpoint(
-        status: u16,
-        body: String,
-    ) -> (String, std::thread::JoinHandle<CapturedRequest>) {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind token endpoint");
-        let port = listener.local_addr().expect("local addr").port();
-        let handle = std::thread::spawn(move || {
-            let (mut stream, _) = listener.accept().expect("accept");
-            let mut reader = BufReader::new(stream.try_clone().expect("clone stream"));
-            let mut request_line = String::new();
-            reader.read_line(&mut request_line).expect("request line");
-            let mut content_type = String::new();
-            let mut content_length = 0usize;
-            loop {
-                let mut line = String::new();
-                reader.read_line(&mut line).expect("header line");
-                let Some((name, value)) = line.trim_end().split_once(':') else {
-                    break;
-                };
-                if name.eq_ignore_ascii_case("content-type") {
-                    content_type = value.trim().to_string();
-                } else if name.eq_ignore_ascii_case("content-length") {
-                    content_length = value.trim().parse().expect("content-length");
-                }
-            }
-            let mut raw = vec![0; content_length];
-            reader.read_exact(&mut raw).expect("body");
-            let form = String::from_utf8(raw)
-                .expect("utf-8 body")
-                .split('&')
-                .filter_map(|pair| pair.split_once('='))
-                .map(|(key, value)| {
-                    let value = urlencoding::decode(value).expect("utf-8 value");
-                    (key.to_string(), value.into_owned())
-                })
-                .collect();
-            let reason = if status == 200 { "OK" } else { "Error" };
-            let response = format!(
-                "HTTP/1.1 {status} {reason}\r\n\
-                 Content-Type: application/json\r\n\
-                 Content-Length: {}\r\n\
-                 Connection: close\r\n\r\n{body}",
-                body.len()
-            );
-            stream.write_all(response.as_bytes()).expect("respond");
-            let method = request_line.split(' ').next().unwrap_or_default();
-            CapturedRequest {
-                method: method.to_string(),
-                content_type,
-                form,
-            }
-        });
-        (format!("http://127.0.0.1:{port}/oauth/token"), handle)
-    }
-
-    fn test_agent() -> ureq::Agent {
-        ureq::AgentBuilder::new()
-            .timeout(Duration::from_secs(5))
-            .build()
-    }
-
-    fn fake_jwt(claims: serde_json::Value) -> String {
-        let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"none"}"#);
-        let payload = URL_SAFE_NO_PAD.encode(claims.to_string());
-        format!("{header}.{payload}.sig")
-    }
-
-    fn auth_file(dir: &Path, value: serde_json::Value) -> PathBuf {
-        let path = dir.join("codex-user@example.com.json");
-        fs::write(&path, serde_json::to_vec_pretty(&value).unwrap()).unwrap();
-        path
-    }
-
-    fn read_json(path: &Path) -> serde_json::Value {
-        serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap()
-    }
-
-    fn is_rfc3339(value: &serde_json::Value) -> bool {
-        value
-            .as_str()
-            .is_some_and(|stamp| DateTime::parse_from_rfc3339(stamp).is_ok())
-    }
-
-    #[test]
-    fn codex_refresh_calls_openai_and_persists_rotated_tokens() {
-        let id_token = fake_jwt(serde_json::json!({
-            "https://api.openai.com/auth": { "chatgpt_account_id": "acct-123" }
-        }));
-        let dir = tempfile::tempdir().unwrap();
-        let path = auth_file(
-            dir.path(),
-            serde_json::json!({
-                "type": "codex",
-                "email": "user@example.com",
-                "access_token": "at-old",
-                "refresh_token": "rt-old",
-                "id_token": "",
-                "quotio_priority": 2
-            }),
-        );
-        let response = serde_json::json!({
-            "access_token": "at-new",
-            "refresh_token": "rt-new",
-            "id_token": id_token,
-            "expires_in": 3600
-        });
-        let (url, server) = one_shot_token_endpoint(200, response.to_string());
-
-        let result = refresh_codex_auth_file_with(&test_agent(), &url, &path, "at-old");
-        let request = server.join().unwrap();
-
-        assert!(matches!(result.as_deref(), Ok("at-new")));
-        assert_eq!(request.method, "POST");
-        assert_eq!(request.content_type, "application/x-www-form-urlencoded");
-        assert_eq!(request.form["grant_type"], "refresh_token");
-        assert_eq!(request.form["client_id"], CODEX_CLIENT_ID);
-        assert_eq!(request.form["refresh_token"], "rt-old");
-        assert_eq!(request.form["scope"], "openid profile email");
-
-        let saved = read_json(&path);
-        // 轮换后的 refresh_token 必须落盘,否则文件里只剩一个已作废的旧 token。
-        assert_eq!(saved["refresh_token"], "rt-new");
-        assert_eq!(saved["access_token"], "at-new");
-        assert_eq!(saved["id_token"], id_token.as_str());
-        assert_eq!(saved["account_id"], "acct-123");
-        assert!(is_rfc3339(&saved["last_refresh"]));
-        assert!(is_rfc3339(&saved["expired"]));
-        assert_eq!(saved["email"], "user@example.com");
-        assert_eq!(saved["quotio_priority"], 2);
-    }
-
-    #[test]
-    fn codex_refresh_reuses_a_token_already_rotated_elsewhere() {
-        // CLIProxyAPI(或另一个线程)刚续过期:文件里已是新的、未过期的 token。
-        let fresh = fake_jwt(serde_json::json!({ "exp": now_unix() + 3600 }));
-        let dir = tempfile::tempdir().unwrap();
-        let path = auth_file(
-            dir.path(),
-            serde_json::json!({ "access_token": fresh, "refresh_token": "rt-current" }),
-        );
-        let before = fs::read_to_string(&path).unwrap();
-
-        // 端口 1 上没有服务:一旦真去续期就会失败,断言随之失败。
-        let result = refresh_codex_auth_file_with(
-            &test_agent(),
-            "http://127.0.0.1:1/oauth/token",
-            &path,
-            "at-stale",
-        );
-
-        assert!(matches!(result.as_deref(), Ok(token) if token == fresh));
-        assert_eq!(fs::read_to_string(&path).unwrap(), before);
-    }
-
-    #[test]
-    fn rejected_codex_refresh_needs_reauth_and_keeps_the_file() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = auth_file(
-            dir.path(),
-            serde_json::json!({ "access_token": "at-old", "refresh_token": "rt-reused" }),
-        );
-        let before = fs::read_to_string(&path).unwrap();
-        let rejection = r#"{"error":{"code":"refresh_token_reused"}}"#.to_string();
-        let (url, server) = one_shot_token_endpoint(401, rejection);
-
-        let result = refresh_codex_auth_file_with(&test_agent(), &url, &path, "at-old");
-        server.join().unwrap();
-
-        assert!(matches!(result, Err(FetchError::Unauthorized)));
-        assert_eq!(fs::read_to_string(&path).unwrap(), before);
-    }
-
-    #[test]
-    fn codex_refresh_without_rotation_keeps_refresh_token_and_reads_jwt_expiry() {
-        let mut value = serde_json::json!({ "access_token": "old", "refresh_token": "rt-keep" });
-        let refreshed = CodexTokenRefreshResponse {
-            access_token: fake_jwt(serde_json::json!({ "exp": 1_900_000_000_i64 })),
-            refresh_token: Some(String::new()),
-            id_token: None,
-            expires_in: None,
-        };
-
-        apply_codex_token_refresh(&mut value, &refreshed, 1_800_000_000);
-
-        assert_eq!(value["access_token"], refreshed.access_token.as_str());
-        assert_eq!(value["refresh_token"], "rt-keep");
-        assert_eq!(value["last_refresh"], "2027-01-15T08:00:00Z");
-        assert_eq!(value["expired"], "2030-03-17T17:46:40Z");
-    }
 }
