@@ -3667,6 +3667,7 @@ impl ProxyLifecycle {
             .arg(&self.paths.config_path)
             .current_dir(managed_binary.parent().unwrap_or_else(|| Path::new(".")))
             .env("TERM", "xterm-256color")
+            .envs(upstream_proxy_env(settings))
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null());
@@ -4427,6 +4428,32 @@ fn image_generation_value(settings: &AppSettings) -> &'static str {
     }
 }
 
+/// 把设置里的上游代理同时交给代理子进程的 `HTTPS_PROXY` / `HTTP_PROXY`。
+///
+/// config.yaml 的 `proxy-url` 只管转发给上游的请求;CLIProxyAPI 后台刷新模型表(启动时 +
+/// 每 3 小时拉 GitHub 上的 models.json)用的是 Go 默认 HTTP 客户端,只认这两个环境变量。
+/// 不传的话,直连不了 GitHub 的网络里刷新会静默失败,模型表就一直停在核心内置的那版 ——
+/// 新出的 GPT 模型既不出现在 `/v1/models`,请求时也会被拒成 `unknown provider for model`。
+///
+/// 不会误伤:CLIProxyAPI 的 `direct` 模式(自定义接口选「直连」)显式忽略环境变量代理,
+/// Go 对 127.0.0.1 / localhost 也从不走代理(kiro-rs sidecar 照常直连)。上游代理留空,
+/// 或填的是 `direct`、`none` 时什么都不设,子进程照旧继承 Quotio 自身的环境。
+///
+/// 只在代理进程启动时生效:运行中改了上游代理,要重启一次代理才会用新地址刷新模型表。
+fn upstream_proxy_env(settings: &AppSettings) -> Vec<(&'static str, String)> {
+    let proxy = settings.proxy_url.trim();
+    if proxy.is_empty()
+        || proxy.eq_ignore_ascii_case("direct")
+        || proxy.eq_ignore_ascii_case("none")
+    {
+        return Vec::new();
+    }
+    vec![
+        ("HTTPS_PROXY", proxy.to_string()),
+        ("HTTP_PROXY", proxy.to_string()),
+    ]
+}
+
 fn routing_strategy_value(strategy: &RoutingStrategy) -> &'static str {
     match strategy {
         RoutingStrategy::RoundRobin => "round-robin",
@@ -5019,6 +5046,32 @@ mod tests {
         // 开关打开 → true:真·全局禁用(/v1/images/* 会 404)。
         s.disable_image_generation = true;
         assert_eq!(image_generation_value(&s), "true");
+    }
+
+    #[test]
+    fn upstream_proxy_reaches_the_proxy_process_environment() {
+        // 模型表刷新只认环境变量:设置了上游代理就必须同时给出 HTTPS_PROXY / HTTP_PROXY。
+        let settings = AppSettings {
+            proxy_url: "  socks5://127.0.0.1:7891 ".to_string(),
+            ..AppSettings::default()
+        };
+        let proxy = "socks5://127.0.0.1:7891".to_string();
+        assert_eq!(
+            upstream_proxy_env(&settings),
+            vec![("HTTPS_PROXY", proxy.clone()), ("HTTP_PROXY", proxy)]
+        );
+    }
+
+    #[test]
+    fn blank_or_direct_upstream_proxy_leaves_the_environment_alone() {
+        // 留空 / direct / none:不设任何变量,子进程照旧继承 Quotio 自己的环境。
+        for value in ["", "   ", "direct", "NONE"] {
+            let settings = AppSettings {
+                proxy_url: value.to_string(),
+                ..AppSettings::default()
+            };
+            assert!(upstream_proxy_env(&settings).is_empty(), "{value:?}");
+        }
     }
 
     #[test]
