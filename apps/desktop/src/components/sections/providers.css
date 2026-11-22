@@ -852,6 +852,12 @@
   width: 26px;
   height: 26px;
 }
+/* 玫瑰主题在 providers-rose.css 里有自己的尺寸；浅色/深色下也要显式限定，
+   否则 svg 按默认 300×150 渲染并溢出图标容器。 */
+.providers-redesign .template-icon .pv-template-brand-logo {
+  width: 26px;
+  height: 26px;
+}
 .providers-redesign .template-icon.blue {
   color: var(--primary);
   background: var(--primary-soft);
