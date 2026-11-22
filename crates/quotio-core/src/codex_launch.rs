@@ -279,7 +279,7 @@ pub fn detect_codex_app_path_cached() -> Option<PathBuf> {
 
 // ---------- 从代理拉取真实模型 ----------
 
-/// 从运行中的代理拉它实际服务的 codex/gpt-5 模型（OpenAI 兼容 `GET /v1/models`）。
+/// 从运行中的代理拉它实际服务的全部模型（OpenAI 兼容 `GET /v1/models`），不做筛选。
 /// best-effort：拿不到（代理没跑 / 无 key / 网络错）就返回空，前端回退到内置列表。
 pub fn fetch_proxy_codex_models(endpoint: &str, api_key: &str) -> Vec<String> {
     let base = endpoint.trim_end_matches('/').trim_end_matches("/v1");
@@ -310,10 +310,6 @@ pub fn fetch_proxy_codex_models(endpoint: &str, api_key: &str) -> Vec<String> {
             models
                 .iter()
                 .filter_map(|model| model.get("id").and_then(|id| id.as_str()))
-                .filter(|id| {
-                    let lower = id.to_lowercase();
-                    (lower.contains("gpt-5") || lower.contains("codex")) && !lower.contains("image")
-                })
                 .map(|id| id.to_string())
                 .collect()
         })
